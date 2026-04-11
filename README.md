@@ -16,7 +16,7 @@ Canonical toolkit repo for the integrated workflow:
 
 `tools/workflow` contains the global installer and unified bootstrap command.
 
-## One-time install (global command)
+## Option A: Script install (global command)
 
 From this repo:
 
@@ -26,9 +26,37 @@ From this repo:
 
 Open a new PowerShell session.
 
+## Option B: Versioned module install (recommended)
+
+From this repo:
+
+```powershell
+.\install-module.ps1
+```
+
+Then in any project folder:
+
+```powershell
+Invoke-LLMWorkflowUp
+```
+
+Alias:
+
+```powershell
+llmup
+```
+
+Optional (from module):
+
+```powershell
+Install-LLMWorkflow
+```
+
+This installs the same global launcher under `~/.llm-workflow`.
+
 ## Use in any project
 
-From any repo folder:
+From any repo folder (script or module path):
 
 ```powershell
 llm-workflow-up
