@@ -10,6 +10,10 @@ The format is based on Keep a Changelog and this project follows Semantic Versio
 - GitHub Actions CI smoke and Pester test workflow.
 - Pester suite for module exports, bootstrap behavior, env loading, and profile idempotency.
 - Versioned PowerShell module install/update flow.
+- Drift guard check for mirrored templates/scripts.
+- Release automation workflow for `vX.Y.Z` tags with zipped module artifacts.
+- Security workflows for Gitleaks and CodeQL.
+- `Uninstall-LLMWorkflow` command and `llmdown` alias.
 
 ## [0.1.0] - 2026-04-11
 
@@ -20,4 +24,3 @@ The format is based on Keep a Changelog and this project follows Semantic Versio
   - `Install-LLMWorkflow`
   - `Invoke-LLMWorkflowUp`
   - `llmup` alias
-

@@ -7,19 +7,32 @@ on:
   pull_request:
 
 jobs:
-  windows-ci:
+  drift-guard:
     runs-on: windows-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.11"
+      - name: Check Template Drift
+        shell: powershell
+        run: |
+          .\tools\ci\check-template-drift.ps1
+
+  windows-ci:
+    needs: drift-guard
+    runs-on: windows-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        shell:
+          - powershell
+          - pwsh
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
 
       - name: Install Module Smoke
-        shell: powershell
+        shell: ${{ matrix.shell }}
         run: |
           .\install-module.ps1 -NoProfileUpdate
           Import-Module LLMWorkflow -Force
@@ -43,13 +56,16 @@ jobs:
           if (-not (Test-Path -LiteralPath (Join-Path $projectRoot "tools\memorybridge"))) { throw "Missing tools/memorybridge" }
 
       - name: Install Pester
-        shell: powershell
+        shell: ${{ matrix.shell }}
         run: |
-          Set-PSRepository -Name PSGallery -InstallationPolicy Trusted
-          Install-Module Pester -Scope CurrentUser -Force -SkipPublisherCheck -MinimumVersion 5.5.0
+          $pesterModule = Get-Module -ListAvailable Pester | Sort-Object Version -Descending | Select-Object -First 1
+          if (-not $pesterModule) {
+            Set-PSRepository -Name PSGallery -InstallationPolicy Trusted
+            Install-Module Pester -Scope CurrentUser -Force -SkipPublisherCheck -MinimumVersion 5.5.0
+          }
 
       - name: Run Pester
-        shell: powershell
+        shell: ${{ matrix.shell }}
         run: |
           $pesterModule = Get-Module -ListAvailable Pester | Sort-Object Version -Descending | Select-Object -First 1
           if (-not $pesterModule) { throw "Pester is not available." }

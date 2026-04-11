@@ -10,8 +10,10 @@ Describe "LLMWorkflow Module" {
 
     It "exports expected commands" {
         (Get-Command Install-LLMWorkflow -ErrorAction Stop).Source | Should Be "LLMWorkflow"
+        (Get-Command Uninstall-LLMWorkflow -ErrorAction Stop).Source | Should Be "LLMWorkflow"
         (Get-Command Invoke-LLMWorkflowUp -ErrorAction Stop).Source | Should Be "LLMWorkflow"
         (Get-Command llmup -ErrorAction Stop).CommandType | Should Be "Alias"
+        (Get-Command llmdown -ErrorAction Stop).CommandType | Should Be "Alias"
     }
 
     It "bootstraps missing tool folders and loads .env values" {
@@ -59,5 +61,17 @@ KIMI_API_KEY=$kimiKey
         ([regex]::Matches($profileContent, "# >>> llm-workflow >>>")).Count | Should Be 1
         ([regex]::Matches($profileContent, "# <<< llm-workflow <<<")).Count | Should Be 1
         $profileContent | Should Match "Set-Alias llmup llm-workflow-up -Scope Global"
+
+        $uninstall = Uninstall-LLMWorkflow `
+            -InstallRoot $installRoot `
+            -ProfilePath $profilePath `
+            -KeepModuleFiles `
+            -KeepUserEnv
+
+        $uninstall.installRootRemoved | Should Be $true
+        $uninstall.profileUpdated | Should Be $true
+        (Test-Path -LiteralPath $installRoot) | Should Be $false
+        $profileAfter = Get-Content -LiteralPath $profilePath -Raw
+        $profileAfter | Should Not Match "# >>> llm-workflow >>>"
     }
 }

@@ -54,6 +54,14 @@ Install-LLMWorkflow
 
 This installs the same global launcher under `~/.llm-workflow`.
 
+Uninstall:
+
+```powershell
+Uninstall-LLMWorkflow
+# alias
+llmdown
+```
+
 ## Use in any project
 
 From any repo folder (script or module path):
@@ -105,6 +113,9 @@ Invoke-Pester -Path .\tests -Output Detailed
 CI workflow:
 
 - `.github/workflows/ci.yml`
+- `.github/workflows/gitleaks.yml`
+- `.github/workflows/codeql.yml`
+- `.github/workflows/release.yml`
 
 ## Release
 

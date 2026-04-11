@@ -7,8 +7,8 @@
     Copyright = '(c) DocDamage. All rights reserved.'
     Description = 'All-in-one workflow module for CodeMunch Pro, ContextLattice, and MemPalace.'
     PowerShellVersion = '5.1'
-    FunctionsToExport = @('Install-LLMWorkflow', 'Invoke-LLMWorkflowUp')
-    AliasesToExport = @('llmup')
+    FunctionsToExport = @('Install-LLMWorkflow', 'Uninstall-LLMWorkflow', 'Invoke-LLMWorkflowUp')
+    AliasesToExport = @('llmup', 'llmdown')
     CmdletsToExport = @()
     VariablesToExport = @()
     PrivateData = @{
@@ -18,4 +18,3 @@
         }
     }
 }
-

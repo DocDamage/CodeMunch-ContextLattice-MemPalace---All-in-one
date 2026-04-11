@@ -69,6 +69,7 @@ if ($candidatePaths.Count -gt 0) {
 }
 
 $targetModulePath = Join-Path $moduleBase ("LLMWorkflow\" + $ModuleVersion)
+Remove-Module LLMWorkflow -ErrorAction SilentlyContinue
 if (Test-Path -LiteralPath $targetModulePath) {
     Remove-Item -LiteralPath $targetModulePath -Recurse -Force
 }
@@ -96,4 +97,4 @@ $endMarker
     Write-Step "Skipped profile update (--NoProfileUpdate)."
 }
 
-Write-Step "Available commands: Install-LLMWorkflow, Invoke-LLMWorkflowUp, llmup"
+Write-Step "Available commands: Install-LLMWorkflow, Uninstall-LLMWorkflow, Invoke-LLMWorkflowUp, llmup, llmdown"

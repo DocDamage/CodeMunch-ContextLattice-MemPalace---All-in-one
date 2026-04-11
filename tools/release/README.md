@@ -19,3 +19,8 @@ This updates:
 
 By default, version is read from the module manifest and tag format is `vX.Y.Z`.
 
+When the tag is pushed, `.github/workflows/release.yml` automatically creates a
+GitHub Release and uploads:
+
+- `LLMWorkflow-<version>.zip`
+- `LLMWorkflow-<version>.zip.sha256`
