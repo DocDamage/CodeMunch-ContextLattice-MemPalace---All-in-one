@@ -41,14 +41,46 @@ jobs:
           $moduleStage = Join-Path $stageRoot ("LLMWorkflow\" + $version)
           New-Item -ItemType Directory -Path $moduleStage -Force | Out-Null
           Copy-Item -Path .\module\LLMWorkflow\* -Destination $moduleStage -Recurse -Force
+
+          $signReport = Join-Path $env:RUNNER_TEMP ("LLMWorkflow-" + $version + "-signing.txt")
+          $pfxB64 = "${{ secrets.CODESIGN_PFX_BASE64 }}"
+          $pfxPassword = "${{ secrets.CODESIGN_PFX_PASSWORD }}"
+          $didSign = $false
+
+          if (-not [string]::IsNullOrWhiteSpace($pfxB64) -and -not [string]::IsNullOrWhiteSpace($pfxPassword)) {
+            $pfxPath = Join-Path $env:RUNNER_TEMP "codesign.pfx"
+            [IO.File]::WriteAllBytes($pfxPath, [Convert]::FromBase64String($pfxB64))
+            $securePass = ConvertTo-SecureString $pfxPassword -AsPlainText -Force
+            $cert = Import-PfxCertificate -FilePath $pfxPath -Password $securePass -CertStoreLocation Cert:\CurrentUser\My
+            if (-not $cert) {
+              throw "Failed to import code signing certificate."
+            }
+            $didSign = $true
+            "code_signing=enabled" | Set-Content -LiteralPath $signReport -Encoding UTF8
+
+            $filesToSign = Get-ChildItem -Path $moduleStage -Recurse -File -Include *.ps1,*.psm1,*.psd1
+            foreach ($file in $filesToSign) {
+              $sig = Set-AuthenticodeSignature -FilePath $file.FullName -Certificate $cert -TimestampServer "http://timestamp.digicert.com"
+              if ($sig.Status -notin @("Valid", "UnknownError")) {
+                throw "Signature failed for $($file.FullName): $($sig.Status)"
+              }
+              "signed $($file.FullName)" | Add-Content -LiteralPath $signReport
+            }
+          } else {
+            "code_signing=disabled (missing CODESIGN_PFX_BASE64/CODESIGN_PFX_PASSWORD secrets)" | Set-Content -LiteralPath $signReport -Encoding UTF8
+          }
+
           $zipPath = Join-Path $env:RUNNER_TEMP ("LLMWorkflow-" + $version + ".zip")
           if (Test-Path -LiteralPath $zipPath) { Remove-Item -LiteralPath $zipPath -Force }
           Compress-Archive -Path (Join-Path $stageRoot "LLMWorkflow") -DestinationPath $zipPath -Force
           $hash = (Get-FileHash -LiteralPath $zipPath -Algorithm SHA256).Hash.ToLower()
           $hashFile = Join-Path $env:RUNNER_TEMP ("LLMWorkflow-" + $version + ".zip.sha256")
           "$hash  $(Split-Path -Leaf $zipPath)" | Set-Content -LiteralPath $hashFile -Encoding UTF8
+          $signedValue = if ($didSign) { "true" } else { "false" }
           "zip_path=$zipPath" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
           "hash_path=$hashFile" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+          "sign_report_path=$signReport" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+          "signed=$signedValue" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
@@ -58,4 +90,4 @@ jobs:
           files: |
             ${{ steps.package.outputs.zip_path }}
             ${{ steps.package.outputs.hash_path }}
-
+            ${{ steps.package.outputs.sign_report_path }}

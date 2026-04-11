@@ -1,0 +1,58 @@
+name: Publish PowerShell Gallery
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Release tag to publish (vX.Y.Z). Optional for manual run."
+        required: false
+        default: ""
+
+permissions:
+  contents: read
+
+jobs:
+  publish:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Validate Version
+        shell: powershell
+        run: |
+          $releaseTag = ""
+          if ("${{ github.event_name }}" -eq "release") {
+            $releaseTag = "${{ github.event.release.tag_name }}"
+          } else {
+            $releaseTag = "${{ inputs.tag }}"
+          }
+          $manifest = Import-PowerShellDataFile -Path .\module\LLMWorkflow\LLMWorkflow.psd1
+          $moduleVersion = [string]$manifest.ModuleVersion
+          if (-not [string]::IsNullOrWhiteSpace($releaseTag)) {
+            if (-not ($releaseTag -match '^v(\d+\.\d+\.\d+)$')) {
+              throw "Tag '$releaseTag' is not semver format vX.Y.Z"
+            }
+            if ($matches[1] -ne $moduleVersion) {
+              throw "Tag version '$($matches[1])' does not match module version '$moduleVersion'."
+            }
+          }
+          Write-Output "Module version $moduleVersion validated."
+
+      - name: Publish to PowerShell Gallery
+        if: ${{ secrets.PSGALLERY_API_KEY != '' }}
+        shell: powershell
+        env:
+          PSGALLERY_API_KEY: ${{ secrets.PSGALLERY_API_KEY }}
+        run: |
+          Set-PSRepository -Name PSGallery -InstallationPolicy Trusted
+          Publish-Module -Path .\module\LLMWorkflow -NuGetApiKey $env:PSGALLERY_API_KEY -Repository PSGallery
+
+      - name: Fail if API key is missing
+        if: ${{ secrets.PSGALLERY_API_KEY == '' }}
+        shell: powershell
+        run: |
+          throw "PSGALLERY_API_KEY secret is not set. Cannot publish module."
+

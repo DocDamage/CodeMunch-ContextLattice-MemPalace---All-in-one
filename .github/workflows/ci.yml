@@ -18,6 +18,11 @@ jobs:
         run: |
           .\tools\ci\check-template-drift.ps1
 
+      - name: Validate Compatibility Lock
+        shell: powershell
+        run: |
+          .\tools\ci\validate-compatibility-lock.ps1
+
   windows-ci:
     needs: drift-guard
     runs-on: windows-latest
@@ -30,6 +35,17 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install Python Dependencies
+        shell: ${{ matrix.shell }}
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install chromadb
 
       - name: Install Module Smoke
         shell: ${{ matrix.shell }}

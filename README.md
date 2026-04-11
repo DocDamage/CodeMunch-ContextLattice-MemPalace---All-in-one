@@ -50,6 +50,9 @@ Optional (from module):
 
 ```powershell
 Install-LLMWorkflow
+Get-LLMWorkflowVersion
+Test-LLMWorkflowSetup -ProjectRoot .
+Update-LLMWorkflow
 ```
 
 This installs the same global launcher under `~/.llm-workflow`.
@@ -60,6 +63,14 @@ Uninstall:
 Uninstall-LLMWorkflow
 # alias
 llmdown
+```
+
+Other aliases:
+
+```powershell
+llmcheck   # Test-LLMWorkflowSetup
+llmver     # Get-LLMWorkflowVersion
+llmupdate  # Update-LLMWorkflow
 ```
 
 ## Use in any project
@@ -116,12 +127,26 @@ CI workflow:
 - `.github/workflows/gitleaks.yml`
 - `.github/workflows/codeql.yml`
 - `.github/workflows/release.yml`
+- `.github/workflows/publish-gallery.yml`
+- `.github/workflows/supply-chain.yml`
+
+CI guard scripts:
+
+- `tools/ci/check-template-drift.ps1`
+- `tools/ci/validate-compatibility-lock.ps1`
+
+Compatibility lock:
+
+- `compatibility.lock.json`
 
 ## Release
 
 ```powershell
-.\tools\release\bump-module-version.ps1 -Version 0.1.1
+.\tools\release\bump-module-version.ps1 -Version 0.2.1
 git add .
-git commit -m "Release 0.1.1"
+git commit -m "Release 0.2.1"
 .\tools\release\create-release-tag.ps1 -Push
 ```
+
+PowerShell Gallery publish is automated on GitHub Release publish when
+`PSGALLERY_API_KEY` is configured in repo secrets.

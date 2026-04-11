@@ -1,0 +1,34 @@
+{
+  "schema_version": 1,
+  "updated_utc": "2026-04-11T00:00:00Z",
+  "tooling": {
+    "llmworkflow_module_version": "0.2.0",
+    "tested_shells": [
+      "powershell-5.1",
+      "pwsh-7.x"
+    ],
+    "tested_python": "3.11"
+  },
+  "components": {
+    "codemunch_pro": {
+      "source": "https://github.com/DocDamage/codemunch-pro",
+      "tested_ref": "29b689a35624ac622205f655602f337d688c3a35",
+      "runtime_requirement": "pip package codemunch-pro available"
+    },
+    "contextlattice": {
+      "source": "https://github.com/DocDamage/ContextLattice",
+      "tested_ref": "bb0eff2bde79525855b08e530961dd3dd2239c3a",
+      "runtime_requirement": "orchestrator exposes /health, /status, /memory/write, /memory/search"
+    },
+    "mempalace": {
+      "source": "https://github.com/DocDamage/mempalace",
+      "tested_ref": "b57c1603e3cf0c2d9442ca862d308012eab858ba",
+      "runtime_requirement": "chromadb PersistentClient with collection mempalace_drawers"
+    },
+    "chromadb": {
+      "source": "pypi",
+      "constraint": ">=0.5.0"
+    }
+  }
+}
+

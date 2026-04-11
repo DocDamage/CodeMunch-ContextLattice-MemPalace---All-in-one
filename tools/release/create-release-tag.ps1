@@ -16,8 +16,12 @@ $repoRoot = (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot "..\..")).Path
 Set-Location -LiteralPath $repoRoot
 
 $manifestPath = Join-Path $repoRoot "module\LLMWorkflow\LLMWorkflow.psd1"
+$compatLockPath = Join-Path $repoRoot "compatibility.lock.json"
 if (-not (Test-Path -LiteralPath $manifestPath)) {
     throw "Missing manifest: $manifestPath"
+}
+if (-not (Test-Path -LiteralPath $compatLockPath)) {
+    throw "Missing compatibility lock: $compatLockPath"
 }
 
 if ([string]::IsNullOrWhiteSpace($Version)) {
@@ -27,6 +31,12 @@ if ([string]::IsNullOrWhiteSpace($Version)) {
 
 if ($Version -notmatch '^\d+\.\d+\.\d+$') {
     throw "Resolved version '$Version' is not valid SemVer core format."
+}
+
+$lock = Get-Content -LiteralPath $compatLockPath -Raw | ConvertFrom-Json
+$lockVersion = [string]$lock.tooling.llmworkflow_module_version
+if ($lockVersion -ne $Version) {
+    throw "compatibility.lock.json version '$lockVersion' does not match release version '$Version'."
 }
 
 $tag = "v$Version"
@@ -60,4 +70,3 @@ if ($Push) {
 } else {
     Write-Step "Tag not pushed. Use -Push to publish."
 }
-

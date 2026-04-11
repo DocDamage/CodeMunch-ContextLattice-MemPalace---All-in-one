@@ -19,6 +19,7 @@ if ($Version -notmatch '^\d+\.\d+\.\d+$') {
 $repoRoot = (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot "..\..")).Path
 $manifestPath = Join-Path $repoRoot "module\LLMWorkflow\LLMWorkflow.psd1"
 $changelogPath = Join-Path $repoRoot "CHANGELOG.md"
+$compatLockPath = Join-Path $repoRoot "compatibility.lock.json"
 
 if (-not (Test-Path -LiteralPath $manifestPath)) {
     throw "Missing manifest: $manifestPath"
@@ -49,6 +50,16 @@ if (-not $DryRun) {
 }
 
 Write-Step "Updated module version: $currentVersion -> $Version"
+
+if (Test-Path -LiteralPath $compatLockPath) {
+    $lock = Get-Content -LiteralPath $compatLockPath -Raw | ConvertFrom-Json
+    $lock.tooling.llmworkflow_module_version = $Version
+    $lock.updated_utc = (Get-Date).ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ")
+    if (-not $DryRun) {
+        $lock | ConvertTo-Json -Depth 20 | Set-Content -LiteralPath $compatLockPath -Encoding UTF8
+    }
+    Write-Step "Updated compatibility lock version -> $Version"
+}
 
 if (Test-Path -LiteralPath $changelogPath) {
     $today = Get-Date -Format "yyyy-MM-dd"

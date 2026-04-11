@@ -97,4 +97,4 @@ $endMarker
     Write-Step "Skipped profile update (--NoProfileUpdate)."
 }
 
-Write-Step "Available commands: Install-LLMWorkflow, Uninstall-LLMWorkflow, Invoke-LLMWorkflowUp, llmup, llmdown"
+Write-Step "Available commands: Install-LLMWorkflow, Uninstall-LLMWorkflow, Update-LLMWorkflow, Get-LLMWorkflowVersion, Test-LLMWorkflowSetup, Invoke-LLMWorkflowUp, llmup, llmdown, llmcheck, llmver, llmupdate"

@@ -7,13 +7,25 @@ The format is based on Keep a Changelog and this project follows Semantic Versio
 ## [Unreleased]
 
 ### Added
-- GitHub Actions CI smoke and Pester test workflow.
-- Pester suite for module exports, bootstrap behavior, env loading, and profile idempotency.
-- Versioned PowerShell module install/update flow.
-- Drift guard check for mirrored templates/scripts.
-- Release automation workflow for `vX.Y.Z` tags with zipped module artifacts.
-- Security workflows for Gitleaks and CodeQL.
-- `Uninstall-LLMWorkflow` command and `llmdown` alias.
+- TODO
+
+## [0.2.0] - 2026-04-11
+
+### Added
+- New module commands:
+  - `Get-LLMWorkflowVersion`
+  - `Update-LLMWorkflow` (GitHub release download + SHA256 verification)
+  - `Test-LLMWorkflowSetup`
+  - aliases: `llmver`, `llmupdate`, `llmcheck`
+- `compatibility.lock.json` with pinned tested refs for CodeMunch/ContextLattice/MemPalace.
+- Compatibility lock validation CI gate (`tools/ci/validate-compatibility-lock.ps1`).
+- Mock ContextLattice integration harness with Pester integration tests.
+- Release hardening:
+  - optional Authenticode signing in release workflow
+  - signing report artifact
+- New automation workflows:
+  - PowerShell Gallery publish
+  - supply-chain workflow (dependency review, SBOM, pip-audit)
 
 ## [0.1.0] - 2026-04-11
 
