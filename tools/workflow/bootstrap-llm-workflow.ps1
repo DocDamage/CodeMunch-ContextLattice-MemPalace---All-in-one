@@ -143,8 +143,9 @@ function Invoke-IfExists {
     }
 
     & $ScriptPath @NamedArgs
-    if ($LASTEXITCODE -ne 0) {
-        throw "Script failed: $ScriptPath (exit $LASTEXITCODE)"
+    $exitCodeVar = Get-Variable -Name LASTEXITCODE -Scope Global -ErrorAction SilentlyContinue
+    if ($exitCodeVar -and $exitCodeVar.Value -ne 0) {
+        throw "Script failed: $ScriptPath (exit $($exitCodeVar.Value))"
     }
 }
 

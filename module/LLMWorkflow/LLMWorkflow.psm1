@@ -4,7 +4,9 @@ function Install-LLMWorkflow {
     [CmdletBinding()]
     param(
         [string]$InstallRoot = "$HOME\.llm-workflow",
-        [switch]$NoProfileUpdate
+        [switch]$NoProfileUpdate,
+        [string]$ProfilePath = $PROFILE,
+        [switch]$SkipUserEnvPersist
     )
 
     $scriptPath = Join-Path $PSScriptRoot "scripts\install-global-llm-workflow.ps1"
@@ -20,9 +22,13 @@ function Install-LLMWorkflow {
     $invokeArgs = @{
         InstallRoot = $InstallRoot
         ToolkitSource = $toolkitSource
+        ProfilePath = $ProfilePath
     }
     if ($NoProfileUpdate) {
         $invokeArgs["NoProfileUpdate"] = $true
+    }
+    if ($SkipUserEnvPersist) {
+        $invokeArgs["SkipUserEnvPersist"] = $true
     }
 
     & $scriptPath @invokeArgs
@@ -75,4 +81,3 @@ function Invoke-LLMWorkflowUp {
 Set-Alias -Name llmup -Value Invoke-LLMWorkflowUp
 
 Export-ModuleMember -Function Install-LLMWorkflow, Invoke-LLMWorkflowUp -Alias llmup
-

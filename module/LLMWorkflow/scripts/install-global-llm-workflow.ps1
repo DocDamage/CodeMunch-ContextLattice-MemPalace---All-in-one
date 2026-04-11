@@ -2,7 +2,9 @@
 param(
     [string]$InstallRoot = "$HOME\.llm-workflow",
     [string]$ToolkitSource = "",
-    [switch]$NoProfileUpdate
+    [switch]$NoProfileUpdate,
+    [string]$ProfilePath = $PROFILE,
+    [switch]$SkipUserEnvPersist
 )
 
 $ErrorActionPreference = "Stop"
@@ -83,6 +85,10 @@ foreach ($name in $requiredToolDirs) {
 }
 
 $bootstrapSrc = Join-Path $sourceToolsRoot "workflow\bootstrap-llm-workflow.ps1"
+$siblingBootstrapSrc = Join-Path (Split-Path -Parent $MyInvocation.MyCommand.Path) "bootstrap-llm-workflow.ps1"
+if (Test-Path -LiteralPath $siblingBootstrapSrc) {
+    $bootstrapSrc = $siblingBootstrapSrc
+}
 $bootstrapDst = Join-Path $scriptsRoot "bootstrap-llm-workflow.ps1"
 Copy-Item -LiteralPath $bootstrapSrc -Destination $bootstrapDst -Force
 
@@ -111,9 +117,13 @@ if (`$RequireSearchHit) { `$invokeArgs["RequireSearchHit"] = `$true }
 & `$scriptPath @invokeArgs
 "@ | Set-Content -LiteralPath $launcherPath -Encoding UTF8
 
-[System.Environment]::SetEnvironmentVariable("LLM_WORKFLOW_TOOLKIT_SOURCE", $templatesRoot, "User")
 [System.Environment]::SetEnvironmentVariable("LLM_WORKFLOW_TOOLKIT_SOURCE", $templatesRoot, "Process")
-Write-Step "Set user env LLM_WORKFLOW_TOOLKIT_SOURCE=$templatesRoot"
+if (-not $SkipUserEnvPersist) {
+    [System.Environment]::SetEnvironmentVariable("LLM_WORKFLOW_TOOLKIT_SOURCE", $templatesRoot, "User")
+    Write-Step "Set user env LLM_WORKFLOW_TOOLKIT_SOURCE=$templatesRoot"
+} else {
+    Write-Step "Skipped user env persist for LLM_WORKFLOW_TOOLKIT_SOURCE."
+}
 
 $startMarker = "# >>> llm-workflow >>>"
 $endMarker = "# <<< llm-workflow <<<"
@@ -146,8 +156,8 @@ $endMarker
 
 Write-Step "Installed launcher: $launcherPath"
 if (-not $NoProfileUpdate) {
-    Set-Or-ReplaceProfileBlock -ProfilePath $PROFILE -BlockText $profileBlock -StartMarker $startMarker -EndMarker $endMarker
-    Write-Step "Updated PowerShell profile: $PROFILE"
+    Set-Or-ReplaceProfileBlock -ProfilePath $ProfilePath -BlockText $profileBlock -StartMarker $startMarker -EndMarker $endMarker
+    Write-Step "Updated PowerShell profile: $ProfilePath"
     Write-Step "Open a new shell, then run: llm-workflow-up"
 } else {
     Write-Step "Skipped profile update (--NoProfileUpdate)."

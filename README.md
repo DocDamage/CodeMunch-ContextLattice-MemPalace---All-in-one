@@ -94,3 +94,23 @@ llm-workflow-up -SmokeTestContext -RequireSearchHit
 - Keep secrets in local `.env` files and never commit them.
 - For ContextLattice auth, set `CONTEXTLATTICE_ORCHESTRATOR_API_KEY` in `.env`
   or `.contextlattice/orchestrator.env`.
+
+## Testing
+
+```powershell
+Install-Module Pester -Scope CurrentUser -Force -SkipPublisherCheck
+Invoke-Pester -Path .\tests -Output Detailed
+```
+
+CI workflow:
+
+- `.github/workflows/ci.yml`
+
+## Release
+
+```powershell
+.\tools\release\bump-module-version.ps1 -Version 0.1.1
+git add .
+git commit -m "Release 0.1.1"
+.\tools\release\create-release-tag.ps1 -Push
+```
