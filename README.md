@@ -87,6 +87,18 @@ Alias:
 llmup
 ```
 
+Strict end-to-end check:
+
+```powershell
+llm-workflow-check
+```
+
+Diagnostics:
+
+```powershell
+llm-workflow-doctor -CheckContext
+```
+
 What it does:
 
 1. Loads `.env` and `.contextlattice/orchestrator.env` when present.
@@ -97,15 +109,21 @@ What it does:
 3. Installs/validates dependencies (`codemunch-pro`, `chromadb`).
 4. Runs project bootstrap scripts for all three toolchains.
 5. Runs ContextLattice verify and MemPalace bridge dry-run (if API key exists).
+6. Normalizes provider credentials for OpenAI/Kimi/Gemini/GLM switching.
 
 ## Optional flags
 
 ```powershell
 llm-workflow-up -SkipDependencyInstall
+llm-workflow-up -Provider glm
+llm-workflow-up -Provider gemini
 llm-workflow-up -SkipContextVerify
 llm-workflow-up -SkipBridgeDryRun
 llm-workflow-up -SmokeTestContext
 llm-workflow-up -SmokeTestContext -RequireSearchHit
+llm-workflow-up -DeepCheck
+llm-workflow-check -Provider kimi
+llm-workflow-doctor -Provider auto -CheckContext -Strict
 ```
 
 ## Notes
