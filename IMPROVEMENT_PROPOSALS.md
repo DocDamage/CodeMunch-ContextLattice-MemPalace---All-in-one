@@ -1,1103 +1,1878 @@
-# Improvement Proposals -- CodeMunch / ContextLattice / MemPalace All-in-One
+# LLM Workflow — Canonical Architecture, Pack Framework, and Delivery Plan
 
-After a deep read of every file in the project, here are concrete suggestions organized by category.
+## Status
 
----
-
-## Implementation Summary
-
-| Metric | Count |
-|--------|-------|
-| **Test Count** | 78 tests |
-| **Functions** | 29 functions |
-| **Aliases** | 9 aliases |
-
-### Phases Completed
-
-| Phase | Items Completed | Status |
-|-------|-----------------|--------|
-| **Phase 3** | 13 items | COMPLETED |
-| **Phase 4** | 8 items | COMPLETED |
-| **Phase 5** | 2 items | COMPLETED |
-| **Phase 6** | 5 items | COMPLETED |
-| **Phase 7** | 4 items | COMPLETED |
+**This is the canonical source-of-truth document.**  
+It supersedes the earlier implementation plans, review passes, and RPG Maker pack review notes. Earlier documents should be treated as archived design history after this one is adopted.
 
 ---
 
-## 1. New Features
+## 1. Purpose
 
-### 1a - Scheduled / Watch-mode Sync (Star) High Impact
-**Status:** The bridge (`sync_mempalace_to_contextlattice.py`) is run manually or via `llmup`.  
-**Proposal:** Add a `--watch` / `--schedule` mode that continuously tails the MemPalace collection for new drawers and syncs them in near-real-time.
+This document defines the complete architecture, governance model, delivery order, and first domain-pack specification for the LLM Workflow platform.
 
-- Implementation: a Python `asyncio` loop (or PowerShell `Register-ObjectEvent` with a timer) that calls the existing batch logic on an interval.
-- New module command: `Start-LLMWorkflowSync -IntervalSeconds 30` (alias `llmsync`).
-- Graceful shutdown on `Ctrl+C`, writes state on exit.
+The platform is no longer just a bootstrap script or a convenience wrapper. It is a **stateful operational layer** for:
 
-**Effort:** Medium / **Priority:** High
+- local and project-scoped memory
+- multi-source ingestion
+- structured extraction
+- retrieval and answer assembly
+- policy-controlled automation
+- domain packs
+- human review and correction
+- long-term pack maintenance
 
----
+This document is written to prevent three common failures:
 
-### 1b - Bi-directional Bridge (ContextLattice -> MemPalace)
-**Status:** Bridge is strictly one-way (MemPalace -> ContextLattice).  
-**Proposal:** Add `sync_contextlattice_to_mempalace.py` to pull new memories written directly to ContextLattice back into the local ChromaDB palace.
+1. a feature-rich system with weak state integrity
+2. a large corpus with weak retrieval and answer discipline
+3. a smart automation layer that humans cannot inspect, correct, or trust
 
-- Enables a "round-trip" where AI agents writing to ContextLattice via MCP have their outputs archived locally.
-- New flag: `llmup -SyncBack`.
+The governing principle is:
 
-**Effort:** Medium-High / **Priority:** Medium
-
----
-
-### 1c - Interactive TUI Dashboard
-**Status:** (COMPLETED) All output was plain `Write-Output` text.  
-**Status:** COMPLETED (Phase 7)
-**Implementation:** Built a rich terminal UI using `PSReadLine` color codes for `llm-workflow-doctor`:
-
-**Features Delivered:**
-- Color-coded pass/warn/fail checks with ASCII indicators.
-- Live-updating status during bootstrap (spinner while installing deps).
-- Tabular summary at the end.
-- Cross-platform compatible display.
-
-**Effort:** Medium / **Priority:** Medium
+> **Do not ship autonomy before safety. Do not ship breadth before answer quality. Do not ship scale before control.**
 
 ---
 
-### 1d - Multi-Project Profile System
-**Status:** Each project gets its own `.env` / `.contextlattice/` / `.memorybridge/` config discovered at bootstrap.  
-**Proposal:** Allow named profiles stored centrally in `~/.llm-workflow/profiles/`:
+## 2. What this system is optimizing for
 
+The platform must optimize for all of the following at the same time:
+
+- **State integrity** under concurrency, interruption, migration, and recovery
+- **Operator trust** through previews, manifests, journals, answer traces, and explainability
+- **Safe continuous operation** under watch loops, scheduled runs, and partial outages
+- **High-quality retrieval** through pack-aware routing, structured artifacts, evidence rules, and confidence policy
+- **Controlled automation** through policy gates, execution modes, budgets, and human review
+- **Human-correctable knowledge** through annotations, dispute handling, ownership, and replay
+- **Domain scalability** through pack manifests, source registries, pack builds, and lifecycle rules
+- **Private/public separation** through workspaces, visibility boundaries, and export controls
+
+---
+
+## 3. System invariants
+
+These are non-negotiable. Every command, pack, and answer path inherits them.
+
+### 3.1 Command contract invariant
+
+Every public command must define:
+
+- purpose
+- parameters
+- exit codes
+- dry-run behavior
+- locks acquired
+- state touched
+- remote systems touched
+- output contract
+- safety level: `read-only`, `mutating`, `destructive`, `networked`
+
+### 3.2 State safety invariant
+
+Any mutable state/config/log/report file must use:
+
+- file locking
+- temp-file write
+- flush + fsync
+- atomic rename
+- schema version tagging
+- backup before destructive mutation where applicable
+
+### 3.3 Journal invariant
+
+Any command performing more than one mutating step must write a journal/checkpoint entry before and after each step.
+
+### 3.4 Idempotency invariant
+
+Any command that may retry a remote write must use deterministic idempotency keys or a local dedupe ledger.
+
+### 3.5 Secret and PII invariant
+
+Secrets and sensitive content may never be:
+
+- written to logs unredacted
+- stored in manifests unmasked
+- shown in previews
+- silently embedded into memory stores
+- exported in plaintext snapshots unless explicitly requested
+
+### 3.6 Policy invariant
+
+Destructive or agent-invokable operations must pass a policy gate before execution.
+
+### 3.7 Provenance invariant
+
+Every ingested or generated knowledge artifact must answer:
+
+- where did this come from?
+- when was it created or imported?
+- what source/repo/file produced it?
+- what transform generated it?
+- what run wrote it?
+- what workspace and pack owns it?
+
+### 3.8 Dry-run invariant
+
+Every mutating command must use planner/executor separation. Preview and apply must share the same planner.
+
+### 3.9 Test invariant
+
+Every stateful feature must ship with:
+
+- happy-path test
+- negative-path test
+- interrupted-execution test or equivalent
+- idempotency test
+- dry-run equivalence test
+- migration/compatibility test if versioned state is involved
+
+### 3.10 Cross-platform invariant
+
+Paths, locks, watchers, temp files, process handling, and child process calls must work on Windows, Linux, and macOS.
+
+### 3.11 Answer integrity invariant
+
+No answer may present low-trust, contradictory, translation-only, or public-example evidence as authoritative without an explicit caveat.
+
+---
+
+## 4. Canonical architecture
+
+### 4.1 Control plane vs data plane
+
+#### Control plane
+Implemented primarily in PowerShell/module orchestration. Responsible for:
+
+- init/bootstrap
+- effective config resolution
+- policy and execution-mode checks
+- locks
+- planner/executor control
+- doctor/heal
+- manifests and journals
+- human interaction
+- pack lifecycle control
+- answer planning
+- status/health reporting
+
+#### Data plane
+Implemented primarily in Python workers. Responsible for:
+
+- sync processing
+- vector store I/O
+- embedding jobs
+- structured extraction
+- artifact normalization
+- pack builds
+- backup/export/import
+- retrieval helpers
+- re-embedding and migration jobs
+
+Long-running data tasks must not live directly inside top-level PowerShell bodies.
+
+### 4.2 Canonical project layout
+
+```text
+.llm-workflow/
+  config/
+    effective-config.json
+    policy.json
+    workspace.json
+  logs/
+    2026-04-11.jsonl
+  manifests/
+    20260411T210501Z-7f2c.run.json
+  journals/
+    20260411T210501Z-7f2c.journal.json
+  state/
+    sync-state.json
+    heal-state.json
+    compatibility-state.json
+    migrations-state.json
+    pack-state.json
+    entity-registry.json
+    schema-registry.json
+  telemetry/
+    sync-history.jsonl
+    key-check-history.jsonl
+    index-history.jsonl
+    eval-history.jsonl
+    answer-history.jsonl
+  reports/
+    latest-health.json
+    latest-sync-plan.json
+    latest-pack-build.json
+    latest-answer-trace.json
+  cache/
+    file-hashes.json
+    retrieval-cache/
+    embed-cache.json
+    prefetch-cache.json
+  locks/
+    sync.lock
+    heal.lock
+    index.lock
+    ingest.lock
+    pack.lock
+  queue/
+    watch-events.jsonl
+  backups/
+    palace/
+    config/
+    state/
+    manifests/
+    packs/
+  quarantine/
+    parser-failures/
+    unsafe-sources/
+  packs/
+    manifests/
+    registries/
+    builds/
+    staging/
+    promoted/
+  schemas/
 ```
-~/.llm-workflow/profiles/
-  work.env
-  personal.env
-  gaming-mods.env
-```
 
-- `llmup -Profile work` loads the matching profile before project-local `.env`.
-- Useful when the same user works on projects that target different ContextLattice instances or providers.
+### 4.3 Standard persistent file header
 
-**Effort:** Low-Medium / **Priority:** Medium
-
----
-
-### 1e - Plugin / Extension Architecture
-**Status:** (COMPLETED) The three tool chains (codemunch, contextlattice, memorybridge) were hard-coded in the bootstrap.  
-**Status:** COMPLETED (Phase 6)
-**Implementation:** Introduced a plugin manifest (`.llm-workflow/plugins.json`) so third-party tools can register:
-
-**Features Delivered:**
-- Plugin manifest format with name, bootstrapScript, and runOn hooks.
-- Bootstrap iterates plugins after the built-in tool chains.
-- Future-proofs the toolkit without needing new flags for every integration.
-- Support for pre-bootstrap, post-bootstrap, and check hooks.
-
-**Effort:** Medium / **Priority:** Low-Medium
-
----
-
-### 1f - `llmup init` -- Guided Interactive Setup
-**Status:** Bootstrap creates sample configs but the user must manually edit them.  
-**Proposal:** Add `Initialize-LLMWorkflow` (alias `llminit`) that interactively prompts:
-
-1. Which provider? (pick from list)
-2. Paste your API key -> writes `.env`
-3. ContextLattice URL -> writes `.contextlattice/orchestrator.env`
-4. Verify connectivity -> runs doctor
-5. Optionally run first MemPalace sync
-
-This dramatically lowers onboarding friction.
-
-**Effort:** Low-Medium / **Priority:** High
-
----
-
-### 1g - Anthropic / Claude Provider Support
-**Status:** (COMPLETED) Provider roster expanded to include Claude and Ollama.  
-**Status:** COMPLETED (Phase 3)
-**Implementation:** Added `claude` and `ollama` provider profiles to the provider resolution system:
-
-**Features Delivered:**
-- Claude provider with ANTHROPIC_API_KEY and ANTHROPIC_BASE_URL support.
-- Ollama provider for local model users with default base URL http://localhost:11434/v1.
-- Proper environment variable mapping for both providers.
-- Auto-detection support in provider resolution chain.
-
-**Effort:** Low / **Priority:** High
-
----
-
-## 2. Feature Upgrades to Existing Commands
-
-### 2a - `Update-LLMWorkflow` -- In-place Git Pull Mode
-**Status:** `Update-LLMWorkflow` downloads a release zip from GitHub.  
-**Proposal:** Add a `-Source git` mode that does `git pull` + re-runs `install-module.ps1` for users who cloned the repo. The current zip-download approach is great for published releases, but repo contributors need the git flow.
-
-**Effort:** Low / **Priority:** Medium
-
----
-
-### 2b - `Test-LLMWorkflowSetup` -- Version Checks for Dependencies
-**Status:** Checks presence of `python`, `codemunch-pro`, `chromadb` but not their **versions**.  
-**Proposal:** Add version constraint checking:
-
-- `chromadb >= 0.5.0` (already in `compatibility.lock.json` but not enforced)
-- `python >= 3.10`
-- `codemunch-pro >= X.Y.Z`
-
-A new check like `python_version` with status `warn` if below minimum.
-
-**Effort:** Low / **Priority:** Medium
-
----
-
-### 2c - Bridge Sync -- Retry with Exponential Backoff
-**Status:** (COMPLETED) `sync_mempalace_to_contextlattice.py` now includes retry logic.  
-**Status:** COMPLETED (Phase 4)
-**Implementation:** Added retry logic with exponential backoff around HTTP POST calls:
-
-**Features Delivered:**
-- 3 retry attempts with exponential backoff (1s, 2s, 4s).
-- Configurable retry count via --max-retries parameter.
-- Proper handling of transient network failures.
-- Logging of retry attempts for debugging.
-
-**Effort:** Low / **Priority:** Medium
-
----
-
-### 2d - Bridge Sync -- Parallel Writes
-**Status:** (COMPLETED) Sequential writes replaced with parallel processing.  
-**Status:** COMPLETED (Phase 5)
-**Implementation:** Used `concurrent.futures.ThreadPoolExecutor` to parallelize writes:
-
-**Features Delivered:**
-- Configurable --workers N parameter (default 4).
-- Thread-safe batch processing of drawers.
-- Unified error collection from parallel workers.
-- Significant performance improvement for large syncs.
-
-**Effort:** Medium / **Priority:** Medium
-
----
-
-### 2e - `llm-workflow-doctor` -- Latency Reporting
-**Status:** (COMPLETED) Doctor now reports response times for connectivity checks.  
-**Status:** COMPLETED (Phase 4)
-**Implementation:** Added latency measurement to all health checks:
-
-**Features Delivered:**
-- Response time reporting in milliseconds for all HTTP checks.
-- Formatted output: `[OK] contextlattice_health: 127.0.0.1:8075/health ok=true (23ms)`.
-- Helps diagnose slow network or overloaded servers.
-- Included in both text and JSON output formats.
-
-**Effort:** Low / **Priority:** Low
-
----
-
-### 2f - Structured JSON Logging for All Commands
-**Status:** (COMPLETED) Only `doctor` had `-AsJson`. Now all commands support structured output.  
-**Status:** COMPLETED (Phase 4)
-**Implementation:** Added `-AsJson` / `-OutputFormat json` to `Invoke-LLMWorkflowUp` and `Test-LLMWorkflowSetup`:
-
-**Features Delivered:**
-- Machine-readable JSON output for all major commands.
-- Consistent schema across bootstrap, check, and doctor.
-- CI pipeline-friendly output format.
-- Proper error serialization in JSON format.
-
-**Effort:** Medium / **Priority:** Medium
-
----
-
-## 3. Code Quality / DRY Refactoring
-
-### 3a - Extract Shared Utility Module (Star)
-**Status:** (COMPLETED) Shared functions now consolidated into a common module.  
-**Status:** COMPLETED (Phase 4)
-**Implementation:** Created `tools/workflow/LLMWorkflowCommon.psm1` with shared functions:
-
-**Features Delivered:**
-- Centralized `Import-EnvFile`, `Get-FirstEnvValue`, `Get-ProviderProfile`, `Resolve-ProviderProfile`, and `Test-PythonImport`.
-- Eliminated copy-paste across bootstrap, doctor, and module scripts.
-- Fixed module-bundled bootstrap drift (significantly out of sync issue resolved).
-- Consistent behavior across all entry points.
-
-**Effort:** Medium / **Priority:** High
-
----
-
-### 3b - Fix `$args` Variable Shadowing
-**Status:** (COMPLETED) Fixed variable shadowing issue in sync-from-mempalace.ps1.  
-**Status:** COMPLETED (Phase 3)
-**Implementation:** Renamed `$args` to `$pyArgs` in sync-from-mempalace.ps1:
-
-**Features Delivered:**
-- Renamed local variable from `$args` to `$scriptArgs` to avoid shadowing.
-- Prevents subtle bugs from PowerShell automatic variable collision.
-- Applied consistently across all affected scripts.
-
-**Effort:** Trivial / **Priority:** High
-
----
-
-### 3c - Add `[CmdletBinding()]` and Proper Param Blocks
-**Status:** (COMPLETED) Added CmdletBinding support to all scripts.  
-**Status:** COMPLETED (Phase 3)
-**Implementation:** Added `[CmdletBinding()]` to scripts missing proper parameter blocks:
-
-**Features Delivered:**
-- Consistent `-Verbose` / `-Debug` support across all scripts.
-- Better pipeline behavior for all functions.
-- Applied to verify.ps1, sync-from-mempalace.ps1, and bootstrap-project.ps1.
-- Standard parameter attributes for all public functions.
-
-**Effort:** Trivial / **Priority:** Low
-
----
-
-## 4. Test Coverage Gaps
-
-### 4a - Unit Tests for Provider Resolution
-**Status:** (COMPLETED) Comprehensive tests added for provider resolution.  
-**Status:** COMPLETED (Phase 3)
-**Implementation:** Added Pester tests covering provider resolution logic:
-
-**Features Delivered:**
-- Auto-detection priority order tests.
-- `LLM_PROVIDER` environment variable override tests.
-- Fallback to default base URLs validation.
-- Error handling for invalid provider names.
-- Tests for all supported providers (OpenAI, Claude, Kimi, Gemini, GLM, Ollama).
-
-**Effort:** Low / **Priority:** Medium
-
----
-
-### 4b - Unit Tests for Version Bump & Release Scripts
-**Status:** No tests for `bump-module-version.ps1` or `create-release-tag.ps1`.  
-**Proposal:** Add Pester tests that run with `-DryRun` and verify manifest text transformations.
-
-**Effort:** Low / **Priority:** Low
-
----
-
-### 4c - Negative / Error-Path Tests
-**Status:** (COMPLETED) Error path tests added.  
-**Status:** COMPLETED (Phase 4)
-**Implementation:** Added comprehensive negative tests:
-
-**Features Delivered:**
-- Missing Python -> meaningful error tests.
-- Invalid `.env` format -> graceful skip tests.
-- Network failure during ContextLattice verify -> proper error message tests.
-- `Update-LLMWorkflow` with no releases -> correct exception handling.
-- Provider credential failure scenarios.
-
-**Effort:** Medium / **Priority:** Medium
-
----
-
-### 4d - Linux/macOS CI Matrix
-**Status:** (COMPLETED) CI now runs on multiple platforms.  
-**Status:** COMPLETED (Phase 4)
-**Implementation:** Added `ubuntu-latest` and `macos-latest` to the CI matrix:
-
-**Features Delivered:**
-- Cross-platform CI matrix: windows-latest, ubuntu-latest, macos-latest.
-- Fixed path separator issues for Linux/macOS compatibility.
-- Platform-specific test adaptations.
-- Ensures scripts work correctly on all target platforms.
-
-**Effort:** Low / **Priority:** Medium
-
----
-
-## 5. CI/CD Enhancements
-
-### 5a - PSScriptAnalyzer Linting
-**Status:** (COMPLETED) Static analysis integrated into CI.  
-**Status:** COMPLETED (Phase 4)
-**Implementation:** Added PSScriptAnalyzer linting job to CI pipeline:
-
-**Features Delivered:**
-- Automatic PSScriptAnalyzer installation in CI.
-- Recursive analysis of all PowerShell code.
-- Exclusion of PSUseSingularNouns rule.
-- Warning-level severity reporting.
-- CI failure on new warnings.
-
-**Effort:** Low / **Priority:** Medium
-
----
-
-### 5b - Automated Changelog Validation
-**Status:** `bump-module-version.ps1` adds a stub but nothing enforces that it was filled in.  
-**Proposal:** CI check that verifies: if the version changed, the `CHANGELOG.md` has a non-`TODO` entry for that version.
-
-**Effort:** Low / **Priority:** Low
-
----
-
-### 5c - End-to-End Integration Test in CI
-**Status:** (COMPLETED) Integration tests now run in CI.  
-**Status:** COMPLETED (Phase 4)
-**Implementation:** Added CI step that spins up mock ContextLattice server and runs integration tests:
-
-**Features Delivered:**
-- Mock ContextLattice server startup in CI.
-- Full `Integration.ContextLattice.Tests.ps1` execution.
-- Proper test isolation and cleanup.
-- Coverage of real API interaction scenarios.
-
-**Effort:** Low / **Priority:** Medium
-
----
-
-### 5d - Prompt/RAG Regression + Red-Team Gate (`promptfoo`)
-**Status:** CI validates code quality and integration behavior, but does not validate prompt quality, retrieval grounding quality, or jailbreak resistance over time.  
-**Proposal:** Add a `promptfoo` suite and CI job:
-
-- `tests/promptfoo/` contains baseline prompt/RAG test cases and expected assertions.
-- CI runs `promptfoo eval` on pull requests.
-- Fails PR if retrieval relevance, factuality checks, or safety assertions regress.
-- Add a small red-team pack for prompt injection and jailbreak attempts.
-
-This makes prompt behavior testable and prevents silent quality drift.
-
-**Effort:** Low-Medium / **Priority:** Medium
-
----
-
-### 5e - Reproducible Data/Pipeline Tracking (`DVC`, optional `CML`)
-**Status:** The repo has code/version control, but no standardized tracking for datasets, eval corpora, prompt fixtures, and experiment outputs.  
-**Proposal:** Introduce `DVC` for reproducible ML/LLM assets and optional `CML` for CI reporting:
-
-- Track large/derived assets (`tests/promptfoo` fixtures, benchmark corpora, eval outputs) with `DVC`.
-- Define reproducible pipeline stages (`dvc.yaml`) for sync/eval/report generation.
-- Optionally use `CML` in GitHub Actions to post eval deltas and artifacts to PRs.
-
-This gives deterministic reruns and makes quality changes auditable across branches.
-
-**Effort:** Medium / **Priority:** Medium
-
----
-
-### 5f - Optional YARA Artifact Scan in CI
-**Status:** CI validates source quality and behavior, but has no malware-signature scanning for built artifacts or third-party binary drops used in tests/tooling.  
-**Proposal:** Add an opt-in CI job that runs YARA rules against selected paths:
-
-- Add `tools/security/yara/` for curated rules and safe local overrides.
-- Scan release zips, generated binaries, and vendored external tools.
-- Report matches as warnings by default; allow strict fail mode for protected branches.
-- Include allowlist/suppression metadata to reduce noisy false positives.
-
-This adds a lightweight malware/suspicious-artifact tripwire without blocking normal dev flow.
-
-**Effort:** Low-Medium / **Priority:** Medium
-
----
-
-## 6. Cross-Platform / Linux Support
-
-### 6a - Path Separator Hardcoding
-**Status:** (COMPLETED) Cross-platform path handling implemented.  
-**Status:** COMPLETED (Phase 3)
-**Implementation:** Audited and fixed all path string literals:
-
-**Features Delivered:**
-- Replaced hardcoded backslash paths with `[IO.Path]::Combine()` or `Join-Path`.
-- Updated `$env:PSModulePath -split ';'` to use `[IO.Path]::PathSeparator`.
-- All path constructions now work correctly on Linux/macOS.
-- Cross-platform compatibility verified in CI.
-
-**Effort:** Medium / **Priority:** Medium (grows to High as user base diversifies)
-
----
-
-### 6b - Profile Path Handling
-**Status:** (COMPLETED) Cross-platform profile path handling implemented.  
-**Status:** COMPLETED (Phase 3)
-**Implementation:** Fixed profile path handling for non-Windows platforms:
-
-**Features Delivered:**
-- On non-Windows, falls back to `~/.local/share/powershell/Modules`.
-- Windows-specific "Documents\WindowsPowerShell\Modules" fallback preserved.
-- Platform detection using `$PSVersionTable.Platform`.
-- Consistent module installation across all platforms.
-
-**Effort:** Low / **Priority:** Medium
-
----
-
-## 7. Documentation
-
-### 7a - Architecture Diagram
-**Status:** (COMPLETED) Mermaid diagram added to README.md.  
-**Status:** COMPLETED (Phase 6)
-**Implementation:** Added comprehensive Mermaid diagram showing the flow:
-
-**Features Delivered:**
-- Visual flow from `llmup / Invoke-LLMWorkflowUp` through all components.
-- CodeMunch Index, ContextLattice Verify, MemPalace Bridge Sync representation.
-- ChromaDB Palace and ContextLattice API connections shown.
-- Added to README.md for easy reference.
-
-**Effort:** Trivial / **Priority:** Medium
-
----
-
-### 7b - Troubleshooting Guide
-**Status:** (COMPLETED) Comprehensive troubleshooting documentation added.  
-**Status:** COMPLETED (Phases 5 & 7)
-**Implementation:** Added `docs/TROUBLESHOOTING.md` covering common failure modes:
-
-**Features Delivered:**
-- `chromadb` import failure resolution (venv activation, Python version).
-- ContextLattice server unreachable diagnosis.
-- API key not found explanation (env precedence).
-- Template drift detection and resolution.
-- Advanced troubleshooting with process tracing and network capture.
-
-**Effort:** Low / **Priority:** Medium
-
----
-
-### 7c - Per-Tool READMEs Need Upgrade
-**Status:** The three tool READMEs (`tools/codemunch/README.md`, etc.) are minimal stubs.  
-**Proposal:** Expand each with:
-- What the tool does
-- Configuration reference
-- Example usage
-- Relationship to the other tools
-
-**Effort:** Low / **Priority:** Low
-
----
-
-### 7d - Advanced Troubleshooting Playbook (Dynamic Analysis)
-**Status:** The current troubleshooting guidance is mostly config-level and does not cover deeper runtime/process/network diagnostics.  
-**Proposal:** Extend `docs/TROUBLESHOOTING.md` with an advanced section for hard failures:
-
-- Process tracing: `Process Monitor` (Windows), `dtrace`/`fs_usage` (macOS), `strace` equivalent notes.
-- Network capture: `Wireshark` patterns for API timeouts, TLS failures, and DNS misroutes.
-- Scripted capture bundles: one command to gather logs, env snapshots (masked), and timing traces.
-
-This shortens mean-time-to-diagnosis for intermittent bridge/verification failures.
-
-**Effort:** Low / **Priority:** Medium
-
----
-
-## Priority Summary
-
-| Priority | Items |
-|----------|-------|
-| **High** | 1a (Watch Sync), 1f (Interactive Init), 3a (DRY Refactor - COMPLETED), 10a (Git Hooks) |
-| **Medium** | 1b (Bi-directional), 1d (Profiles), 2a-2b (Upgrades), 4b (Version Tests), 5b (Changelog CI), 5d-5f (Eval + Reproducibility + YARA), 7c-7d (Docs + Advanced Troubleshooting), 8d (Binary Safety), 9c (Notifications), 12c-12g (Ecosystem), 13a-13b (MCP), 14a-14d (Semantic Memory), 15a-15c (Agent Capabilities), 16a-16b (Visualization), 17a (Snapshots), 17c (NL Config) |
-| **Low** | 1e (Plugins - COMPLETED), 4b (Version Tests), 5b (Changelog CI), 7c (Tool READMEs), 8c (Lock File Signing), 9c (Notifications), 10c (Config Schema - COMPLETED), 12c (VS Code Extension), 12d (Vector Backend Expansion), 12g (Game Audio Quickstart), 16a-16b (Knowledge Graph + Dashboard), 17b (Federated Memory) |
-
-### Completed Items by Phase
-
-| Phase | Completed Items |
-|-------|-----------------|
-| **Phase 3** | 1g (Claude/Ollama), 3b ($args fix), 3c (CmdletBinding), 4a (Provider Tests), 6a (Path Separators), 6b (Profile Paths), 8a (API Key Validation), 8b (Secret Masking), 9a (Sync History), 9b (Bootstrap Metrics), 10b (Tab Completion), 11a (Graceful Degradation), 11b (Offline Mode) |
-| **Phase 4** | 2c (Retry Backoff), 2e (Latency Reporting), 2f (JSON Logging), 3a (Shared Module), 4c (Error-Path Tests), 4d (Linux/macOS CI), 5a (PSScriptAnalyzer), 5c (E2E Integration CI) |
-| **Phase 5** | 2d (Parallel Writes), 7b (Troubleshooting Guide) |
-| **Phase 6** | 1e (Plugin Architecture), 7a (Architecture Diagram), 12a (Multi-Palace), 12b (Docker Support), 12h (Game Team Workflow) |
-| **Phase 7** | 1c (TUI Dashboard), 7b (Troubleshooting Enhanced), 10c (JSON Schema), 15a (Self-Healing) |
-
----
-
-## 8. Security Hardening
-
-### 8a - API Key Pre-Validation
-**Status:** (COMPLETED) Provider keys are now validated before use.  
-**Status:** COMPLETED (Phase 3)
-**Implementation:** Added lightweight key validation step in `Set-NormalizedProviderEnvironment`:
-
-**Features Delivered:**
-- For OpenAI-compatible providers: GET /models with the key, expect 200.
-- For ContextLattice: surfacing of /status check earlier in flow.
-- New doctor check: `provider_key_valid` with pass/fail.
-- Early failure with meaningful error messages.
-
-**Effort:** Low / **Priority:** High
-
----
-
-### 8b - Secret Masking in Output
-**Status:** (COMPLETED) Secrets now masked in all diagnostic output.  
-**Status:** COMPLETED (Phase 3)
-**Implementation:** Added `Write-Masked` helper and applied throughout:
-
-**Features Delivered:**
-- `Write-Masked` helper truncates values longer than 8 chars to `sk-...XXXX`.
-- Applied to all diagnostic output that touches credentials.
-- `$env:PESTER_HIDE_SECRETS = 1` set in test runs.
-- Prevents accidental key leakage in logs and output.
-
-**Effort:** Low / **Priority:** Medium
-
----
-
-### 8c - Lock File Integrity Signing
-**Status:** `compatibility.lock.json` is validated for structure but not authenticity. A supply-chain attack could modify tested refs.  
-**Proposal:** Generate a detached GPG/minisign signature (`compatibility.lock.json.sig`) during release. Add optional `--verify-lock-signature` to the CI validator.
-
-**Effort:** Medium / **Priority:** Low
-
----
-
-### 8d - Binary Intake Safety Check (Reversing-Aware)
-**Status:** The project may eventually rely on external binaries/tools, but there is no explicit intake policy for unknown executables or packed artifacts.  
-**Proposal:** Add a lightweight binary triage workflow before adopting third-party binaries:
-
-- File-type/signature identification (`Detect It Easy` or equivalent).
-- Hashing + provenance log (`SHA-256`, source URL, version, acquisition date).
-- Optional static metadata review step (`PeStudio`/`file`/`codesign`) before check-in.
-- Add a `docs/BINARY_INTAKE.md` checklist and CI reminder for `tools/**` binaries.
-
-This reduces supply-chain risk when integrating external executables.
-
-**Effort:** Low-Medium / **Priority:** Medium
-
----
-
-## 9. Observability & Telemetry
-
-### 9a - Sync History Log
-**Status:** (COMPLETED) Sync history now tracked in rolling log.  
-**Status:** COMPLETED (Phase 3)
-**Implementation:** Added rolling `sync-history.jsonl` (JSON Lines) file:
-
-**Features Delivered:**
-- Each run appends summary with timestamp, seen count, writes, failed, skipped, mode.
-- Configurable max entries (default 500) to prevent unbounded growth.
-- New command: `Get-LLMWorkflowSyncHistory` (alias `llmhistory`).
-- JSON Lines format for easy parsing and analysis.
-
-**Effort:** Low / **Priority:** Medium
-
----
-
-### 9b - Bootstrap Execution Metrics
-**Status:** (COMPLETED) Timing information now collected for all steps.  
-**Status:** COMPLETED (Phase 3)
-**Implementation:** Wrapped each major bootstrap phase in timing blocks:
-
-**Features Delivered:**
-- Measure-Command blocks around all major phases.
-- Timing summary output at end of bootstrap.
-- Phase timing: Tool scaffold, Env loading, Dependency check, CodeMunch index, CL verify, Bridge dry-run.
-- Total execution time reporting.
-
-**Effort:** Low / **Priority:** Medium
-
----
-
-### 9c - Failure Notifications
-**Status:** Sync/check failures only appear in terminal output. If running via scheduled task or CI, failures can go unnoticed.  
-**Proposal:** Add optional notification hooks:
-
-- `-NotifyOnFailure webhook:https://hooks.slack.com/...`
-- `-NotifyOnFailure email:ops@example.com` (via SMTP env vars)
-- Simple `Invoke-RestMethod` with a JSON payload -- no dependencies.
-
-**Effort:** Medium / **Priority:** Low
-
----
-
-## 10. Developer Experience
-
-### 10a - Git Hook Integration
-**Status:** No automated triggers. Users must remember to run `llmup` manually.  
-**Proposal:** Add `Install-LLMWorkflowHooks` that installs:
-
-- **post-checkout** hook: runs `llmup -SkipDependencyInstall -SkipContextVerify -SkipBridgeDryRun` (fast scaffold-only pass).
-- **post-merge** hook: runs `llmup` to catch dependency changes.
-- Uses the `.git/hooks/` directory directly -- no Husky dependency.
-- `Uninstall-LLMWorkflowHooks` to cleanly remove.
-
-**Effort:** Low / **Priority:** High
-
----
-
-### 10b - PowerShell Tab Completion
-**Status:** (COMPLETED) Custom argument completers registered.  
-**Status:** COMPLETED (Phase 3)
-**Implementation:** Registered argument completers in the module:
-
-**Features Delivered:**
-- `-Provider` completer with dynamic list from `Get-ProviderPreferenceOrder`.
-- `-Profile` completer with file listing from `~/.llm-workflow/profiles/`.
-- Tool names completer: codemunch, contextlattice, memorybridge.
-- Full Intellisense support for all parameters.
-
-**Effort:** Low / **Priority:** Medium
-
----
-
-### 10c - JSON Schema for Config Files
-**Status:** (COMPLETED) JSON Schema validation for all config files.  
-**Status:** COMPLETED (Phase 7)
-**Implementation:** Shipped JSON Schema files for each config:
-
-**Features Delivered:**
-- `.memorybridge/bridge.config.schema.json` for bridge configuration.
-- `.codemunch/index.defaults.schema.json` for indexing defaults.
-- `$schema` reference in generated configs.
-- IDE autocomplete and validation (VS Code, Rider).
-
-**Effort:** Low / **Priority:** Low
-
----
-
-## 11. Operational Resilience
-
-### 11a - Graceful Degradation Mode
-**Status:** (COMPLETED) Added -ContinueOnError flag for resilient execution.  
-**Status:** COMPLETED (Phase 3)
-**Implementation:** Added `-ContinueOnError` flag to bootstrap:
-
-**Features Delivered:**
-- Logs failures as warnings instead of throwing.
-- Collects all failures into a summary at the end.
-- Returns non-zero exit code but completes all possible steps.
-- Useful for daily `llmup` usage when some services are unavailable.
-
-**Effort:** Low / **Priority:** Medium
-
----
-
-### 11b - Offline / Air-gapped Mode
-**Status:** (COMPLETED) Added -Offline flag for air-gapped environments.  
-**Status:** COMPLETED (Phase 3)
-**Implementation:** Added `llmup -Offline` convenience flag:
-
-**Features Delivered:**
-- Skips all network-dependent steps automatically.
-- Runs only local operations: tool scaffolding, env loading, local chromadb validation.
-- Useful for developers working on planes, trains, or secure networks.
-- Combines existing skip flags into single convenient option.
-
-**Effort:** Trivial / **Priority:** Medium
-
----
-
-## 12. Ecosystem Expansion
-
-### 12a - Multi-Palace Support
-**Status:** (COMPLETED) Bridge now supports multiple palace sources.  
-**Status:** COMPLETED (Phase 6)
-**Implementation:** Updated `bridge.config.json` to accept array of palace sources:
-
-**Features Delivered:**
-- Array of palace configurations with path and collectionName.
-- Bridge iterates all palaces in one run with unified state tracking.
-- Support for per-project local palaces alongside global palace.
-- Unified sync state across all configured palaces.
-
-**Effort:** Medium / **Priority:** Medium
-
----
-
-### 12b - Docker / Container Support
-**Status:** (COMPLETED) Containerized deployment option available.  
-**Status:** COMPLETED (Phase 6)
-**Implementation:** Added `Dockerfile` and `docker-compose.yml`:
-
-**Features Delivered:**
-- Bundles Python, chromadb, codemunch-pro, and PowerShell module.
-- Exposes `llmup` as entrypoint with env var configuration.
-- Useful for CI/CD pipelines without host dependency installation.
-- Based on mcr.microsoft.com/powershell:latest.
-
-**Effort:** Medium / **Priority:** Medium
-
----
-
-### 12c - VS Code Extension
-**Status:** Users interact exclusively via terminal.  
-**Proposal:** Create a lightweight VS Code extension that:
-
-- Adds a "LLM Workflow" status bar item showing sync state (last run, pass/fail).
-- Provides command palette entries for `llmup`, `llmcheck`, `llmdoctor`.
-- Shows a webview panel for doctor results with clickable fix suggestions.
-- Auto-discovers `.contextlattice/` and `.memorybridge/` directories.
-
-**Effort:** High / **Priority:** Low
-
----
-
-### 12d - Pluggable Vector Backend (Qdrant/Milvus/Weaviate/Pinecone)
-**Status:** Local memory relies on ChromaDB only. This is excellent for local-first workflows but may become limiting for large-scale, high-concurrency, or managed production requirements.  
-**Proposal:** Add a backend abstraction layer for vector storage:
-
-- Keep ChromaDB as the default local backend.
-- Add optional adapters for `Qdrant`, `Milvus`, `Weaviate`, and `Pinecone`.
-- Provide a migration command (`llmup -MigrateVectorBackend`) that copies embeddings/metadata.
-- Document selection guidance: stay on ChromaDB unless scale/ops requirements justify migration.
-
-This enables growth without forcing early infrastructure complexity.
-
-**Effort:** Medium-High / **Priority:** Low-Medium
-
----
-
-### 12e - Game Asset Starter Packs + License Manifest
-**Status:** Bootstrapping focuses on code/memory infrastructure, but game projects also need repeatable art/audio starter assets and clear license tracking from day one.  
-**Proposal:** Add `llmup -GameAssets` to scaffold optional starter packs and a mandatory asset manifest:
-
-- Seed placeholders from curated sources (for example: Kenney/OpenGameArt/Poly Pizza/Quaternius links).
-- Generate `assets/ASSET_MANIFEST.json` with source URL, license, attribution requirements, and usage scope.
-- Add a doctor check that flags missing/unknown license metadata for imported assets.
-
-This speeds prototype setup while reducing legal/licensing drift.
-
-**Effort:** Medium / **Priority:** Medium
-
----
-
-### 12f - 2D Content Pipeline Preset (LDtk/Tiled + Spritesheet + Compression)
-**Status:** There is no standardized build path for 2D game content (tilemaps, spritesheets, and image optimization).  
-**Proposal:** Add a `-Game2D` preset for common 2D workflows:
-
-- Map authoring adapters for `LDtk`/`Tiled` exports.
-- Spritesheet processing hooks (`TexturePacker` or `Tilesplit`) during build.
-- Image optimization pass (`Squoosh`/`TinyPNG` equivalent CLI step) for release builds.
-- Output validation report (atlas size, map count, compression savings).
-
-This gives teams a reproducible asset pipeline instead of ad-hoc local scripts.
-
-**Effort:** Medium / **Priority:** Medium
-
----
-
-### 12g - Game Audio Pipeline Quickstart
-**Status:** Audio setup is manual and inconsistent across projects, especially in early prototyping.  
-**Proposal:** Add a lightweight audio scaffold:
-
-- Recommended folder conventions (`audio/sfx`, `audio/music`, `audio/voice`).
-- Metadata sidecars with source/license/tag info for each file.
-- Optional helper tasks for SFX generation workflows (`Bfxr`/`jfxr`) and normalization.
-
-This lowers friction for jams and prototypes while keeping audio assets organized.
-
-**Effort:** Low / **Priority:** Low
-
----
-
-### 12h - Game Team Workflow Preset (Jam + PM Templates)
-**Status:** (COMPLETED) Game-specific collaboration template added.  
-**Status:** COMPLETED (Phase 6)
-**Implementation:** Added `llmup -GameTeam` workflow preset:
-
-**Features Delivered:**
-- Game-design doc starter (`docs/GDD.md`) with scope, loop, mechanics, and content checklist.
-- Task board template compatible with HacknPlan/Questlog/Trello.
-- Jam-mode defaults (`-ContinueOnError`, fast checks, lightweight artifact reports).
-- Improved delivery speed for game teams without changing core workflow engine.
-
-**Effort:** Low-Medium / **Priority:** Medium
-
----
-
-> [!IMPORTANT]
-> **Items already implemented from this list:**
-> - Phase 3: 1g (Claude/Ollama), 3b ($args fix), 3c (CmdletBinding), 4a (Provider Tests), 6a (Path Separators), 6b (Profile Paths), 8a (API Key Validation), 8b (Secret Masking), 9a (Sync History), 9b (Bootstrap Metrics), 10b (Tab Completion), 11a (Graceful Degradation), 11b (Offline Mode)
-> - Phase 4: 2c (Retry Backoff), 2e (Latency Reporting), 2f (JSON Logging), 3a (Shared Module), 4c (Error-Path Tests), 4d (Linux/macOS CI), 5a (PSScriptAnalyzer), 5c (E2E Integration CI)
-> - Phase 5: 2d (Parallel Writes), 7b (Troubleshooting Guide)
-> - Phase 6: 1e (Plugin Architecture), 7a (Architecture Diagram), 12a (Multi-Palace), 12b (Docker), 12h (Game Team Workflow)
-> - Phase 7: 1c (TUI Dashboard), 10c (JSON Schema), 15a (Self-Healing enhancements)
-
-> [!NOTE]
-> **Recommended next batch:** 10a (git hooks), 1f (interactive init), 1a (watch sync) -- all high-impact improvements that make the daily workflow smoother.
-
----
-
-## 13. MCP-Native Architecture (Crystal Ball)
-
-### 13a - Expose the Toolkit Itself as an MCP Server
-**Status:** The toolkit *bootstraps* MCP servers (codemunch-pro, memorymcp) but is itself only invocable via PowerShell.  
-**Proposal:** Create `llm-workflow-mcp-server` -- an MCP server (stdio or HTTP) that exposes the toolkit's capabilities as tools any AI agent can call:
+Every persistent JSON file should include:
 
 ```json
 {
-  "tools": [
-    { "name": "llm_workflow_bootstrap", "description": "Bootstrap a project with all tool chains" },
-    { "name": "llm_workflow_doctor", "description": "Run environment health checks" },
-    { "name": "llm_workflow_sync", "description": "Sync MemPalace to ContextLattice" },
-    { "name": "llm_workflow_status", "description": "Get current workflow state and sync stats" },
-    { "name": "llm_workflow_switch_provider", "description": "Switch the active LLM provider" }
-  ]
+  "schemaVersion": 1,
+  "updatedUtc": "2026-04-11T21:00:00Z",
+  "createdByRunId": "20260411T210501Z-7f2c"
 }
 ```
 
-This turns the toolkit into a **meta-tool** -- AI agents can self-bootstrap their own environment, check their own health, and trigger syncs autonomously.
+### 4.4 Standard exit codes
 
-**Effort:** Medium / **Priority:** High
-
----
-
-### 13b - MCP Tool Composition / Orchestration
-**Status:** codemunch-pro and memorymcp are independent MCP servers. No unified query surface.  
-**Proposal:** Add a **composite MCP gateway** that routes requests across all three tool chains:
-
-- `memory/search` -> fans out to both ContextLattice and local ChromaDB, deduplicates and ranks results.
-- `index/search` -> queries codemunch-pro's index with ContextLattice context injected as grounding.
-- `workflow/context` -> returns a unified "what does this project know?" summary combining index stats, memory counts, and sync state.
-
-Think of it as a **unified AI context layer** -- one MCP endpoint that gives any agent complete project awareness.
-
-**Effort:** High / **Priority:** Medium
-
----
-
-## 14. Semantic Memory Intelligence (Brain)
-
-### 14a - Semantic Change Detection (Replace Hash-Based Diffing)
-**Status:** The bridge uses SHA-256 hashes to detect changes. A single whitespace edit triggers a full re-sync of that drawer. Meaningful content changes are treated the same as formatting noise.  
-**Proposal:** Use embedding cosine similarity for change detection:
-
-```python
-old_embedding = get_cached_embedding(drawer_id)
-new_embedding = embed(new_content)
-similarity = cosine_similarity(old_embedding, new_embedding)
-if similarity < 0.95:  # meaningful change threshold
-    sync_to_contextlattice(drawer_id, new_content)
-```
-
-- Configurable similarity threshold via `--change-threshold`.
-- Falls back to hash comparison if embeddings unavailable.
-- Dramatically reduces unnecessary writes for actively-edited content.
-
-**Effort:** Medium / **Priority:** Medium
+| Code | Meaning |
+|---|---|
+| 0 | success |
+| 1 | general failure |
+| 2 | invalid arguments or config |
+| 3 | dependency missing |
+| 4 | remote service unavailable |
+| 5 | auth failure |
+| 6 | partial success |
+| 7 | state lock unavailable |
+| 8 | migration required / incompatible state |
+| 9 | safety policy blocked run |
+| 10 | budget/circuit breaker blocked run |
+| 11 | permission denied by execution mode |
+| 12 | user-cancelled / aborted |
 
 ---
 
-### 14b - Memory Lifecycle Management (TTL, Archival, Versioning)
-**Status:** Memories are write-once-sync-forever. Stale memories from abandoned projects accumulate without any pruning mechanism.  
-**Proposal:** Add lifecycle metadata to synced memories:
+## 5. Effective configuration, policy, and execution modes
+
+### 5.1 Precedence model
+
+Lowest to highest priority:
+
+1. built-in defaults
+2. central named profile
+3. project config
+4. environment variables in current shell
+5. explicit command arguments
+
+### 5.2 Required config commands
+
+- `Get-LLMWorkflowEffectiveConfig`
+- `llmconfig --explain`
+- `llmconfig --validate`
+
+These must show the final resolved value, the source of the value, masked secrets, and conflicts/shadowing.
+
+### 5.3 Execution modes
+
+- `interactive`
+- `ci`
+- `watch`
+- `heal-watch`
+- `scheduled`
+- `mcp-readonly`
+- `mcp-mutating`
+
+### 5.4 Policy model
+
+Every top-level command must declare capability tags. Policy is checked before locks and before apply.
+
+Example policy file:
 
 ```json
 {
-  "ttl_days": 90,
-  "archive_after_days": 180,
-  "max_versions": 5,
-  "last_accessed_utc": "2026-04-11T17:00:00Z"
+  "schemaVersion": 1,
+  "defaultMode": "interactive",
+  "rules": {
+    "mcp-readonly": {
+      "allow": ["doctor", "status", "preview", "search"],
+      "deny": ["restore", "prune", "delete", "switch-provider"]
+    },
+    "watch": {
+      "allow": ["sync", "index", "telemetry"],
+      "deny": ["migrate", "restore", "prune"]
+    }
+  },
+  "requireConfirmationFor": ["restore", "prune", "delete", "provider-rotate"]
 }
 ```
 
-- New command: `Invoke-LLMWorkflowPrune` (alias `llmprune`) -- archives or deletes memories past TTL.
-- Version history for frequently-updated drawers with diff support.
-- `--dry-run` shows what would be pruned without acting.
+---
 
-**Effort:** Medium / **Priority:** Medium
+## 6. State model, manifests, journals, and run integrity
+
+### 6.1 Structured logging
+
+All top-level commands must route through one shared structured logging layer. Logs must support:
+
+- JSON-lines file output
+- console rendering
+- correlation IDs
+- redaction
+- retention and rotation
+- safe degradation on log write failure
+
+### 6.2 Run manifests
+
+One deterministic manifest per top-level run. It must include:
+
+- run ID
+- command and args
+- execution mode
+- policy decision
+- git commit
+- config/profile sources
+- locks acquired
+- artifacts written
+- warnings/errors
+- exit code
+- resume/restart status
+
+### 6.3 Journals and checkpoints
+
+Any multi-step operation must write per-step before/after entries and support `--resume` and `--restart`.
+
+This applies to:
+
+- large sync jobs
+- pack builds
+- export/import
+- restore
+- re-embedding
+- ingestion
+- pack refreshes
+
+### 6.4 File locking and atomic writes
+
+Rules:
+
+- one subsystem = one lock
+- lock file includes pid, host, execution mode, run ID, timestamp
+- writes use temp-file + fsync + atomic rename
+- stale locks must be reclaimable safely
+
+### 6.5 Schema versioning and migrations
+
+Every persistent config/state/artifact file is versioned and migratable. Migration must support:
+
+- sequential upgrades
+- dry-run migration plan
+- backup before mutation
+- compatibility report
+- invalid/unknown version handling
 
 ---
 
-### 14c - Intelligent Context Pre-fetching
-**Status:** Context is retrieved on-demand. AI agents must explicitly search for relevant memories.  
-**Proposal:** Add a **pre-fetch daemon** that watches `git diff --cached` and proactively loads relevant memories:
+## 7. Workspaces, visibility boundaries, and private/public control
 
-1. On file save / git stage, extract key terms from the diff.
-2. Query ContextLattice for related memories.
-3. Cache results locally in `.contextlattice/prefetch-cache.json`.
-4. MCP server serves pre-fetched context with zero latency.
+### 7.1 Workspace model
 
-This means the AI agent already has relevant context *before it asks for it*. The difference between "search for what you need" and "here's what you probably need" is massive for agent performance.
+All queries, annotations, pack selections, and exports must execute inside an explicit workspace context.
 
-**Effort:** High / **Priority:** Medium
+Workspace types:
 
----
+- personal default workspace
+- project-specific workspace
+- team workspace
+- read-only reference workspace
 
-### 14d - Cross-Repository Memory Linking
-**Status:** Each project is an island -- memories synced from Project A are invisible when working in Project B.  
-**Proposal:** Add a `relatedProjects` config:
+Example:
 
 ```json
 {
-  "relatedProjects": ["other-repo", "shared-lib"],
-  "crossRepoSearch": true
-}
-```
-
-- `memory/search` queries span related projects.
-- Bridge sync can optionally include memories tagged from related repos.
-- Critical for monorepo-adjacent workflows where knowledge spans multiple repos.
-
-**Effort:** Medium / **Priority:** Medium
-
----
-
-## 15. Autonomous Agent Capabilities (Robot)
-
-### 15a - Self-Healing Workflow Agent
-**Status:** (COMPLETED) Enhanced self-healing capabilities implemented.  
-**Status:** COMPLETED (Phase 7)
-**Implementation:** Enhanced `Invoke-LLMWorkflowHeal` (alias `llmheal`) with comprehensive remediation:
-
-**Features Delivered:**
-- Runs `llmdoctor -AsJson` to capture failures.
-- Automated fixes for common failures: python_command, chromadb_python_module, contextlattice_connectivity, provider_credentials.
-- Interactive prompts for missing credentials.
-- Re-runs doctor to verify fixes.
-- Comprehensive logging of all healing actions taken.
-- Goes beyond diagnosis to automatic remediation.
-
-**Effort:** Medium / **Priority:** Medium
-
----
-
-### 15b - LLM-Powered Memory Curation
-**Status:** All memories are treated equally. No quality filtering, deduplication, or summarization.  
-**Proposal:** Add `Invoke-LLMWorkflowCurate` (alias `llmcurate`) that uses the configured LLM provider to:
-
-- **Deduplicate:** Find semantically similar memories and merge them.
-- **Summarize:** Compress verbose memories into concise summaries while preserving key facts.
-- **Classify:** Auto-tag memories with topics, relevance scores, and confidence levels.
-- **Prune:** Identify memories that are outdated or contradicted by newer ones.
-
-```powershell
-llmcurate -ProjectRoot . -MaxTokenBudget 50000 -DryRun
-```
-
-Uses your own LLM provider to improve your own memory -- the toolkit eating its own dogfood.
-
-**Effort:** High / **Priority:** Medium
-
----
-
-### 15c - Proactive Context Agent (Background Daemon)
-**Status:** The toolkit is purely reactive -- runs when invoked, sleeps otherwise.  
-**Proposal:** Add `Start-LLMWorkflowAgent` (alias `llmagent`) -- a background process that:
-
-1. **Watches** file system changes in the project via `FileSystemWatcher`.
-2. **Auto-indexes** changed files through codemunch-pro incrementally.
-3. **Auto-syncs** new MemPalace drawers to ContextLattice.
-4. **Pre-warms** context cache based on recently-edited files.
-5. **Reports** via a local REST endpoint (`http://localhost:59082/status`) that the VS Code extension or MCP server can query.
-
-Runs as a tray icon on Windows / launchd agent on macOS / systemd user service on Linux.
-
-**Effort:** High / **Priority:** Low-Medium
-
----
-
-## 16. Knowledge Graph & Visualization (Chart)
-
-### 16a - Memory Relationship Graph
-**Status:** Memories are flat key-value documents. No relationship tracking between related memories.  
-**Proposal:** Build a relationship layer:
-
-```python
-{
-  "drawer_id": "abc123",
-  "related_to": ["def456", "ghi789"],
-  "relationship": "extends",  # extends | contradicts | supersedes | references
-  "confidence": 0.87
-}
-```
-
-- Auto-detected via embedding similarity during sync.
-- Stored as edges in a lightweight graph (NetworkX or sqlite).
-- Queryable: "What memories are related to this file?"
-
-**Effort:** High / **Priority:** Low
-
----
-
-### 16b - Interactive Web Dashboard
-**Status:** All output is terminal text or JSON.  
-**Proposal:** Ship a `llm-workflow-dashboard` single-page app (served locally) that shows:
-
-- **Memory map:** 3D force-directed graph of memories, topics, and projects.
-- **Sync timeline:** Historical view of sync runs, success/failure trends.
-- **Provider health:** Real-time latency and availability of all configured providers.
-- **Index coverage:** Which files are indexed, which are stale, embedding coverage percentage.
-- **Cost tracker:** Estimated API spend based on token counts from syncs and searches.
-
-Built as a single HTML file with embedded JS (no build step) -- `& start "http://localhost:59083"`.
-
-**Effort:** High / **Priority:** Low
-
----
-
-## 17. Portable & Federated Memory (Globe)
-
-### 17a - Memory Snapshots (Export / Import)
-**Status:** No way to capture and restore a point-in-time memory state.  
-**Proposal:** Add `Export-LLMWorkflowMemory` and `Import-LLMWorkflowMemory`:
-
-```powershell
-# Capture everything: index, palace, sync state, configs
-Export-LLMWorkflowMemory -Path ./memory-snapshot-2026-04-11.tar.gz
-
-# Restore on another machine or after a reset
-Import-LLMWorkflowMemory -Path ./memory-snapshot-2026-04-11.tar.gz
-```
-
-- Includes ChromaDB palace, sync state, codemunch index, and all configs.
-- Enables reproducible AI dev environments -- "here's the exact context state where this bug was found."
-- Version-stamps snapshots for compatibility validation.
-
-**Effort:** Medium / **Priority:** Medium
-
----
-
-### 17b - Federated Team Memory
-**Status:** Single-user only. No mechanism for team knowledge sharing.  
-**Proposal:** Add a team sync mode where multiple developers' MemPalaces merge into a shared ContextLattice with access control:
-
-```json
-{
-  "federation": {
-    "team_lattice_url": "https://team.contextlattice.example.com",
-    "my_namespace": "docdamage",
-    "shared_namespaces": ["team-shared", "architecture-decisions"],
-    "push_topics": ["runbooks/*", "postmortems/*"],
-    "pull_topics": ["*"]
+  "workspaceId": "project-my-rpg",
+  "packsEnabled": [
+    "rpgmaker_core_api",
+    "rpgmaker_plugin_patterns",
+    "rpgmaker_private_project"
+  ],
+  "visibilityRules": {
+    "privateProjectPack": "workspace-local"
   }
 }
 ```
 
-- Namespace isolation: my memories vs. team-shared memories.
-- Selective push: only share `runbooks/` and `postmortems/`, keep `scratch/` private.
-- Conflict resolution: last-write-wins with optional manual merge for contradictions.
-- Audit log: who wrote what, when.
+### 7.2 Visibility controls
 
-This transforms the toolkit from a **personal productivity tool** into a **team knowledge platform**.
+Each pack or collection must declare:
 
-**Effort:** Very High / **Priority:** Low
+- `visibility`: private | local-team | shared | public-reference
+- `exportable`: true/false
+- `federatable`: true/false
+- `allowedAnswerContexts`: local-only | same-project | same-pack | any
 
----
+Private project content must never leak into public pack summaries, shared exports, federated memory, or answers for unrelated workspaces unless policy explicitly permits it.
 
-### 17c - Natural Language Workflow Configuration
-**Status:** Configuration requires manually editing JSON files and env vars.  
-**Proposal:** Add `llmup --from-prompt "Set up my project for Claude with a local MemPalace, sync every 5 minutes, skip Kimi"` that:
+### 7.3 Private-project precedence
 
-1. Parses the natural language instruction via the configured LLM.
-2. Generates the appropriate `.env`, `bridge.config.json`, and orchestrator config.
-3. Shows a diff of what it will write and asks for confirmation.
-4. Applies the config and runs bootstrap.
+If a query is clearly about the user’s project:
 
-The ultimate "zero-config" experience -- describe what you want in English, get a working setup.
-
-**Effort:** Medium / **Priority:** Low
+1. search private project pack first
+2. fall back to public/domain packs only if needed
+3. label fallback explicitly
 
 ---
 
-## Bleeding-Edge Priority Addendum
+## 8. Domain Pack Framework
 
-| Priority | Items |
-|----------|-------|
-| **High** | 13a (MCP Server) |
-| **Medium** | 13b (MCP Gateway), 14a (Semantic Diffing), 14b (Memory Lifecycle), 14c (Pre-fetching), 14d (Cross-Repo), 15b (LLM Curation), 17a (Snapshots) |
-| **Low-Medium** | 15c (Background Agent) |
-| **Low** | 16a (Knowledge Graph), 16b (Web Dashboard), 17b (Federated Memory), 17c (NL Config) |
+### 8.1 Definition
 
-> [!TIP]
-> **The single highest-leverage bleeding-edge item is 13a (MCP Server).** Once the toolkit is MCP-native, every AI agent that connects to your project can self-bootstrap, self-diagnose, and self-sync -- no human in the loop. It's the difference between a tool you use and a tool that uses itself.
+A Domain Pack is a versioned, governed knowledge product with:
+
+- explicit scope
+- source set
+- parse and extraction rules
+- trust defaults
+- eval suites
+- refresh policy
+- lifecycle state
+- ownership and review policy
+- install profiles
+- workspace compatibility rules
+
+### 8.2 Pack manifest
+
+```json
+{
+  "packId": "rpgmaker-mz",
+  "domain": "game-dev",
+  "version": "1.0.0-draft",
+  "taxonomyVersion": "1",
+  "status": "draft",
+  "defaultCollections": [
+    "rpgmaker_core_api",
+    "rpgmaker_plugin_patterns",
+    "rpgmaker_tooling",
+    "rpgmaker_llm_workflows",
+    "rpgmaker_private_project"
+  ]
+}
+```
+
+### 8.3 Pack lifecycle states
+
+- `draft`
+- `building`
+- `staged`
+- `validated`
+- `promoted`
+- `deprecated`
+- `retired`
+- `removed`
+
+Rules:
+
+- only validated builds can be promoted
+- deprecated packs are excluded from default retrieval
+- retired packs remain inspectable but frozen
+- removed packs leave tombstoned audit metadata
+
+### 8.4 Pack channels
+
+Supported channels:
+
+- `draft`
+- `candidate`
+- `stable`
+- `frozen`
+
+Use channels to control risk and install defaults.
+
+### 8.5 Pack install profiles
+
+Supported profiles:
+
+- `minimal`
+- `core-only`
+- `developer`
+- `full`
+- `private-first`
+
+Install profile selection must control footprint, source breadth, and retrieval defaults.
+
+### 8.6 Pack ownership and stewardship
+
+Each pack needs accountable owners/reviewers.
+
+Example:
+
+```json
+{
+  "packId": "rpgmaker-mz",
+  "owners": ["Doc"],
+  "reviewers": ["pack-maintainer-1"],
+  "defaultPromotionPolicy": "owner-or-reviewer-approval",
+  "escalationContact": "Doc"
+}
+```
+
+---
+
+## 9. Source Registry and source governance
+
+### 9.1 Source Registry
+
+Every pack must maintain a source registry entry per source with:
+
+- source ID
+- repo URL
+- selected ref or commit
+- parse mode
+- trust tier
+- engine target/version metadata where relevant
+- overlap score
+- parser success rate
+- refresh cadence
+- last reviewed time
+- contribution notes
+- retirement/deprecation state
+
+### 9.2 Source trust model
+
+Trust must be per source, not per pack.
+
+Recommended tiers:
+
+- **High**: authoritative engine/runtime source or extremely strong primary reference
+- **Medium-High**: reputable repo with clear provenance and strong extraction value
+- **Medium**: useful community reference with mixed authority
+- **Low**: thin, obscure, mirrored, or poorly documented source
+- **Quarantined**: not available for default retrieval
+
+### 9.3 Source family registry
+
+Track:
+
+- forks
+- mirrors
+- renamed copies
+- author families
+- near-duplicates
+- wrapper repos
+
+This prevents fake breadth and duplicated trust.
+
+### 9.4 Source retirement and tombstones
+
+A source may become:
+
+- deprecated
+- retired
+- quarantined
+- removed
+
+Deprecated/retired chunks should be excluded from default retrieval but remain auditable.
+
+### 9.5 Unsafe source quarantine
+
+A source enters quarantine for reasons such as:
+
+- malformed parser input
+- suspicious binary content
+- weak provenance
+- duplication with little new value
+- severe extraction failure
+- boundary-policy violation
+
+Quarantined sources are not promoted into default pack retrieval.
+
+---
+
+## 10. Pack build system, transactions, and release discipline
+
+### 10.1 Pack transaction model
+
+Every pack operation must be transactional:
+
+1. prepare
+2. build
+3. validate
+4. promote
+5. rollback
+
+No staged build becomes live until validation and eval pass.
+
+### 10.2 Pack lockfile
+
+Every promoted or candidate build must emit a deterministic `pack.lock.json`:
+
+```json
+{
+  "packId": "rpgmaker-mz",
+  "packVersion": "1.0.0-draft",
+  "builtUtc": "2026-04-12T22:00:00Z",
+  "toolkitVersion": "0.9.0",
+  "taxonomyVersion": "1",
+  "sources": [
+    {
+      "repoUrl": "https://github.com/example/repo",
+      "selectedRef": "abc1234",
+      "parseMode": "plugin-catalog",
+      "parserVersion": "2.1.0",
+      "chunkCount": 418
+    }
+  ]
+}
+```
+
+### 10.3 Human review gates
+
+Require human review when:
+
+- source deltas are large
+- parser versions jump major versions
+- trust tiers change materially
+- visibility boundaries change
+- eval regressions exist with caveats
+- new low-confidence extraction modes are introduced
+
+### 10.4 Pack build outputs
+
+A validated pack build should produce:
+
+- lockfile
+- build manifest
+- artifact counts
+- structured extraction counts
+- eval results
+- pack status summary
+- rollback target metadata
+
+---
+
+## 11. Parser sandbox and ingestion safety
+
+No source ingestion step may execute repository code.
+
+Parser controls must include:
+
+- extension allowlist
+- file size caps
+- source size caps
+- timeout budget per source
+- process isolation where needed
+- crash isolation per source
+- binary refusal by default
+- quarantine on parser failure or suspicious content
+
+---
+
+## 12. Structured extraction pipeline
+
+### 12.1 Principle
+
+Raw semantic chunking is not enough. Domain packs must produce normalized, queryable structural artifacts.
+
+### 12.2 Extraction stages
+
+1. raw file ingest
+2. language-aware parsing
+3. header extraction
+4. API/method-touch extraction
+5. command/param extraction
+6. notetag extraction
+7. conflict-signature extraction
+8. compatibility extraction
+9. canonical entity assignment
+10. artifact normalization
+
+### 12.3 Required normalized artifact families
+
+- `plugin_headers.jsonl`
+- `plugin_commands.jsonl`
+- `plugin_params.jsonl`
+- `notetag_catalog.jsonl`
+- `method_touches.jsonl`
+- `conflict_signatures.jsonl`
+- `compatibility_rules.jsonl`
+- `tool_patterns.jsonl`
+
+### 12.4 Artifact schema registry
+
+Every normalized artifact type must have a versioned schema.
+
+Example:
+
+```json
+{
+  "artifactType": "plugin-command-record",
+  "schemaVersion": "2.0.0",
+  "requiredFields": [
+    "entityId",
+    "pluginName",
+    "commandName",
+    "sourcePath",
+    "sourceRevision"
+  ],
+  "compatibilityNotes": [
+    "v1 records may omit arg schemas"
+  ]
+}
+```
+
+### 12.5 Lineage and derivation tracking
+
+Every derived artifact must record:
+
+- parent source chunk(s)
+- transform type
+- transform version
+- determinism: deterministic | model-assisted
+
+This applies to summaries, normalized records, and LLM-curated artifacts.
+
+---
+
+## 13. Canonical Entity Registry and contradiction handling
+
+### 13.1 Canonical Entity Registry
+
+The system must assign canonical IDs to extracted objects.
+
+Entity types include:
+
+- engine class
+- engine method
+- plugin
+- plugin command
+- plugin parameter
+- notetag
+- tool pattern
+- conflict signature
+- compatibility rule
+
+This allows entity-level diffs, dedupe, and better retrieval.
+
+### 13.2 Contradiction / dispute sets
+
+The system must support explicit disagreement rather than flattening conflicting claims into one fake fact.
+
+Each dispute set should include:
+
+- disputed entity
+- competing claims
+- source and trust level per claim
+- status: open | resolved | local-override
+- preferred claim source if adjudicated
+
+### 13.3 Human annotations and overrides
+
+Humans must be able to add local/project-scoped notes without rewriting source provenance.
+
+Supported annotation types:
+
+- correction
+- deprecation
+- confidence downgrade
+- compatibility note
+- relevance boost
+- caveat
+- project-local override
+
+---
+
+## 14. Retrieval architecture and query routing
+
+### 14.1 Query router
+
+Different questions need different retrieval paths. The router must select retrieval profile, pack set, and ranking logic based on task type and workspace.
+
+### 14.2 Retrieval profiles
+
+Required profiles include:
+
+- `api-lookup`
+- `plugin-pattern`
+- `conflict-diagnosis`
+- `codegen`
+- `private-project-first`
+- `tooling-workflow`
+- `reverse-format`
+
+### 14.3 Cross-pack arbitration
+
+The router must arbitrate across multiple packs. Rules:
+
+- prefer domain-specific authoritative pack over generic pack
+- prefer private-project pack when query is project-local
+- mark cross-pack answers clearly
+- do not let generic dev/reference packs drown out domain-specific evidence
+
+### 14.4 Retrieval cache and invalidation
+
+Retrieval caching is allowed only if keyed by:
+
+- query hash
+- retrieval profile
+- active pack versions
+- project/workspace context
+- taxonomy version
+- engine-target filters where relevant
+
+Invalidate cache on:
+
+- promoted pack build change
+- deprecation/tombstone changes
+- private-project pack update
+- extraction schema or ranking changes
+
+---
+
+## 15. Answer-time control model
+
+### 15.1 Answer plan
+
+Before synthesis, the system must generate an answer plan including:
+
+- selected retrieval profile
+- packs to search
+- required evidence types
+- evidence classes to avoid
+- private/public boundary checks
+- confidence policy
+
+### 15.2 Answer trace
+
+After synthesis, the system must write an answer trace showing:
+
+- evidence used
+- evidence excluded and why
+- answer mode
+- confidence decision
+- workspace context
+- pack versions
+- caveats attached
+- abstain/escalate decision if applicable
+
+### 15.3 Answer evidence policy
+
+Rules:
+
+- foundational claims prefer core/authoritative sources
+- plugin repos are examples unless marked otherwise
+- translation-only evidence cannot carry high confidence
+- conflict diagnosis should include multi-source structural evidence where possible
+- public examples must not override project-local evidence in local workspace contexts
+
+### 15.4 Confidence threshold and abstain policy
+
+The system must support:
+
+- direct answer
+- answer with caveat
+- answer with dispute surfaced
+- abstain
+- escalate to human review
+
+A system that always answers is less trustworthy than one that knows when not to.
+
+### 15.5 Known caveats / falsehood registry
+
+Maintain a registry of repeated misconceptions and compatibility caveats. Answers and evals must use it to avoid recurring falsehoods.
+
+### 15.6 Answer incident bundles
+
+Any bad-answer investigation should be reproducible via an incident bundle containing:
+
+- user query
+- workspace context
+- retrieval profile
+- answer plan
+- answer trace
+- pack versions
+- selected/excluded evidence
+- confidence decision
+- final answer text
+- linked feedback if any
+
+---
+
+## 16. Compatibility matrix and pack-specific correctness controls
+
+Every relevant pack must support structured compatibility data.
+
+For code-heavy packs this includes:
+
+- engine target
+- min/max engine version
+- tested versions
+- known incompatibilities
+- dependency chain rules
+- plugin order assumptions
+- runtime caveats
+
+This allows answers like:
+
+- “this pattern exists, but your version combination is risky”
+- “this method alias is common, but unsafe under this engine/plugin combination”
+
+---
+
+## 17. Operations, resilience, and continuous running
+
+### 17.1 Watch mode and queue discipline
+
+Watch mode must support:
+
+- one loop per project by default
+- graceful shutdown
+- shared locks
+- checkpoint flush on exit
+- debounce and coalescing
+- bounded queues
+- saturation warnings and backpressure
+- no overlap between scheduled/manual/watch runs
+
+### 17.2 Incremental indexing
+
+Support changed-files-only indexing via git diff where possible, hash cache fallback otherwise.
+
+### 17.3 Sync idempotency
+
+All retrying remote writes must carry deterministic idempotency keys or ledger entries.
+
+### 17.4 Resource budgets and circuit breakers
+
+Required controls:
+
+- max runtime
+- max writes
+- max failures before abort
+- max provider cost
+- max queue depth
+- breaker states: closed, open, half-open
+
+### 17.5 Palace backup, restore, and encryption
+
+Support:
+
+- export/import
+- pre-restore backup
+- compatibility validation
+- encrypted archive option
+- checkpointed long-running restore jobs
+
+### 17.6 Proactive heal watch
+
+Allowed, but conservative by default. Unsafe repairs require approval or policy allow.
+
+---
+
+## 18. Telemetry, SLOs, caching, and compaction
+
+### 18.1 Pack telemetry
+
+Track:
+
+- build success rate
+- refresh latency
+- parser failure rate
+- extraction coverage
+- provenance coverage
+- answer grounding rate
+- P95 retrieval latency
+- feedback category counts
+
+### 18.2 SLOs
+
+Every promoted pack should define operational SLOs for quality and performance.
+
+### 18.3 Garbage collection and compaction
+
+Support:
+
+- remove orphaned derived artifacts
+- age out failed staging builds
+- compact pack indexes safely
+- preserve promoted evidence
+- avoid unbounded growth
+
+---
+
+## 19. Eval system, replay, and feedback loop
+
+### 19.1 Eval layers
+
+Use four layers:
+
+1. artifact-level validation
+2. retrieval-level evaluation
+3. answer-level evaluation
+4. golden task end-to-end evaluation
+
+### 19.2 Golden tasks
+
+Golden tasks must reflect real work, not just question prompts.
+
+Examples:
+
+- generate a minimal plugin skeleton with one command and one parameter
+- diagnose whether two plugins conflict and cite touched methods
+- answer how a project-local plugin patches a specific engine surface
+- extract all notetags from a source repo
+- compare a public pattern to a private project implementation
+
+### 19.3 Answer baselines
+
+Use property-based expected behavior, not only exact text.
+
+### 19.4 Upgrade replay harness
+
+Every parser/ranking/pack upgrade should support before/after replay against:
+
+- golden tasks
+- known bad-answer incidents
+- retrieval profiles
+- evidence-selection behavior
+
+### 19.5 Feedback-to-improvement loop
+
+Feedback categories should include:
+
+- bad retrieval
+- wrong authority level
+- contradiction not surfaced
+- low-confidence should have abstained
+- missing source
+- extraction bug
+- ranking bug
+- privacy boundary issue
+
+Recurring feedback patterns must feed source policy, extraction changes, eval updates, or pack governance changes.
+
+---
+
+## 20. Delivery order and roadmap
+
+### Phase 1 — Reliability and control foundation
+
+Build the non-negotiable operational core:
+
+- structured logging
+- run manifests
+- journals/checkpoints
+- file locking + atomic writes
+- schema versioning + migrations
+- effective-config explain/validate
+- live key validation
+- fake provider/service harness
+- Docker ContextLattice fix
+- CI coverage reporting
+
+### Phase 2 — Operator workflow and guarded execution
+
+Make the system understandable and safe to use manually:
+
+- interactive init
+- git hooks
+- health score + concise summary
+- planner/executor previews
+- include/exclude rules
+- runtime compatibility enforcement
+- notification hooks
+- policy and execution-mode enforcement
+- workspaces and boundary policy
+
+### Phase 3 — Safe continuous operation
+
+Enable long-running and background behavior safely:
+
+- watch sync
+- debounce/backpressure queue
+- incremental indexing
+- sync idempotency keys
+- sync telemetry
+- backup/restore
+- encrypted snapshots
+- budgets/circuit breakers
+- PII/secret scanning before sync
+- proactive heal watch
+- resumable long-running operations
+
+### Phase 4 — Pack framework and structured extraction
+
+Move from generic memory to governed knowledge products:
+
+- domain pack manifests
+- source registry
+- source family registry
+- pack lifecycle states
+- pack transactions and lockfile
+- parser sandbox
+- structured extraction pipeline
+- artifact schema registry
+- canonical entity registry
+- compatibility extraction
+- conflict-signature extraction
+
+### Phase 5 — Retrieval and answer integrity
+
+Make the system answer correctly, not just store data:
+
+- query router
+- retrieval profiles
+- cross-pack arbitration
+- answer plan + trace
+- answer evidence policy
+- contradiction/dispute sets
+- confidence + abstain policy
+- caveat registry
+- answer incident bundles
+- retrieval cache + invalidation
+
+### Phase 6 — Human trust, replay, and governance
+
+Make long-term operation auditable and correctable:
+
+- human annotations and overrides
+- pack ownership/stewardship
+- human review gates
+- golden task evals
+- answer baselines
+- replay harness
+- feedback loop
+- pack SLOs
+- compaction and GC
+
+### Phase 7 — Platform expansion
+
+Only after the above is stable:
+
+- MCP-native toolkit server
+- MCP composite gateway
+- snapshots import/export
+- dashboards and graph views
+- external ingestion framework at scale
+- federated/team memory
+- natural-language config generation
+
+---
+
+## 21. What not to do early
+
+Do not prioritize these before the earlier phases are real:
+
+- heavy dashboard work
+- graph visualizations
+- broad federated memory
+- natural-language auto-config apply
+- background agents with broad self-mutation
+- plugin ecosystem growth without lifecycle controls
+- many source waves without extraction governance
+- semantic upgrades without artifact schema/version tracking
+
+These are multipliers. Multipliers amplify weak foundations.
+
+---
+
+## 22. Canonical domain-pack example: RPG Maker MZ
+
+This is the first official worked example pack.
+
+### 22.1 Pack identity
+
+```json
+{
+  "packId": "rpgmaker-mz",
+  "domain": "game-dev",
+  "version": "1.0.0-draft",
+  "taxonomyVersion": "1",
+  "defaultCollections": [
+    "rpgmaker_core_api",
+    "rpgmaker_plugin_patterns",
+    "rpgmaker_tooling",
+    "rpgmaker_llm_workflows",
+    "rpgmaker_private_project"
+  ]
+}
+```
+
+### 22.2 Scope
+
+This pack is for:
+
+- RPG Maker MZ plugin development
+- engine API lookup
+- battle/UI/map/audio extension patterns
+- plugin conflict diagnosis
+- plugin header/parameter reasoning
+- data schema understanding
+- LLM-assisted tooling around MZ projects
+- local/private project code understanding
+
+This pack is not for:
+
+- storing binaries or encrypted assets
+- redistributing proprietary plugin code
+- treating community conventions as engine law
+- replacing project-local private pack context
+
+### 22.3 Collections
+
+#### `rpgmaker_core_api`
+Authoritative engine/runtime surfaces.  
+Default trust: **high**
+
+#### `rpgmaker_plugin_patterns`
+Community plugin patterns and examples.  
+Default trust: **medium**
+
+#### `rpgmaker_tooling`
+Conflict finders, translators, decrypters, and workflow tools.  
+Default trust: **medium**
+
+#### `rpgmaker_llm_workflows`
+LLM-specific project tooling and translation workflows.  
+Default trust: **medium**
+
+#### `rpgmaker_private_project`
+User-authored plugins, notes, and project-specific patterns.  
+Default trust: **high** for originals, lower for generated summaries.
+
+### 22.4 Required metadata for RPG Maker artifacts
+
+In addition to core provenance fields, include when applicable:
+
+- `engineTarget`
+- `engineMinVersion`
+- `engineMaxVersion`
+- `pluginName`
+- `pluginCategory`
+- `pluginCommands`
+- `pluginParams`
+- `notetags`
+- `mzApiSurface`
+- `pluginDependencies`
+- `originalAuthor`
+- `sourceLanguage`
+- `normalizedLanguage`
+- `translationMode`
+- `trustTier`
+
+
+
+### 22.4.1 Additional RPG Maker–specific authority metadata
+
+In addition to trust, every RPG Maker source and extracted artifact should carry an explicit `authorityRole` so the answer layer can distinguish between “useful” and “authoritative.”
+
+Supported values:
+
+- `core-runtime`
+- `private-project`
+- `exemplar-pattern`
+- `tooling-analyzer`
+- `reverse-format`
+- `llm-workflow`
+- `multilingual-summary-source`
+- `bundled-collection`
+
+Examples:
+- P0 runtime files -> `core-runtime`
+- `rpgmaker_private_project` -> `private-project`
+- `Hudell/cyclone-engine`, `theoallen/RMMZ`, `nz-prism/RPG-Maker-MZ` -> `exemplar-pattern`
+- `moonyoulove/rpgmaker-plugin-conflict-finder` -> `tooling-analyzer`
+- `uuksu/RPGMakerDecrypter` -> `reverse-format`
+- `fkiliver/RPGMaker_LLM_Translator` -> `llm-workflow`
+- translated summaries derived from `Sigureya/RPGmakerMZ` and `MikanHako1024/RPGMaker-plugins-public` -> `multilingual-summary-source`
+- `ikmalsaid/rpgmaker-plugins` -> `bundled-collection`
+
+This field is required because trust alone is not enough. A repo can be useful and even fairly trustworthy while still being the wrong source to establish engine-law answers.
+
+### 22.5 Source priority order
+
+#### P0 — Core runtime and engine surfaces
+Promote these ahead of community repos:
+
+- MZ runtime JS files
+- plugin manager/loading model
+- engine data/schema references
+- authoritative runtime notes where legally/practically available
+
+#### P1 — Strong workflow/tooling references
+Examples:
+
+- translation pipelines
+- decrypters
+- runtime/API documentation helpers
+
+#### P2 — High-value community plugin corpora
+Use reputable, broad, well-structured plugin sources that add real extraction value.
+
+#### P3 — Specialized/niche extensions
+Use narrowly targeted sources for conflicts, input, CTB, title customization, spatial audio, and similar focused patterns.
+
+#### P4 — Private project ingestion
+The user’s own plugins, notes, and helper scripts. These are often the most valuable source during actual development.
+
+### 22.6 Required extraction outputs for RPG Maker MZ
+
+Mandatory outputs:
+
+- plugin header extraction
+- plugin parameter schemas
+- plugin command extraction
+- notetag extraction
+- method-touch extraction
+- conflict-signature extraction
+- compatibility extraction
+- engine-version applicability
+- alias vs overwrite classification
+- dependency relation extraction
+
+
+
+### 22.6.1 Mandatory RPG Maker MZ header grammar extraction
+
+Header extraction for MZ plugins must be specific, not generic. At minimum, the extraction layer must parse and normalize:
+
+- `@target`
+- `@base`
+- `@orderAfter`
+- `@orderBefore`
+- `@plugindesc`
+- `@author`
+- `@help`
+- `@command`
+- `@arg`
+- `@param`
+- `@type`
+- `@default`
+- `@text`
+- `@desc`
+
+These fields matter directly for:
+- plugin compatibility and install order reasoning
+- code generation and plugin skeleton generation
+- parameter UI/help reconstruction
+- dependency and load-order analysis
+- conflict diagnosis where plugin order hints are embedded in headers
+
+### 22.6.2 TypeScript and declaration-file handling
+
+The RPG Maker MZ pack must explicitly support TypeScript-heavy sources and `.d.ts` declaration files.
+
+Rules:
+- `.d.ts` files are parsed as API schema/reference artifacts
+- TypeScript source should preserve symbol/type relationships
+- Type relationships should be stored as structured artifacts where possible
+- TS-to-JS compiled similarity must not create duplicate extraction records
+- declaration files can strengthen signature authority, but do not by themselves establish runtime behavior
+
+This matters especially for:
+- `biud436/MZ` because of `lunalite-pixi-mz.d.ts`
+- `Sodium-Aluminate/rpgmakerUserPlugins` because of TS-heavy source structure
+
+### 22.7 Retrieval rules for RPG Maker pack
+
+For foundational engine questions:
+- prefer `rpgmaker_core_api`
+
+For code examples and plugin idioms:
+- prefer `rpgmaker_plugin_patterns`
+
+For project-specific behavior:
+- prefer `rpgmaker_private_project`
+
+For workflow/tooling questions:
+- prefer `rpgmaker_tooling` or `rpgmaker_llm_workflows`
+
+For conflict diagnosis:
+- require structural evidence from touched methods and plugin headers when possible
+
+
+
+### 22.7.1 Repo-specific retrieval routing rules
+
+The query router for the RPG Maker MZ pack must be repo-aware, not just collection-aware.
+
+#### Conflict diagnosis
+Preferred evidence order:
+1. `rpgmaker_private_project`
+2. `moonyoulove/rpgmaker-plugin-conflict-finder`
+3. P0 runtime files
+4. the exact plugin repos named in the question
+
+#### Battle system and action-sequence questions
+Preferred evidence order:
+1. `rpgmaker_private_project`
+2. `theoallen/RMMZ`
+3. `MihailJP/mihamzplugin`
+4. `PavlosDefoort/RPGMakerPluginSuite`
+5. `Drakkonis-MZ/RPGMaker-MZ-plugins`
+6. P0 runtime files
+
+#### Movement / map / event-flow questions
+Preferred evidence order:
+1. `rpgmaker_private_project`
+2. `Hudell/cyclone-engine`
+3. `comuns-rpgmaker/GabeMZ`
+4. `amateurgamedev/RegionReveal`
+5. `BenMakesGames/RPG-Maker-MZ-Plugins`
+6. P0 runtime files
+
+#### Input / keyboard / control-remapping questions
+Preferred evidence order:
+1. `rpgmaker_private_project`
+2. `davidmcasas/RPGMakerMZ-CustomKeyboardMapping`
+3. `biud436/MZ`
+4. P0 runtime files
+
+#### Tooling / decryption / translation / workflow questions
+Preferred evidence order:
+1. `uuksu/RPGMakerDecrypter`
+2. `fkiliver/RPGMaker_LLM_Translator`
+3. `Justype/RPGMakerUtils`
+4. `moonyoulove/rpgmaker-plugin-conflict-finder`
+
+#### Fog / weather / layer / overlay questions
+Preferred evidence order:
+1. `rpgmaker_private_project`
+2. `comuns-rpgmaker/GabeMZ`
+3. `Hudell/cyclone-engine`
+4. other map-visual repos only if directly relevant
+
+These routing rules exist to make the concrete repo set operational rather than decorative.
+
+### 22.8 RPG Maker eval suites
+
+#### API lookup suite
+Examples:
+- standard plugin command registration pattern
+- common `Window_Message` hooks
+- `Scene_Battle` customization surfaces
+
+#### Code generation suite
+Examples:
+- minimal plugin skeleton
+- one plugin command example
+- one notetag parser example
+- title logo replacement skeleton
+
+#### Conflict analysis suite
+Examples:
+- detect overlapping method patches
+- distinguish alias-chain vs overwrite risk
+- identify plugin-order sensitivity
+
+#### Domain correctness negative suite
+The system must not:
+
+- invent nonexistent APIs
+- treat plugin conventions as core engine requirements
+- ignore engine-version boundaries
+- confuse MV and MZ without warning
+
+#### Retrieval provenance suite
+The system must:
+
+- cite source repo/path
+- distinguish original vs translated summary
+- prefer higher-trust/core sources for foundational claims
+
+
+
+### 22.8.1 Repo-specific evaluation tasks
+
+In addition to the general eval suites above, the RPG Maker pack must ship with repo-specific tasks that prove the named sources are being used correctly.
+
+Examples:
+
+- “Does `Cyclone-Movement` conflict with a plugin that also aliases `Game_CharacterBase.updateMove`?”
+- “How does `theoallen/RMMZ` TBSE change the answer for custom battle action sequencing?”
+- “How should `davidmcasas/RPGMakerMZ-CustomKeyboardMapping` affect input-layer answers versus generic `Input` examples?”
+- “When a query is about fog or weather overlays, do `comuns-rpgmaker/GabeMZ` and `Cyclone-AdvancedMaps` rank above unrelated map plugins?”
+- “Can the system explain why `moonyoulove/rpgmaker-plugin-conflict-finder` is evidence for collision diagnosis but not for engine API authority?”
+- “If the user asks how their own plugin patches `Scene_Battle`, does `rpgmaker_private_project` outrank `theoallen/RMMZ`, `PavlosDefoort/RPGMakerPluginSuite`, and `MihailJP/mihamzplugin`?”
+- “Does a JP or ZH source from `Sigureya/RPGmakerMZ` or `MikanHako1024/RPGMaker-plugins-public` keep original-source precedence over the English summary?”
+
+These tasks should be tracked as stable golden tasks, not ad hoc spot checks.
+
+### 22.9 Install profiles for RPG Maker pack
+
+- `core-only`: engine/runtime surfaces only
+- `minimal`: core + a few high-value tool/plugin sources
+- `developer`: balanced public pack
+- `full`: all promoted public waves
+- `private-first`: minimal public + strong local project emphasis
+
+
+
+#### `core-only`
+Exact membership:
+- `js/rmmz_core.js`
+- `js/rmmz_managers.js`
+- `js/rmmz_objects.js`
+- `js/rmmz_scenes.js`
+- `js/rmmz_sprites.js`
+- `js/rmmz_windows.js`
+- `js/plugins.js`
+
+#### `minimal`
+Exact membership:
+- all `core-only` members
+- `nz-prism/RPG-Maker-MZ`
+- `comuns-rpgmaker/GabeMZ`
+- `moonyoulove/rpgmaker-plugin-conflict-finder`
+- `davidmcasas/RPGMakerMZ-CustomKeyboardMapping`
+
+#### `developer`
+Exact membership:
+- all `minimal` members
+- `Hudell/cyclone-engine`
+- `theoallen/RMMZ`
+- `biud436/MZ`
+- `MihailJP/mihamzplugin`
+- `BenMakesGames/RPG-Maker-MZ-Plugins`
+- `LyraVultur/RPGMakerPlugins`
+- `Drakkonis-MZ/RPGMaker-MZ-plugins`
+- `uuksu/RPGMakerDecrypter`
+- `Justype/RPGMakerUtils`
+
+#### `full`
+Exact membership:
+- all promoted public sources in `22.11`
+
+#### `private-first`
+Exact membership:
+- all `core-only` members
+- `rpgmaker_private_project`
+- fallback public set:
+  - `nz-prism/RPG-Maker-MZ`
+  - `comuns-rpgmaker/GabeMZ`
+  - `moonyoulove/rpgmaker-plugin-conflict-finder`
+
+The point of `private-first` is not breadth. It is to keep project-local truth ahead of public example repos.
+
+### 22.10 Private-project policy for RPG Maker pack
+
+Rules:
+
+- separate collection or namespace
+- strict secret scanning
+- no sharing/federation by default
+- highest retrieval priority in matching project context
+- encrypted backups preferred
+- public fallback must be labeled as fallback
+
+### 22.11 Evaluated source registry
+
+The following repositories were evaluated across four waves and accepted for ingestion into the RPG Maker MZ pack. This registry is the concrete source set that the priority tiers (22.5) draw from. The named repos below are not decorative; routing, extraction, authority, refresh, and eval behavior should be tied back to them explicitly.
+
+#### P0 — Core runtime (pending ingestion)
+
+| Source | Notes |
+|--------|-------|
+| `js/rmmz_core.js` | Engine core: graphics, input, audio, utility |
+| `js/rmmz_managers.js` | DataManager, AudioManager, SceneManager, PluginManager |
+| `js/rmmz_objects.js` | Game_* objects: actors, map, party, system |
+| `js/rmmz_scenes.js` | Scene_* lifecycle: title, map, battle, menu |
+| `js/rmmz_sprites.js` | Sprite_* rendering: characters, battlers, animations |
+| `js/rmmz_windows.js` | Window_* UI: menus, messages, selectable lists |
+| `js/plugins.js` | Plugin loader format, parameter resolution |
+
+#### P1 — Workflow / tooling
+
+| Source | Trust | License | Notes |
+|--------|-------|---------|-------|
+| `fkiliver/RPGMaker_LLM_Translator` | Medium-High | — | LLM-driven game text translation pipeline |
+| `uuksu/RPGMakerDecrypter` | Medium | MIT | .rgss archive decryption (C#) |
+| `Justype/RPGMakerUtils` | Medium | MIT | Project file utilities and helpers |
+| `moonyoulove/rpgmaker-plugin-conflict-finder` | Medium | MIT | Plugin conflict detection tool |
+
+#### P2 — High-value community plugin corpora
+
+| Source | Trust | Stars | License | Key value |
+|--------|-------|-------|---------|-----------|
+| `nz-prism/RPG-Maker-MZ` | Medium-High | 30+ | MIT | 20+ polished plugins: map, menu, battle, options |
+| `comuns-rpgmaker/GabeMZ` | Medium-High | 20+ | MIT | Fog, weather, CTB, map layers, MV→MZ patterns |
+| `Sigureya/RPGmakerMZ` | Medium | 15+ | MIT | Japanese-language plugins; multilingual policy target |
+| `MikanHako1024/RPGMaker-plugins-public` | Medium | 10+ | MIT | Chinese-language plugins; multilingual policy target |
+| `LyraVultur/RPGMakerPlugins` | Medium | — | MIT | Map, battle, and UI extensions |
+| `erri120/RPGMakerPlugins` | Medium | — | GPL-3.0 | Engine patches and quality-of-life fixes |
+| `Drakkonis-MZ/RPGMaker-MZ-plugins` | Medium | — | MIT | Core-dependent plugin suite (Drak_Core base) |
+| `Hudell/cyclone-engine` | Medium-High | 32 | Apache-2.0 | Pixel movement, advanced maps, time system, in-game map editor, async events, Steam integration |
+| `theoallen/RMMZ` | Medium-High | 27 | Free/MIT | Battle Sequence Engine (TBSE), extensive plugin collection |
+| `biud436/MZ` | Medium | 17 | MIT | 20+ plugins: HUD, face animation, event creation, lighting, wave filters, TypeScript defs, non-Latin input |
+| `BenMakesGames/RPG-Maker-MZ-Plugins` | Medium | 0 | Free | 13 plugins: ScreenByScreen transitions, DanceInputs, pushable events, custom criticals |
+| `ikmalsaid/rpgmaker-plugins` | Medium | — | — | Curated author collection |
+| `GamesOfShadows/rpgmaker_mv-mz_plugins` | Medium | — | — | UI and audio utilities |
+
+#### P3 — Specialized / niche
+
+| Source | Trust | Stars | License | Key value |
+|--------|-------|-------|---------|-----------|
+| `PhobiaGH/RPGMZ_Proximity_MultiSound` | Medium | — | — | Spatial/proximity audio system |
+| `cellicom/rpgmaker-plugins` | Medium | — | — | D&D mechanics (dice, stats, random encounters) |
+| `davidmcasas/RPGMakerMZ-CustomKeyboardMapping` | Medium | — | MIT | Full keyboard input override |
+| `amateurgamedev/RegionReveal` | Medium | — | — | Region-based map reveal mechanic |
+| `PavlosDefoort/RPGMakerPluginSuite` | Medium | — | MIT | Battle portrait hooks, HP-based visual feedback |
+| `jomarcenter-mjm/RPGMakerMZ-PublicPlugins` | Medium | — | — | Title screen logo/customization |
+| `Sodium-Aluminate/rpgmakerUserPlugins` | Medium | — | — | User plugin utilities |
+| `alderpaw/rmmz_custom_plugins` | Medium | — | — | Custom plugin collection |
+| `SumRndmDde/MZPlugins` | Medium | 6 | — | MapMixer, event trigger extensions (well-known MV-era author) |
+| `MihailJP/mihamzplugin` | Medium | 8 | Unlicense | 16 plugins: TPB mods, cut-ins, ZombieActor, battle speech |
+
+#### Skipped / duplicate sources
+
+| Source | Reason |
+|--------|--------|
+| `Viodow/rpgmaker_mv-mz_plugins` | Fork/duplicate of `GamesOfShadows` |
+
+#### Key API surfaces across registered sources
+
+The following engine surfaces are touched by multiple registered sources and represent high-value extraction targets:
+
+- `Scene_Battle` / `BattleManager` / `Game_Action` — battle system extensions
+- `Scene_Map` / `Game_Map` / `Game_Event` — map and event systems
+- `Scene_Title` — title screen customization
+- `Game_CharacterBase` / `Game_Player` — movement and character control
+- `Window_Message` / `Window_Base` — UI/messaging hooks
+- `Sprite_Character` / `Sprite_Battler` — visual rendering
+- `Input` — keyboard/gamepad override
+- `ImageManager` / `AudioManager` — asset loading
+- `PluginManager` — plugin command registration
+- PIXI filters — visual effects layer
+
+---
+
+
+
+### 22.12 Repo-by-repo extraction target matrix
+
+This matrix defines what each named source is there to teach the system. It is one of the most important practical sections in the pack spec.
+
+| Repo / Source | Primary value | Must-extract | Authority role | Risk notes |
+|---|---|---|---|---|
+| `js/rmmz_core.js` / `js/rmmz_managers.js` / `js/rmmz_objects.js` / `js/rmmz_scenes.js` / `js/rmmz_sprites.js` / `js/rmmz_windows.js` / `js/plugins.js` | Core runtime truth | classes, methods, inheritance, manager interactions, plugin loading semantics | `core-runtime` | must outrank public examples on foundational questions |
+| `Hudell/cyclone-engine` | movement/map systems | `Game_Map`, `Game_CharacterBase`, `Scene_Map`, collision hooks, event creation patterns | `exemplar-pattern` | can dominate movement/map retrieval if weights are careless |
+| `theoallen/RMMZ` | battle framework architecture | `Scene_Battle`, `BattleManager`, action-sequence patterns, battler hooks | `exemplar-pattern` | powerful but not engine law |
+| `biud436/MZ` | broad UI/effects/input patterns | PIXI filters, title systems, TS defs, input/dialog hooks | `exemplar-pattern` | breadth can inflate relevance if unbounded |
+| `nz-prism/RPG-Maker-MZ` | polished plugin patterns | headers, params, commands, scene/window patches | `exemplar-pattern` | pattern source, not authority |
+| `comuns-rpgmaker/GabeMZ` | fog/weather/map layers/CTB | map render hooks, overlays, weather, battle/map features | `exemplar-pattern` | likely overlap with other visual/map repos |
+| `moonyoulove/rpgmaker-plugin-conflict-finder` | conflict tooling | override chains, alias detection, touched prototypes | `tooling-analyzer` | do not use as runtime-behavior authority |
+| `davidmcasas/RPGMakerMZ-CustomKeyboardMapping` | input layer | `Input`, mapping UI, persistence rules | `exemplar-pattern` | should dominate only input/control queries |
+| `BenMakesGames/RPG-Maker-MZ-Plugins` | mechanic-specific patterns | input sequences, map transitions, notetags, event mechanics | `exemplar-pattern` | do not promote to engine authority |
+| `PhobiaGH/RPGMZ_Proximity_MultiSound` | spatial audio | event notetags, BGS distance logic, audio parameter patterns | `exemplar-pattern` | should mostly stay in audio-oriented routing |
+| `MihailJP/mihamzplugin` | TPB/cut-ins/battle UX | battle hooks, cast time, enemy analysis, cut-ins | `exemplar-pattern` | likely version-sensitive |
+| `Drakkonis-MZ/RPGMaker-MZ-plugins` | dependency-based suite | `Drak_Core` dependency graph, TP systems, suite-level assumptions | `exemplar-pattern` | requires dependency extraction to be useful |
+| `Sigureya/RPGmakerMZ` | multilingual plugin corpus | headers, commands, params, original JP text | `exemplar-pattern` + `multilingual-summary-source` | translated summaries must not outrank source |
+| `MikanHako1024/RPGMaker-plugins-public` | multilingual plugin corpus | headers, commands, params, original ZH text | `exemplar-pattern` + `multilingual-summary-source` | same translation risk as above |
+| `uuksu/RPGMakerDecrypter` | reverse/decryption tooling | file-format knowledge, decryption flow, archive semantics | `reverse-format` | keep out of normal plugin codegen answers |
+| `fkiliver/RPGMaker_LLM_Translator` | LLM workflow | data JSON flow, translation pipeline, batching/error handling | `llm-workflow` | not engine/plugin authority |
+| `Justype/RPGMakerUtils` | project utilities | file structure utilities, helper workflows | `tooling-analyzer` | useful for workflow answers, not runtime authority |
+| `ikmalsaid/rpgmaker-plugins` | bundled collection | original author provenance, plugin grouping | `bundled-collection` | wrapper repo; authority must be downgraded unless original author traced |
+
+### 22.13 Dependency and core-plugin map
+
+The RPG Maker MZ pack must explicitly model repo-level and plugin-level dependency facts.
+
+Known high-value dependency examples:
+- `Drakkonis-MZ/RPGMaker-MZ-plugins` -> `Drak_Core` is foundational and should be extracted as a dependency root
+- `MihailJP/mihamzplugin` -> selected plugins depend on `PluginCommonBase` and `ExtraWindow`
+- `Hudell/cyclone-engine` -> shared architecture across Cyclone plugins should be modeled as a suite, not isolated one-offs
+- `theoallen/RMMZ` -> TBSE-specific battle assumptions must be surfaced before codegen or compatibility advice
+- `ikmalsaid/rpgmaker-plugins` -> bundled third-party author provenance should be extracted per plugin where possible
+
+A retrieval answer should not recommend a plugin pattern while omitting its actual prerequisite core plugin or order dependency.
+
+### 22.14 Repo-specific authority constraints
+
+The following constraints are mandatory:
+
+- do not use `GamesOfShadows/rpgmaker_mv-mz_plugins` to establish engine law
+- do not use `BenMakesGames/RPG-Maker-MZ-Plugins` to define canonical engine behavior
+- do not use `moonyoulove/rpgmaker-plugin-conflict-finder` as runtime-behavior authority
+- do not let translated summaries from `Sigureya/RPGmakerMZ` or `MikanHako1024/RPGMaker-plugins-public` outrank original source code
+- do not let `uuksu/RPGMakerDecrypter` bleed into normal plugin-pattern/codegen answers unless the query profile is reverse/decryption/tooling
+- do not let `ikmalsaid/rpgmaker-plugins` outrank an original-author source when the same plugin lineage can be traced more directly elsewhere
+
+These rules are what keep the named repos useful without letting them distort authority.
+
+### 22.15 Multilingual precedence rules by named repo
+
+Repo-specific multilingual handling rules:
+
+- `Sigureya/RPGmakerMZ` -> original Japanese source is primary; English summary is helper only
+- `MikanHako1024/RPGMaker-plugins-public` -> original Chinese source is primary; English summary is helper only
+- `biud436/MZ` -> Korean-language documentation may be summarized, but `.d.ts` files and code artifacts should be parsed structurally rather than summarized as prose
+- any translated summary derived from source code must be labeled as generated assistance, not primary authority
+
+### 22.16 Refresh cadence and review policy by repo class
+
+Use repo-aware refresh policy rather than one generic cadence:
+
+- P0 runtime files -> refresh only when target RPG Maker MZ engine version changes
+- `Hudell/cyclone-engine`, `theoallen/RMMZ`, `biud436/MZ` -> 30-day review cadence
+- `nz-prism/RPG-Maker-MZ`, `comuns-rpgmaker/GabeMZ`, `MihailJP/mihamzplugin` -> 45–60 day cadence
+- niche repos such as `RegionReveal`, `PavlosDefoort/RPGMakerPluginSuite`, `jomarcenter-mjm/RPGMakerMZ-PublicPlugins` -> manual / promote-on-change cadence
+- `ikmalsaid/rpgmaker-plugins` -> higher scrutiny because it is a bundled collection and not a single original-author stream
+
+### 22.17 Repo health and risk notes
+
+Each named repo in the source registry should carry concise operational risk notes such as:
+
+- multilingual source
+- bundled collection
+- unclear license
+- depends on core plugin
+- high overlap risk
+- likely version-sensitive
+- tooling-only
+- reverse-format only
+- example-only, not authority
+
+These notes should influence review and promotion decisions.
+
+### 22.18 Bundled-collection policy
+
+Some repos, especially `ikmalsaid/rpgmaker-plugins`, are wrapper collections rather than original-author sources.
+
+Rules:
+- extract `originalAuthor` per plugin wherever possible
+- bundled collections cannot inherit full authority from the wrapper repo itself
+- if a plugin inside a bundled collection is later ingested from an original-author source, prefer the original-author source
+- bundled collection entries should receive provenance downgrade if original-author tracing is missing
+
+This prevents convenience bundles from distorting the pack’s authority model.
+
+## 23. Suggested acceptance test matrix
+
+### Scenario 1 — Fresh setup
+- init run
+- config preview shown
+- effective config valid
+- doctor healthy
+- first dry-run sync succeeds
+
+### Scenario 2 — Concurrent operations
+- watch sync running
+- manual sync invoked
+- heal watch invoked
+- no state corruption
+- denied operations blocked by policy
+
+### Scenario 3 — Interrupted execution
+- kill process mid-write
+- rerun with `--resume`
+- journal resumes safely
+- state remains readable
+
+### Scenario 4 — Invalid provider
+- bad key
+- correct classification
+- optional rotation prompt
+
+### Scenario 5 — Secret-bearing content
+- secret detected
+- report-only, redact, strict modes behave correctly
+- backups/manifests remain masked
+
+### Scenario 6 — Runtime drift
+- package outside lock range
+- compatibility check warns
+- health score degrades appropriately
+
+### Scenario 7 — Backup and restore
+- export palace
+- encrypt archive
+- wipe local target
+- import backup
+- counts and metadata preserved
+
+### Scenario 8 — Pack refresh rollback
+- build candidate
+- fail validation or eval
+- system reverts to prior promoted build
+- no stale candidate becomes live
+
+### Scenario 9 — High file churn
+- branch checkout + generated file churn
+- queue debounces/coalesces
+- watch mode remains stable
+
+### Scenario 10 — Re-embedding migration
+- chunker/model version changes
+- dry-run estimates work
+- resumed batch completes
+- cutover preserves searchability
+
+### Scenario 11 — Delete propagation
+- source removed or scrub requested
+- tombstone created
+- remote delete attempted/surfaced
+- deleted item does not resurrect
+
+### Scenario 12 — Query routing and answer evidence
+- foundational question prefers core source
+- project-local question prefers private pack
+- conflict question includes multi-source structural evidence
+- translation-only evidence lowers confidence
+
+### Scenario 13 — Abstain/escalate behavior
+- weak evidence
+- contradictory evidence
+- low-confidence codegen
+- system abstains or escalates per policy
+
+### Scenario 14 — Human annotation and replay
+- local override added
+- answer changes appropriately in local workspace
+- replay harness shows evidence-path change
+
+---
+
+
+
+### Scenario 15 — Repo-specific routing and authority enforcement
+- fog/weather query ranks `comuns-rpgmaker/GabeMZ` and `Hudell/cyclone-engine` ahead of unrelated map repos
+- input query ranks `davidmcasas/RPGMakerMZ-CustomKeyboardMapping` ahead of generic `Input` examples
+- conflict query uses `moonyoulove/rpgmaker-plugin-conflict-finder` for diagnosis but not for engine authority
+- translated JP/ZH summaries from `Sigureya/RPGmakerMZ` and `MikanHako1024/RPGMaker-plugins-public` do not outrank original source code
+- bundled-collection content from `ikmalsaid/rpgmaker-plugins` is downgraded when original-author provenance is missing
+
+## 24. Final priority call
+
+The highest-leverage work, in order:
+
+1. journaling + checkpoints
+2. file locking + atomic writes
+3. effective-config explain/validate
+4. policy and execution-mode enforcement
+5. workspaces and visibility boundaries
+6. pack manifest + source registry + lifecycle
+7. pack transaction model + lockfile
+8. structured extraction pipeline
+9. canonical entity registry
+10. query router + retrieval profiles
+11. answer plan + trace
+12. confidence + abstain policy
+13. human annotations + replay
+14. golden-task evals and feedback loop
+
+The biggest risk is no longer lack of features.  
+It is **losing control of state, evidence, pack promotion, and private/public boundaries as the system grows**.
+
+This document is the canonical architecture intended to stop that from happening.
