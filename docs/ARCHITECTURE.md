@@ -5,6 +5,7 @@ This document provides detailed architectural diagrams and explanations of the C
 ## Table of Contents
 
 - [Overview](#overview)
+- [Phase 1 Core Infrastructure](#phase-1-core-infrastructure)
 - [Main Architecture Flowchart](#main-architecture-flowchart)
 - [Detailed Component Diagram](#detailed-component-diagram)
 - [Data Flow Diagram](#data-flow-diagram)
@@ -21,6 +22,130 @@ The LLM Workflow is a unified toolkit that integrates three core components:
 - **CodeMunch**: Project indexing and MCP wrapper setup
 - **ContextLattice**: Project bootstrap and connectivity verification
 - **MemPalace**: Vector storage with incremental bridge to ContextLattice
+
+---
+
+## Phase 1 Core Infrastructure
+
+The platform implements enterprise-grade operational infrastructure per [IMPROVEMENT_PROPOSALS.md](../IMPROVEMENT_PROPOSALS.md). This provides state integrity, operator trust, safe continuous operation, and controlled automation.
+
+### Core Infrastructure Stack
+
+```mermaid
+graph TB
+    subgraph CoreInfrastructure["Phase 1 Core Infrastructure"]
+        direction TB
+        
+        subgraph Journaling["Journaling & Checkpoints"]
+            J1[Run Manifests]
+            J2[Journal Entries]
+            J3[Checkpoint System]
+            J4[Resume Support]
+        end
+        
+        subgraph StateSafety["State Safety"]
+            S1[File Locking]
+            S2[Atomic Writes]
+            S3[Schema Versioning]
+            S4[Stale Lock Reclamation]
+        end
+        
+        subgraph ConfigSystem["Configuration"]
+            C1[Effective Config]
+            C2[Source Tracking]
+            C3[Secret Masking]
+            C4[Env Var Resolution]
+        end
+        
+        subgraph PolicySystem["Policy & Safety"]
+            P1[Policy Gates]
+            P2[Execution Modes]
+            P3[Safety Levels]
+            P4[Command Contracts]
+        end
+        
+        subgraph WorkspaceSystem["Workspaces"]
+            W1[Workspace Management]
+            W2[Visibility Rules]
+            W3[Secret Scanning]
+            W4[Pack Access Control]
+        end
+    end
+    
+    subgraph ControlPlane["Control Plane"]
+        CP1[Bootstrap]
+        CP2[Policy Checks]
+        CP3[Lock Management]
+        CP4[Manifest Writing]
+    end
+    
+    subgraph DataPlane["Data Plane"]
+        DP1[Sync Processing]
+        DP2[Vector Store I/O]
+        DP3[Extraction Jobs]
+        DP4[Pack Builds]
+    end
+    
+    CoreInfrastructure --> ControlPlane
+    ControlPlane --> DataPlane
+    
+    style CoreInfrastructure fill:#e3f2fd
+    style Journaling fill:#e8f5e9
+    style StateSafety fill:#fff3e0
+    style ConfigSystem fill:#fce4ec
+    style PolicySystem fill:#f3e5f5
+    style WorkspaceSystem fill:#e0f2f1
+    style ControlPlane fill:#fff9c4
+    style DataPlane fill:#ffebee
+```
+
+### System Invariants
+
+| Invariant | Description | Implementation |
+|-----------|-------------|----------------|
+| **Command Contract** | Every command defines purpose, params, exit codes, safety level | `CommandContract.ps1` |
+| **State Safety** | Atomic writes, file locking, schema versioning | `AtomicWrite.ps1`, `FileLock.ps1` |
+| **Journal** | Before/after checkpoint entries for all multi-step operations | `Journal.ps1` |
+| **Policy** | Policy gates checked before locks and before apply | `Policy.ps1` |
+| **Secret/PII** | No secrets in logs, manifests, or exports unmasked | `Visibility.ps1` |
+| **Dry-Run** | Planner/executor separation for all mutating commands | `CommandContract.ps1` |
+
+### Configuration Precedence
+
+```mermaid
+graph BT
+    A[Built-in Defaults] --> B[Central Profile]
+    B --> C[Project Config]
+    C --> D[Environment Variables]
+    D --> E[Command Arguments]
+    
+    style A fill:#f3e5f5
+    style B fill:#e8f5e9
+    style C fill:#fff3e0
+    style D fill:#fce4ec
+    style E fill:#e3f2fd
+```
+
+### Execution Mode Matrix
+
+| Mode | Allowed Operations | Use Case |
+|------|-------------------|----------|
+| `interactive` | All operations | Human-driven development |
+| `ci` | sync, index, validate, test | Continuous integration |
+| `watch` | sync, index, telemetry | File watcher mode |
+| `heal-watch` | safe repairs, telemetry | Proactive maintenance |
+| `scheduled` | sync, backup, reports | Cron jobs |
+| `mcp-readonly` | doctor, status, search, preview | Read-only access |
+| `mcp-mutating` | All except delete, prune | Controlled mutations |
+
+### Workspace Types
+
+| Type | Visibility | Exportable | Use Case |
+|------|-----------|------------|----------|
+| `personal` | User-local | No | Default personal workspace |
+| `project` | Project-local | Configurable | Project-specific context |
+| `team` | Team-shared | Yes | Shared team knowledge |
+| `readonly` | Reference only | No | External reference packs |
 
 ---
 
@@ -487,6 +612,67 @@ graph LR
 ---
 
 ## Component Details
+
+### Core Infrastructure Components
+
+```mermaid
+graph TB
+    subgraph CoreLayer["Core Infrastructure Layer"]
+        direction TB
+        
+        subgraph RunMgmt["Run Management"]
+            R1[New-RunId]
+            R2[New-RunManifest]
+            R3[New-JournalEntry]
+            R4[Get-JournalState]
+        end
+        
+        subgraph Locking["File Locking"]
+            L1[Lock-File]
+            L2[Unlock-File]
+            L3[Test-StaleLock]
+            L4[Remove-StaleLock]
+        end
+        
+        subgraph AtomicOps["Atomic Operations"]
+            A1[Write-AtomicFile]
+            A2[Write-JsonAtomic]
+            A3[Backup-AndWrite]
+            A4[Sync-File]
+        end
+        
+        subgraph Config["Configuration"]
+            CF1[Get-EffectiveConfig]
+            CF2[Get-ConfigValue]
+            CF3[Export-ConfigExplanation]
+            CF4[Test-ConfigValidation]
+        end
+        
+        subgraph Policy["Policy"]
+            PO1[Test-PolicyPermission]
+            PO2[Assert-PolicyPermission]
+            PO3[Get-ExecutionModePolicy]
+            PO4[Request-Confirmation]
+        end
+        
+        subgraph Workspace["Workspace"]
+            W1[Get-CurrentWorkspace]
+            W2[New-Workspace]
+            W3[Test-VisibilityRule]
+            W4[Protect-SecretData]
+        end
+    end
+    
+    CoreLayer --> ModuleLayer
+    
+    style CoreLayer fill:#e3f2fd
+    style RunMgmt fill:#e8f5e9
+    style Locking fill:#fff3e0
+    style AtomicOps fill:#fce4ec
+    style Config fill:#f3e5f5
+    style Policy fill:#e0f2f1
+    style Workspace fill:#fff9c4
+```
 
 ### PowerShell Module Structure
 

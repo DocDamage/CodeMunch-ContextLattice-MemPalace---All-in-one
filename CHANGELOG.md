@@ -8,6 +8,68 @@ The format is based on Keep a Changelog and this project follows Semantic Versio
 
 ### Added
 
+#### Phase 1 Core Infrastructure (v0.3.0)
+
+Complete implementation of Phase 1 priorities from IMPROVEMENT_PROPOSALS.md using agent swarm approach:
+
+**Priority 1: Journaling + Checkpoints**
+- Run identification system with `New-RunId` (timestamp-based IDs like `20260411T210501Z-7f2c`)
+- Structured JSON-lines logging with redaction support (`Write-StructuredLog`)
+- Run manifests tracking command, args, execution mode, locks, artifacts
+- Journal entries with before/after checkpoints for resume support
+- Correlation IDs for distributed tracing
+
+**Priority 2: File Locking + Atomic Writes**
+- Cross-platform file locking (`Lock-File`, `Unlock-File`, `Test-StaleLock`)
+- Atomic write operations using temp-file + fsync + rename pattern
+- State file management with schema versioning
+- Stale lock reclamation with PID verification
+- Backup rotation for destructive mutations
+
+**Priority 3: Effective Configuration System**
+- 5-level configuration precedence (defaults → profile → project → env → args)
+- `Get-LLMWorkflowEffectiveConfig` command with source tracking
+- `llmconfig --explain` and `llmconfig --validate` CLI commands
+- Secret masking in output (API keys, tokens, passwords)
+- Environment variable support with `LLMWF_*` prefix
+- Execution mode configuration (interactive, ci, watch, heal-watch, scheduled, mcp-readonly, mcp-mutating)
+
+**Priority 4: Policy + Execution Mode Enforcement**
+- Policy gates checked BEFORE locks and BEFORE apply operations
+- 7 execution modes with different capability rules
+- 4 safety levels: read-only, mutating, destructive, networked
+- Command contract system with planner/executor separation
+- Confirmation prompts for dangerous operations (restore, prune, delete)
+- Exit codes: 9 (policy blocked), 11 (permission denied), 12 (user cancelled)
+
+**Priority 5: Workspace + Visibility Boundaries**
+- Workspace management (personal, project, team, readonly)
+- 4 visibility levels: private, local-team, shared, public-reference
+- Secret and PII scanning with 18 detection patterns
+- Private project pack precedence in retrieval
+- Export permission controls with data redaction
+
+**New Module Files (16 core PowerShell modules, 100+ functions):**
+```
+module/LLMWorkflow/core/
+├── RunId.ps1, Logging.ps1, Journal.ps1
+├── FileLock.ps1, AtomicWrite.ps1, StateFile.ps1
+├── ConfigSchema.ps1, ConfigPath.ps1, Config.ps1, ConfigCLI.ps1
+├── Policy.ps1, ExecutionMode.ps1, CommandContract.ps1
+├── Workspace.ps1, Visibility.ps1, PackVisibility.ps1
+```
+
+**System Invariants Implemented:**
+- Command contract invariant (safety levels, exit codes, dry-run)
+- State safety invariant (atomic writes, file locking, schema versioning)
+- Journal invariant (before/after checkpoint entries)
+- Policy invariant (gates before locks and apply)
+- Secret/PII invariant (redaction, masking, scanning)
+- Dry-run invariant (planner/executor separation)
+- Cross-platform invariant (Windows/Linux/macOS)
+
+### Added
+
 #### Core Infrastructure
 - **Provider Resolution System**: Auto-detection with priority ordering (OpenAI > Claude > Kimi > Gemini > GLM > Ollama)
   - `Get-ProviderProfile`, `Resolve-ProviderProfile`, `Get-ProviderPreferenceOrder`

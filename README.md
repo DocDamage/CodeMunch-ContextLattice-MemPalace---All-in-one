@@ -45,6 +45,7 @@ Canonical toolkit repo for the integrated workflow:
 | **Extensible** | Plugin system for custom tools | `llmplugins` |
 | **Portable** | Docker containers for any environment | `docker-compose up` |
 | **Safe** | Schema validation & drift detection | Built-in |
+| **Enterprise-Grade** | Journaling, policy, workspaces | See [Infrastructure](#core-infrastructure) |
 
 ## Architecture
 
@@ -248,6 +249,85 @@ flowchart TD
 ```
 
 For detailed architecture documentation, see [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
+
+## Core Infrastructure
+
+The LLM Workflow platform now includes enterprise-grade operational infrastructure (Phase 1):
+
+### Journaling & Checkpoints
+Every operation is tracked with run manifests and checkpoint entries:
+```powershell
+# Generate run ID
+$runId = New-RunId  # Returns: 20260412T150530Z-a7b3
+
+# Create run manifest
+$manifest = New-RunManifest -RunId $runId -Command "sync" -Args @("--all")
+
+# Write checkpoint entries
+New-JournalEntry -RunId $runId -Step "ingest" -Status "before"
+# ... do work ...
+New-JournalEntry -RunId $runId -Step "ingest" -Status "after" -Metadata @{count=42}
+
+# Resume support
+$state = Get-JournalState -RunId $runId
+```
+
+### File Locking & Atomic Writes
+State safety under concurrency with cross-platform file locking:
+```powershell
+# Acquire lock
+try {
+    $lock = Lock-File -Name "sync" -TimeoutSeconds 30
+    # Do work with atomic writes
+    Write-AtomicFile -Path "state.json" -Content $data
+} finally {
+    Unlock-File -Name "sync"
+}
+```
+
+### Effective Configuration
+5-level configuration precedence with source tracking:
+```powershell
+# Get resolved config with explanation
+Get-EffectiveConfig -Explain
+
+# Shows: provider.model = "gpt-4" (from: project config, shadowed: env var)
+
+# CLI commands
+llmconfig --explain    # Show all values and sources
+llmconfig --validate   # Validate configuration
+```
+
+### Policy & Execution Modes
+Policy gates prevent unsafe operations:
+```powershell
+# Check if operation is allowed in current mode
+Test-PolicyPermission -Command "sync" -Mode "watch"  # Returns: $true/$false
+
+# Execution modes: interactive, ci, watch, heal-watch, scheduled, mcp-readonly, mcp-mutating
+Set-ExecutionMode -Mode "ci"
+```
+
+### Workspaces & Visibility
+Multi-tenancy with private/public separation:
+```powershell
+# Get current workspace
+$workspace = Get-CurrentWorkspace
+
+# Check export permission (scans for secrets)
+Test-ExportPermission -Content $data -Context $workspace
+
+# Get retrieval priority (private project first)
+$sources = Get-RetrievalPriority -Query $query -Workspace $workspace
+```
+
+### Safety Levels
+| Level | Operations | Examples |
+|-------|-----------|----------|
+| `read-only` | Query operations | doctor, status, preview, search |
+| `mutating` | State changes | sync, index, ingest, build |
+| `destructive` | Data loss risk | restore, prune, delete |
+| `networked` | External calls | remote sync, provider calls |
 
 ## Repository layout
 

@@ -1,5 +1,39 @@
 Set-StrictMode -Version Latest
 
+# Source core infrastructure components (Phase 1 priorities)
+$CoreDirectory = Join-Path $PSScriptRoot "core"
+
+$CoreFiles = @(
+    # Run identification and logging (Priority 1: Journaling)
+    "RunId.ps1",
+    "Logging.ps1",
+    "Journal.ps1",
+    # State safety (Priority 2: File locking + atomic writes)
+    "FileLock.ps1",
+    "AtomicWrite.ps1",
+    "StateFile.ps1",
+    # Configuration (Priority 3: Effective config)
+    "ConfigSchema.ps1",
+    "ConfigPath.ps1",
+    "Config.ps1",
+    "ConfigCLI.ps1",
+    # Policy and execution (Priority 4: Policy + execution modes)
+    "Policy.ps1",
+    "ExecutionMode.ps1",
+    "CommandContract.ps1",
+    # Workspace and visibility (Priority 5: Workspace boundaries)
+    "Workspace.ps1",
+    "Visibility.ps1",
+    "PackVisibility.ps1"
+)
+
+foreach ($coreFile in $CoreFiles) {
+    $corePath = Join-Path $CoreDirectory $coreFile
+    if (Test-Path -LiteralPath $corePath) {
+        . $corePath
+    }
+}
+
 function Get-UserModuleBasePath {
     [CmdletBinding()]
     [OutputType([string])]
@@ -1125,5 +1159,26 @@ Set-Alias -Name llmdashboard -Value Show-LLMWorkflowDashboard
 Set-Alias -Name llmheal -Value Invoke-LLMWorkflowHeal
 
 Export-ModuleMember `
-    -Function Install-LLMWorkflow, Uninstall-LLMWorkflow, Update-LLMWorkflow, Get-LLMWorkflowVersion, Test-LLMWorkflowSetup, Invoke-LLMWorkflowUp, Get-ProviderProfile, Resolve-ProviderProfile, Get-ProviderPreferenceOrder, Test-ProviderKey, Get-LLMWorkflowPlugins, Register-LLMWorkflowPlugin, Unregister-LLMWorkflowPlugin, Invoke-LLMWorkflowPlugins, Get-LLMWorkflowPalaces, Test-LLMWorkflowPalace, Sync-LLMWorkflowPalace, Sync-LLMWorkflowAllPalaces, Get-LLMWorkflowPluginManifest, Save-LLMWorkflowPluginManifest, New-LLMWorkflowGamePreset, Get-LLMWorkflowGameTemplates, Export-LLMWorkflowAssetManifest `
-    -Alias llmup, llmdown, llmcheck, llmver, llmupdate, llmplugins, llmpalaces, llmsync, llmheal
+    -Function Install-LLMWorkflow, Uninstall-LLMWorkflow, Update-LLMWorkflow, Get-LLMWorkflowVersion, Test-LLMWorkflowSetup, Invoke-LLMWorkflowUp, Get-ProviderProfile, Resolve-ProviderProfile, Get-ProviderPreferenceOrder, Test-ProviderKey, Get-LLMWorkflowPlugins, Register-LLMWorkflowPlugin, Unregister-LLMWorkflowPlugin, Invoke-LLMWorkflowPlugins, Get-LLMWorkflowPalaces, Test-LLMWorkflowPalace, Sync-LLMWorkflowPalace, Sync-LLMWorkflowAllPalaces, Get-LLMWorkflowPluginManifest, Save-LLMWorkflowPluginManifest, New-LLMWorkflowGamePreset, Get-LLMWorkflowGameTemplates, Export-LLMWorkflowAssetManifest, Show-LLMWorkflowDashboard, Invoke-LLMWorkflowHeal, Test-LLMWorkflowIssue, Repair-LLMWorkflowIssue, Get-LLMWorkflowRepairHistory, Clear-LLMWorkflowRepairHistory, Export-LLMWorkflowRepairHistory, `
+    # Phase 1 Priority 1: Journaling + Checkpoints
+    New-RunId, Get-CurrentRunId, Set-CurrentRunId, Clear-CurrentRunId, Test-RunIdFormat, Parse-RunId, `
+    New-LogEntry, Write-StructuredLog, Get-LogPath, Read-StructuredLog, Set-LogDirectory, `
+    New-RunManifest, Complete-RunManifest, New-JournalEntry, Get-JournalState, Export-JournalReport, Add-RunArtifact, `
+    # Phase 1 Priority 2: File Locking + Atomic Writes
+    Lock-File, Unlock-File, Test-FileLock, Get-LockInfo, Remove-StaleLock, Test-StaleLock, Release-AllLocks, Get-AllLocks, `
+    Write-AtomicFile, Backup-AndWrite, Write-JsonAtomic, Read-JsonAtomic, Sync-File, Sync-Directory, Backup-File, Add-JsonLine, `
+    Read-StateFile, Write-StateFile, Update-StateFile, Test-StateVersion, Backup-StateFile, Migrate-StateFile, Get-StateFiles, Initialize-StateFile, `
+    # Phase 1 Priority 3: Effective Configuration
+    Get-DefaultConfig, Get-ConfigSchema, Test-ConfigValue, Test-SecretKey, Protect-ConfigSecrets, Get-ValidExecutionModes, Test-ExecutionMode, `
+    Get-ConfigPath, Find-ProjectRoot, Initialize-ProjectConfigDir, Initialize-CentralConfigDir, Get-ProjectConfig, Get-ProfileConfig, Get-EnvironmentConfig, Save-ProjectConfig, Save-CentralConfig, `
+    Get-EffectiveConfig, Get-ConfigValue, Test-ConfigValidation, Export-ConfigExplanation, Get-ExecutionMode, Set-ExecutionMode, Clear-ConfigCache, `
+    Get-LLMWorkflowEffectiveConfig, Invoke-LLMConfig, Register-LLMConfigAlias, `
+    # Phase 1 Priority 4: Policy + Execution Modes
+    Get-PolicyRules, Test-PolicyPermission, Assert-PolicyPermission, Test-RequiresConfirmation, Request-Confirmation, Register-PolicyAction, Get-PolicyExitCode, `
+    Get-ExecutionModePolicy, Test-ExecutionModeCapability, Switch-ExecutionMode, Get-AllowedCommands, Get-CommandSafetyLevel, Get-ExecutionModeContext, Get-CurrentExecutionMode, `
+    New-CommandContract, Test-CommandContract, Invoke-WithContract, New-ExecutionPlan, Add-PlanStep, Show-ExecutionPlan, Invoke-ExecutionPlan, `
+    # Phase 1 Priority 5: Workspace + Visibility Boundaries
+    Get-CurrentWorkspace, New-Workspace, Switch-Workspace, Get-WorkspacePacks, Test-WorkspaceContext, Get-WorkspaceList, Remove-Workspace, `
+    Test-VisibilityRule, Get-PackVisibility, Test-ExportPermission, Protect-SecretData, Test-SecretInContent, Protect-LogEntry, Assert-NotExportable, `
+    New-PackVisibilityConfig, Test-PackAccess, Get-RetrievalPriority, Test-CanAnswerFromPack, Get-PackAnswerLabel, Select-PacksForQuery `
+    -Alias llmup, llmdown, llmcheck, llmver, llmupdate, llmplugins, llmpalaces, llmsync, llmdashboard, llmheal
