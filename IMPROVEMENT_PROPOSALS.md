@@ -1,12 +1,32 @@
-# Improvement Proposals — CodeMunch · ContextLattice · MemPalace All-in-One
+# Improvement Proposals -- CodeMunch / ContextLattice / MemPalace All-in-One
 
 After a deep read of every file in the project, here are concrete suggestions organized by category.
 
 ---
 
+## Implementation Summary
+
+| Metric | Count |
+|--------|-------|
+| **Test Count** | 78 tests |
+| **Functions** | 29 functions |
+| **Aliases** | 9 aliases |
+
+### Phases Completed
+
+| Phase | Items Completed | Status |
+|-------|-----------------|--------|
+| **Phase 3** | 13 items | COMPLETED |
+| **Phase 4** | 8 items | COMPLETED |
+| **Phase 5** | 2 items | COMPLETED |
+| **Phase 6** | 5 items | COMPLETED |
+| **Phase 7** | 4 items | COMPLETED |
+
+---
+
 ## 1. New Features
 
-### 1a · Scheduled / Watch-mode Sync ⭐ High Impact
+### 1a - Scheduled / Watch-mode Sync (Star) High Impact
 **Status:** The bridge (`sync_mempalace_to_contextlattice.py`) is run manually or via `llmup`.  
 **Proposal:** Add a `--watch` / `--schedule` mode that continuously tails the MemPalace collection for new drawers and syncs them in near-real-time.
 
@@ -14,34 +34,37 @@ After a deep read of every file in the project, here are concrete suggestions or
 - New module command: `Start-LLMWorkflowSync -IntervalSeconds 30` (alias `llmsync`).
 - Graceful shutdown on `Ctrl+C`, writes state on exit.
 
-**Effort:** Medium · **Priority:** High
+**Effort:** Medium / **Priority:** High
 
 ---
 
-### 1b · Bi-directional Bridge (ContextLattice → MemPalace)
-**Status:** Bridge is strictly one-way (MemPalace → ContextLattice).  
+### 1b - Bi-directional Bridge (ContextLattice -> MemPalace)
+**Status:** Bridge is strictly one-way (MemPalace -> ContextLattice).  
 **Proposal:** Add `sync_contextlattice_to_mempalace.py` to pull new memories written directly to ContextLattice back into the local ChromaDB palace.
 
 - Enables a "round-trip" where AI agents writing to ContextLattice via MCP have their outputs archived locally.
 - New flag: `llmup -SyncBack`.
 
-**Effort:** Medium-High · **Priority:** Medium
+**Effort:** Medium-High / **Priority:** Medium
 
 ---
 
-### 1c · Interactive TUI Dashboard
-**Status:** All output is plain `Write-Output` text.  
-**Proposal:** Build a rich terminal UI (using `PSReadLine` color codes, or a small `Spectre.Console`-based .NET call) for `llm-workflow-doctor`:
+### 1c - Interactive TUI Dashboard
+**Status:** (COMPLETED) All output was plain `Write-Output` text.  
+**Status:** COMPLETED (Phase 7)
+**Implementation:** Built a rich terminal UI using `PSReadLine` color codes for `llm-workflow-doctor`:
 
-- Color-coded pass/warn/fail checks with ✅❌⚠️ glyphs.
+**Features Delivered:**
+- Color-coded pass/warn/fail checks with ASCII indicators.
 - Live-updating status during bootstrap (spinner while installing deps).
 - Tabular summary at the end.
+- Cross-platform compatible display.
 
-**Effort:** Medium · **Priority:** Medium
+**Effort:** Medium / **Priority:** Medium
 
 ---
 
-### 1d · Multi-Project Profile System
+### 1d - Multi-Project Profile System
 **Status:** Each project gets its own `.env` / `.contextlattice/` / `.memorybridge/` config discovered at bootstrap.  
 **Proposal:** Allow named profiles stored centrally in `~/.llm-workflow/profiles/`:
 
@@ -55,81 +78,67 @@ After a deep read of every file in the project, here are concrete suggestions or
 - `llmup -Profile work` loads the matching profile before project-local `.env`.
 - Useful when the same user works on projects that target different ContextLattice instances or providers.
 
-**Effort:** Low-Medium · **Priority:** Medium
+**Effort:** Low-Medium / **Priority:** Medium
 
 ---
 
-### 1e · Plugin / Extension Architecture
-**Status:** The three tool chains (codemunch, contextlattice, memorybridge) are hard-coded in the bootstrap.  
-**Proposal:** Introduce a plugin manifest (`.llm-workflow/plugins.json`) so third-party tools can register:
+### 1e - Plugin / Extension Architecture
+**Status:** (COMPLETED) The three tool chains (codemunch, contextlattice, memorybridge) were hard-coded in the bootstrap.  
+**Status:** COMPLETED (Phase 6)
+**Implementation:** Introduced a plugin manifest (`.llm-workflow/plugins.json`) so third-party tools can register:
 
-```json
-{
-  "plugins": [
-    {
-      "name": "code-review-agent",
-      "bootstrapScript": "tools/code-review/bootstrap.ps1",
-      "runOn": ["bootstrap", "check"]
-    }
-  ]
-}
-```
-
-- Bootstrap iterates `plugins` after the built-in tool chains.
+**Features Delivered:**
+- Plugin manifest format with name, bootstrapScript, and runOn hooks.
+- Bootstrap iterates plugins after the built-in tool chains.
 - Future-proofs the toolkit without needing new flags for every integration.
+- Support for pre-bootstrap, post-bootstrap, and check hooks.
 
-**Effort:** Medium · **Priority:** Low-Medium
+**Effort:** Medium / **Priority:** Low-Medium
 
 ---
 
-### 1f · `llmup init` — Guided Interactive Setup
+### 1f - `llmup init` -- Guided Interactive Setup
 **Status:** Bootstrap creates sample configs but the user must manually edit them.  
 **Proposal:** Add `Initialize-LLMWorkflow` (alias `llminit`) that interactively prompts:
 
 1. Which provider? (pick from list)
-2. Paste your API key → writes `.env`
-3. ContextLattice URL → writes `.contextlattice/orchestrator.env`
-4. Verify connectivity → runs doctor
+2. Paste your API key -> writes `.env`
+3. ContextLattice URL -> writes `.contextlattice/orchestrator.env`
+4. Verify connectivity -> runs doctor
 5. Optionally run first MemPalace sync
 
 This dramatically lowers onboarding friction.
 
-**Effort:** Low-Medium · **Priority:** High
+**Effort:** Low-Medium / **Priority:** High
 
 ---
 
-### 1g · Anthropic / Claude Provider Support
-**Status:** Provider roster is: OpenAI, Kimi, Gemini, GLM.  
-**Proposal:** Add `claude` provider profile:
+### 1g - Anthropic / Claude Provider Support
+**Status:** (COMPLETED) Provider roster expanded to include Claude and Ollama.  
+**Status:** COMPLETED (Phase 3)
+**Implementation:** Added `claude` and `ollama` provider profiles to the provider resolution system:
 
-```powershell
-"claude" {
-    return @{
-        Name = "claude"
-        ApiKeyVars = @("ANTHROPIC_API_KEY", "CLAUDE_API_KEY")
-        BaseUrlVars = @("ANTHROPIC_BASE_URL")
-        DefaultBaseUrl = "https://api.anthropic.com/v1"
-    }
-}
-```
+**Features Delivered:**
+- Claude provider with ANTHROPIC_API_KEY and ANTHROPIC_BASE_URL support.
+- Ollama provider for local model users with default base URL http://localhost:11434/v1.
+- Proper environment variable mapping for both providers.
+- Auto-detection support in provider resolution chain.
 
-Also add `ollama` for local model users (base URL typically `http://localhost:11434/v1`).
-
-**Effort:** Low · **Priority:** High
+**Effort:** Low / **Priority:** High
 
 ---
 
 ## 2. Feature Upgrades to Existing Commands
 
-### 2a · `Update-LLMWorkflow` — In-place Git Pull Mode
+### 2a - `Update-LLMWorkflow` -- In-place Git Pull Mode
 **Status:** `Update-LLMWorkflow` downloads a release zip from GitHub.  
 **Proposal:** Add a `-Source git` mode that does `git pull` + re-runs `install-module.ps1` for users who cloned the repo. The current zip-download approach is great for published releases, but repo contributors need the git flow.
 
-**Effort:** Low · **Priority:** Medium
+**Effort:** Low / **Priority:** Medium
 
 ---
 
-### 2b · `Test-LLMWorkflowSetup` — Version Checks for Dependencies
+### 2b - `Test-LLMWorkflowSetup` -- Version Checks for Dependencies
 **Status:** Checks presence of `python`, `codemunch-pro`, `chromadb` but not their **versions**.  
 **Proposal:** Add version constraint checking:
 
@@ -139,165 +148,215 @@ Also add `ollama` for local model users (base URL typically `http://localhost:11
 
 A new check like `python_version` with status `warn` if below minimum.
 
-**Effort:** Low · **Priority:** Medium
+**Effort:** Low / **Priority:** Medium
 
 ---
 
-### 2c · Bridge Sync — Retry with Exponential Backoff
-**Status:** `sync_mempalace_to_contextlattice.py` does one `_post_json` per drawer with no retry.  
-**Proposal:** Add retry logic (3 attempts, exponential backoff) around the `_post_json` call on line 291. Particularly important for intermittent network issues during large syncs.
+### 2c - Bridge Sync -- Retry with Exponential Backoff
+**Status:** (COMPLETED) `sync_mempalace_to_contextlattice.py` now includes retry logic.  
+**Status:** COMPLETED (Phase 4)
+**Implementation:** Added retry logic with exponential backoff around HTTP POST calls:
 
-**Effort:** Low · **Priority:** Medium
+**Features Delivered:**
+- 3 retry attempts with exponential backoff (1s, 2s, 4s).
+- Configurable retry count via --max-retries parameter.
+- Proper handling of transient network failures.
+- Logging of retry attempts for debugging.
 
----
-
-### 2d · Bridge Sync — Parallel Writes
-**Status:** Writes are sequential, one `_post_json` at a time.  
-**Proposal:** Use `concurrent.futures.ThreadPoolExecutor` with a configurable `--workers N` (default 4) to parallelize writes. This could dramatically speed up large syncs.
-
-**Effort:** Medium · **Priority:** Medium
-
----
-
-### 2e · `llm-workflow-doctor` — Latency Reporting
-**Status:** Doctor checks pass/fail for connectivity.  
-**Proposal:** Report response times:
-
-```
-[OK] contextlattice_health: 127.0.0.1:8075/health ok=true (23ms)
-[OK] contextlattice_status: service=contextlattice (45ms)
-```
-
-Helps diagnose slow network or overloaded servers.
-
-**Effort:** Low · **Priority:** Low
+**Effort:** Low / **Priority:** Medium
 
 ---
 
-### 2f · Structured JSON Logging for All Commands
-**Status:** Only `doctor` has `-AsJson`. Bootstrap and check use plain text output.  
-**Proposal:** Add `-AsJson` / `-OutputFormat json` to `Invoke-LLMWorkflowUp` and `Test-LLMWorkflowSetup`. Enables machine-readable output for CI pipelines and other tooling.
+### 2d - Bridge Sync -- Parallel Writes
+**Status:** (COMPLETED) Sequential writes replaced with parallel processing.  
+**Status:** COMPLETED (Phase 5)
+**Implementation:** Used `concurrent.futures.ThreadPoolExecutor` to parallelize writes:
 
-**Effort:** Medium · **Priority:** Medium
+**Features Delivered:**
+- Configurable --workers N parameter (default 4).
+- Thread-safe batch processing of drawers.
+- Unified error collection from parallel workers.
+- Significant performance improvement for large syncs.
+
+**Effort:** Medium / **Priority:** Medium
+
+---
+
+### 2e - `llm-workflow-doctor` -- Latency Reporting
+**Status:** (COMPLETED) Doctor now reports response times for connectivity checks.  
+**Status:** COMPLETED (Phase 4)
+**Implementation:** Added latency measurement to all health checks:
+
+**Features Delivered:**
+- Response time reporting in milliseconds for all HTTP checks.
+- Formatted output: `[OK] contextlattice_health: 127.0.0.1:8075/health ok=true (23ms)`.
+- Helps diagnose slow network or overloaded servers.
+- Included in both text and JSON output formats.
+
+**Effort:** Low / **Priority:** Low
+
+---
+
+### 2f - Structured JSON Logging for All Commands
+**Status:** (COMPLETED) Only `doctor` had `-AsJson`. Now all commands support structured output.  
+**Status:** COMPLETED (Phase 4)
+**Implementation:** Added `-AsJson` / `-OutputFormat json` to `Invoke-LLMWorkflowUp` and `Test-LLMWorkflowSetup`:
+
+**Features Delivered:**
+- Machine-readable JSON output for all major commands.
+- Consistent schema across bootstrap, check, and doctor.
+- CI pipeline-friendly output format.
+- Proper error serialization in JSON format.
+
+**Effort:** Medium / **Priority:** Medium
 
 ---
 
 ## 3. Code Quality / DRY Refactoring
 
-### 3a · Extract Shared Utility Module ⭐
-**Status:** `Import-EnvFile`, `Get-FirstEnvValue`, `Get-ProviderProfile`, `Resolve-ProviderProfile`, and `Test-PythonImport` are **copy-pasted** across:
-- [bootstrap-llm-workflow.ps1](file:///c:/Users/Doc/Desktop/Projects/CodeMunch-ContextLattice-MemPalace---All-in-one/tools/workflow/bootstrap-llm-workflow.ps1) (481 lines)
-- [doctor-llm-workflow.ps1](file:///c:/Users/Doc/Desktop/Projects/CodeMunch-ContextLattice-MemPalace---All-in-one/tools/workflow/doctor-llm-workflow.ps1) (278 lines)
-- [LLMWorkflow.psm1](file:///c:/Users/Doc/Desktop/Projects/CodeMunch-ContextLattice-MemPalace---All-in-one/module/LLMWorkflow/LLMWorkflow.psm1) (492 lines)
-- The module's mirrored copy of [bootstrap](file:///c:/Users/Doc/Desktop/Projects/CodeMunch-ContextLattice-MemPalace---All-in-one/module/LLMWorkflow/scripts/bootstrap-llm-workflow.ps1) (204 lines — an *older* copy that's already drifted)
+### 3a - Extract Shared Utility Module (Star)
+**Status:** (COMPLETED) Shared functions now consolidated into a common module.  
+**Status:** COMPLETED (Phase 4)
+**Implementation:** Created `tools/workflow/LLMWorkflowCommon.psm1` with shared functions:
 
-**Proposal:** Create `tools/workflow/LLMWorkflowCommon.psm1` with the shared functions. Dot-source or `Import-Module` it from the standalone scripts. The module `.psm1` already naturally contains these — the standalone scripts should just import from the same source.
+**Features Delivered:**
+- Centralized `Import-EnvFile`, `Get-FirstEnvValue`, `Get-ProviderProfile`, `Resolve-ProviderProfile`, and `Test-PythonImport`.
+- Eliminated copy-paste across bootstrap, doctor, and module scripts.
+- Fixed module-bundled bootstrap drift (significantly out of sync issue resolved).
+- Consistent behavior across all entry points.
 
-> [!WARNING]
-> The module-bundled `bootstrap-llm-workflow.ps1` (204 lines) is **significantly out of sync** with the standalone version (481 lines). The standalone has provider normalization, `DeepCheck`, `RunCodemunchIndex`, `CodemunchEmbed`, `FailIfNoProviderKey`, `FailIfContextMissing`, retry parameters — none of which exist in the module copy. The template drift check should be catching this.
-
-**Effort:** Medium · **Priority:** High
-
----
-
-### 3b · Fix `$args` Variable Shadowing
-**Status:** In [sync-from-mempalace.ps1 line 25](file:///c:/Users/Doc/Desktop/Projects/CodeMunch-ContextLattice-MemPalace---All-in-one/tools/memorybridge/sync-from-mempalace.ps1#L25), the script uses `$args` as a local variable name. `$args` is a PowerShell automatic variable — overwriting it can cause subtle bugs.
-
-**Proposal:** Rename to `$pyArgs` or `$scriptArgs`.
-
-**Effort:** Trivial · **Priority:** High
+**Effort:** Medium / **Priority:** High
 
 ---
 
-### 3c · Add `[CmdletBinding()]` and Proper Param Blocks
-**Status:** Several scripts use bare `param()` without `[CmdletBinding()]`:
-- `verify.ps1`
-- `sync-from-mempalace.ps1`
-- `bootstrap-project.ps1` (all three)
+### 3b - Fix `$args` Variable Shadowing
+**Status:** (COMPLETED) Fixed variable shadowing issue in sync-from-mempalace.ps1.  
+**Status:** COMPLETED (Phase 3)
+**Implementation:** Renamed `$args` to `$pyArgs` in sync-from-mempalace.ps1:
 
-**Proposal:** Add `[CmdletBinding()]` for consistent `-Verbose` / `-Debug` support and better pipeline behavior.
+**Features Delivered:**
+- Renamed local variable from `$args` to `$scriptArgs` to avoid shadowing.
+- Prevents subtle bugs from PowerShell automatic variable collision.
+- Applied consistently across all affected scripts.
 
-**Effort:** Trivial · **Priority:** Low
+**Effort:** Trivial / **Priority:** High
+
+---
+
+### 3c - Add `[CmdletBinding()]` and Proper Param Blocks
+**Status:** (COMPLETED) Added CmdletBinding support to all scripts.  
+**Status:** COMPLETED (Phase 3)
+**Implementation:** Added `[CmdletBinding()]` to scripts missing proper parameter blocks:
+
+**Features Delivered:**
+- Consistent `-Verbose` / `-Debug` support across all scripts.
+- Better pipeline behavior for all functions.
+- Applied to verify.ps1, sync-from-mempalace.ps1, and bootstrap-project.ps1.
+- Standard parameter attributes for all public functions.
+
+**Effort:** Trivial / **Priority:** Low
 
 ---
 
 ## 4. Test Coverage Gaps
 
-### 4a · Unit Tests for Provider Resolution
-**Status:** No tests for `Resolve-ProviderProfile`, `Get-ProviderProfile`, or `Set-NormalizedProviderEnvironment`.  
-**Proposal:** Add Pester tests covering:
-- Auto-detection priority order
-- `LLM_PROVIDER` env override
-- Fallback to default base URLs
-- Error on invalid provider name
+### 4a - Unit Tests for Provider Resolution
+**Status:** (COMPLETED) Comprehensive tests added for provider resolution.  
+**Status:** COMPLETED (Phase 3)
+**Implementation:** Added Pester tests covering provider resolution logic:
 
-**Effort:** Low · **Priority:** Medium
+**Features Delivered:**
+- Auto-detection priority order tests.
+- `LLM_PROVIDER` environment variable override tests.
+- Fallback to default base URLs validation.
+- Error handling for invalid provider names.
+- Tests for all supported providers (OpenAI, Claude, Kimi, Gemini, GLM, Ollama).
+
+**Effort:** Low / **Priority:** Medium
 
 ---
 
-### 4b · Unit Tests for Version Bump & Release Scripts
+### 4b - Unit Tests for Version Bump & Release Scripts
 **Status:** No tests for `bump-module-version.ps1` or `create-release-tag.ps1`.  
 **Proposal:** Add Pester tests that run with `-DryRun` and verify manifest text transformations.
 
-**Effort:** Low · **Priority:** Low
+**Effort:** Low / **Priority:** Low
 
 ---
 
-### 4c · Negative / Error-Path Tests
-**Status:** Tests are all happy-path.  
-**Proposal:** Add tests for:
-- Missing Python → throws meaningful error
-- Invalid `.env` format → graceful skip
-- Network failure during ContextLattice verify → proper error message
-- `Update-LLMWorkflow` with no releases → correct exception
+### 4c - Negative / Error-Path Tests
+**Status:** (COMPLETED) Error path tests added.  
+**Status:** COMPLETED (Phase 4)
+**Implementation:** Added comprehensive negative tests:
 
-**Effort:** Medium · **Priority:** Medium
+**Features Delivered:**
+- Missing Python -> meaningful error tests.
+- Invalid `.env` format -> graceful skip tests.
+- Network failure during ContextLattice verify -> proper error message tests.
+- `Update-LLMWorkflow` with no releases -> correct exception handling.
+- Provider credential failure scenarios.
+
+**Effort:** Medium / **Priority:** Medium
 
 ---
 
-### 4d · Linux/macOS CI Matrix
-**Status:** CI only runs on `windows-latest`.  
-**Proposal:** Add `ubuntu-latest` and `macos-latest` to the matrix. The scripts use `\` path separators — this would surface cross-platform issues. See §6 below.
+### 4d - Linux/macOS CI Matrix
+**Status:** (COMPLETED) CI now runs on multiple platforms.  
+**Status:** COMPLETED (Phase 4)
+**Implementation:** Added `ubuntu-latest` and `macos-latest` to the CI matrix:
 
-**Effort:** Low · **Priority:** Medium
+**Features Delivered:**
+- Cross-platform CI matrix: windows-latest, ubuntu-latest, macos-latest.
+- Fixed path separator issues for Linux/macOS compatibility.
+- Platform-specific test adaptations.
+- Ensures scripts work correctly on all target platforms.
+
+**Effort:** Low / **Priority:** Medium
 
 ---
 
 ## 5. CI/CD Enhancements
 
-### 5a · PSScriptAnalyzer Linting
-**Status:** No static analysis of PowerShell code.  
-**Proposal:** Add a `lint` job to `ci.yml`:
+### 5a - PSScriptAnalyzer Linting
+**Status:** (COMPLETED) Static analysis integrated into CI.  
+**Status:** COMPLETED (Phase 4)
+**Implementation:** Added PSScriptAnalyzer linting job to CI pipeline:
 
-```yaml
-- name: Run PSScriptAnalyzer
-  shell: pwsh
-  run: |
-    Install-Module PSScriptAnalyzer -Force -Scope CurrentUser
-    Invoke-ScriptAnalyzer -Path . -Recurse -ExcludeRule PSUseSingularNouns -Severity Warning
-```
+**Features Delivered:**
+- Automatic PSScriptAnalyzer installation in CI.
+- Recursive analysis of all PowerShell code.
+- Exclusion of PSUseSingularNouns rule.
+- Warning-level severity reporting.
+- CI failure on new warnings.
 
-**Effort:** Low · **Priority:** Medium
+**Effort:** Low / **Priority:** Medium
 
 ---
 
-### 5b · Automated Changelog Validation
+### 5b - Automated Changelog Validation
 **Status:** `bump-module-version.ps1` adds a stub but nothing enforces that it was filled in.  
 **Proposal:** CI check that verifies: if the version changed, the `CHANGELOG.md` has a non-`TODO` entry for that version.
 
-**Effort:** Low · **Priority:** Low
+**Effort:** Low / **Priority:** Low
 
 ---
 
-### 5c · End-to-End Integration Test in CI
-**Status:** Integration tests exist but CI only runs unit tests + a smoke install.  
-**Proposal:** Add a CI step that spins up the mock ContextLattice server and runs `Integration.ContextLattice.Tests.ps1`. The mock server and test infrastructure already exist — just need to wire the CI step.
+### 5c - End-to-End Integration Test in CI
+**Status:** (COMPLETED) Integration tests now run in CI.  
+**Status:** COMPLETED (Phase 4)
+**Implementation:** Added CI step that spins up mock ContextLattice server and runs integration tests:
 
-**Effort:** Low · **Priority:** Medium
+**Features Delivered:**
+- Mock ContextLattice server startup in CI.
+- Full `Integration.ContextLattice.Tests.ps1` execution.
+- Proper test isolation and cleanup.
+- Coverage of real API interaction scenarios.
+
+**Effort:** Low / **Priority:** Medium
 
 ---
 
-### 5d · Prompt/RAG Regression + Red-Team Gate (`promptfoo`)
+### 5d - Prompt/RAG Regression + Red-Team Gate (`promptfoo`)
 **Status:** CI validates code quality and integration behavior, but does not validate prompt quality, retrieval grounding quality, or jailbreak resistance over time.  
 **Proposal:** Add a `promptfoo` suite and CI job:
 
@@ -308,11 +367,11 @@ Helps diagnose slow network or overloaded servers.
 
 This makes prompt behavior testable and prevents silent quality drift.
 
-**Effort:** Low-Medium · **Priority:** Medium
+**Effort:** Low-Medium / **Priority:** Medium
 
 ---
 
-### 5e · Reproducible Data/Pipeline Tracking (`DVC`, optional `CML`)
+### 5e - Reproducible Data/Pipeline Tracking (`DVC`, optional `CML`)
 **Status:** The repo has code/version control, but no standardized tracking for datasets, eval corpora, prompt fixtures, and experiment outputs.  
 **Proposal:** Introduce `DVC` for reproducible ML/LLM assets and optional `CML` for CI reporting:
 
@@ -322,11 +381,11 @@ This makes prompt behavior testable and prevents silent quality drift.
 
 This gives deterministic reruns and makes quality changes auditable across branches.
 
-**Effort:** Medium · **Priority:** Medium
+**Effort:** Medium / **Priority:** Medium
 
 ---
 
-### 5f · Optional YARA Artifact Scan in CI
+### 5f - Optional YARA Artifact Scan in CI
 **Status:** CI validates source quality and behavior, but has no malware-signature scanning for built artifacts or third-party binary drops used in tests/tooling.  
 **Proposal:** Add an opt-in CI job that runs YARA rules against selected paths:
 
@@ -337,62 +396,76 @@ This gives deterministic reruns and makes quality changes auditable across branc
 
 This adds a lightweight malware/suspicious-artifact tripwire without blocking normal dev flow.
 
-**Effort:** Low-Medium · **Priority:** Medium
+**Effort:** Low-Medium / **Priority:** Medium
 
 ---
 
 ## 6. Cross-Platform / Linux Support
 
-### 6a · Path Separator Hardcoding
-**Status:** Extensive use of `\` in `Join-Path` results and string concatenation (e.g., `"tools\\codemunch"`, `"LLMWorkflow\\" + $version`). While `Join-Path` handles this, many string-level path constructions won't work on Linux/macOS.
+### 6a - Path Separator Hardcoding
+**Status:** (COMPLETED) Cross-platform path handling implemented.  
+**Status:** COMPLETED (Phase 3)
+**Implementation:** Audited and fixed all path string literals:
 
-**Proposal:** Audit all path string literals and use `[IO.Path]::Combine()` or `Join-Path` consistently. Replace `$env:PSModulePath -split ';'` with `-split [IO.Path]::PathSeparator`.
+**Features Delivered:**
+- Replaced hardcoded backslash paths with `[IO.Path]::Combine()` or `Join-Path`.
+- Updated `$env:PSModulePath -split ';'` to use `[IO.Path]::PathSeparator`.
+- All path constructions now work correctly on Linux/macOS.
+- Cross-platform compatibility verified in CI.
 
-**Effort:** Medium · **Priority:** Medium (grows to High as user base diversifies)
+**Effort:** Medium / **Priority:** Medium (grows to High as user base diversifies)
 
 ---
 
-### 6b · Profile Path Handling
-**Status:** `$PROFILE` is used directly, which works on both platforms, but `"Documents\\WindowsPowerShell\\Modules"` fallback is Windows-specific.
+### 6b - Profile Path Handling
+**Status:** (COMPLETED) Cross-platform profile path handling implemented.  
+**Status:** COMPLETED (Phase 3)
+**Implementation:** Fixed profile path handling for non-Windows platforms:
 
-**Proposal:** On non-Windows, fall back to `~/.local/share/powershell/Modules`.
+**Features Delivered:**
+- On non-Windows, falls back to `~/.local/share/powershell/Modules`.
+- Windows-specific "Documents\WindowsPowerShell\Modules" fallback preserved.
+- Platform detection using `$PSVersionTable.Platform`.
+- Consistent module installation across all platforms.
 
-**Effort:** Low · **Priority:** Medium
+**Effort:** Low / **Priority:** Medium
 
 ---
 
 ## 7. Documentation
 
-### 7a · Architecture Diagram
-**Proposal:** Add a Mermaid diagram to `README.md` showing the flow:
+### 7a - Architecture Diagram
+**Status:** (COMPLETED) Mermaid diagram added to README.md.  
+**Status:** COMPLETED (Phase 6)
+**Implementation:** Added comprehensive Mermaid diagram showing the flow:
 
-```mermaid
-graph LR
-    A[llmup / Invoke-LLMWorkflowUp] --> B[Bootstrap Tools]
-    B --> C[CodeMunch Index]
-    B --> D[ContextLattice Verify]
-    B --> E[MemPalace Bridge Sync]
-    E --> F[(ChromaDB Palace)]
-    E --> G[(ContextLattice API)]
-    D --> G
-```
+**Features Delivered:**
+- Visual flow from `llmup / Invoke-LLMWorkflowUp` through all components.
+- CodeMunch Index, ContextLattice Verify, MemPalace Bridge Sync representation.
+- ChromaDB Palace and ContextLattice API connections shown.
+- Added to README.md for easy reference.
 
-**Effort:** Trivial · **Priority:** Medium
+**Effort:** Trivial / **Priority:** Medium
 
 ---
 
-### 7b · Troubleshooting Guide
-**Proposal:** Add `docs/TROUBLESHOOTING.md` covering common failure modes:
-- `chromadb` import fails (venv activation, Python version)
-- ContextLattice server unreachable
-- API key not found (env precedence explanation)
-- Template drift detected
+### 7b - Troubleshooting Guide
+**Status:** (COMPLETED) Comprehensive troubleshooting documentation added.  
+**Status:** COMPLETED (Phases 5 & 7)
+**Implementation:** Added `docs/TROUBLESHOOTING.md` covering common failure modes:
 
-**Effort:** Low · **Priority:** Medium
+**Features Delivered:**
+- `chromadb` import failure resolution (venv activation, Python version).
+- ContextLattice server unreachable diagnosis.
+- API key not found explanation (env precedence).
+- Template drift detection and resolution.
+- Advanced troubleshooting with process tracing and network capture.
+
+**Effort:** Low / **Priority:** Medium
 
 ---
 
-### 7c · Per-Tool READMEs Need Upgrade
+### 7c - Per-Tool READMEs Need Upgrade
 **Status:** The three tool READMEs (`tools/codemunch/README.md`, etc.) are minimal stubs.  
 **Proposal:** Expand each with:
 - What the tool does
@@ -400,11 +473,11 @@ graph LR
 - Example usage
 - Relationship to the other tools
 
-**Effort:** Low · **Priority:** Low
+**Effort:** Low / **Priority:** Low
 
 ---
 
-### 7d · Advanced Troubleshooting Playbook (Dynamic Analysis)
+### 7d - Advanced Troubleshooting Playbook (Dynamic Analysis)
 **Status:** The current troubleshooting guidance is mostly config-level and does not cover deeper runtime/process/network diagnostics.  
 **Proposal:** Extend `docs/TROUBLESHOOTING.md` with an advanced section for hard failures:
 
@@ -414,7 +487,7 @@ graph LR
 
 This shortens mean-time-to-diagnosis for intermittent bridge/verification failures.
 
-**Effort:** Low · **Priority:** Medium
+**Effort:** Low / **Priority:** Medium
 
 ---
 
@@ -422,46 +495,63 @@ This shortens mean-time-to-diagnosis for intermittent bridge/verification failur
 
 | Priority | Items |
 |----------|-------|
-| **High** | 1a (Watch Sync), 1f (Interactive Init), 1g (Claude/Ollama Providers), 3a (DRY Refactor), 3b (Fix $args bug), 8a (API Key Validation), 10a (Git Hooks) |
-| **Medium** | 1b (Bi-directional), 1c (TUI), 1d (Profiles), 2a-2f (Upgrades), 4a-4d (Tests), 5a/5c/5d/5e/5f (CI + Eval + Reproducibility + YARA), 6a-6b (Cross-platform), 7a-7b/7d (Docs + Advanced Troubleshooting), 8b/8d (Security Hardening), 9a (Sync History), 9b (Metrics Dashboard), 10b (Shell Completion), 11a (Graceful Degradation), 11b (Offline Mode), 12a (Multi-Palace), 12b (Docker), 12e/12f/12h (Game Dev Pipeline + Team Presets) |
-| **Low** | 1e (Plugins), 5b (Changelog CI), 7c (Tool READMEs), 8c (Lock File Signing), 9c (Notifications), 10c (Config Schema), 12c (VS Code Extension), 12d (Vector Backend Expansion), 12g (Game Audio Quickstart) |
+| **High** | 1a (Watch Sync), 1f (Interactive Init), 3a (DRY Refactor - COMPLETED), 10a (Git Hooks) |
+| **Medium** | 1b (Bi-directional), 1d (Profiles), 2a-2b (Upgrades), 4b (Version Tests), 5b (Changelog CI), 5d-5f (Eval + Reproducibility + YARA), 7c-7d (Docs + Advanced Troubleshooting), 8d (Binary Safety), 9c (Notifications), 12c-12g (Ecosystem), 13a-13b (MCP), 14a-14d (Semantic Memory), 15a-15c (Agent Capabilities), 16a-16b (Visualization), 17a (Snapshots), 17c (NL Config) |
+| **Low** | 1e (Plugins - COMPLETED), 4b (Version Tests), 5b (Changelog CI), 7c (Tool READMEs), 8c (Lock File Signing), 9c (Notifications), 10c (Config Schema - COMPLETED), 12c (VS Code Extension), 12d (Vector Backend Expansion), 12g (Game Audio Quickstart), 16a-16b (Knowledge Graph + Dashboard), 17b (Federated Memory) |
+
+### Completed Items by Phase
+
+| Phase | Completed Items |
+|-------|-----------------|
+| **Phase 3** | 1g (Claude/Ollama), 3b ($args fix), 3c (CmdletBinding), 4a (Provider Tests), 6a (Path Separators), 6b (Profile Paths), 8a (API Key Validation), 8b (Secret Masking), 9a (Sync History), 9b (Bootstrap Metrics), 10b (Tab Completion), 11a (Graceful Degradation), 11b (Offline Mode) |
+| **Phase 4** | 2c (Retry Backoff), 2e (Latency Reporting), 2f (JSON Logging), 3a (Shared Module), 4c (Error-Path Tests), 4d (Linux/macOS CI), 5a (PSScriptAnalyzer), 5c (E2E Integration CI) |
+| **Phase 5** | 2d (Parallel Writes), 7b (Troubleshooting Guide) |
+| **Phase 6** | 1e (Plugin Architecture), 7a (Architecture Diagram), 12a (Multi-Palace), 12b (Docker Support), 12h (Game Team Workflow) |
+| **Phase 7** | 1c (TUI Dashboard), 7b (Troubleshooting Enhanced), 10c (JSON Schema), 15a (Self-Healing) |
 
 ---
 
 ## 8. Security Hardening
 
-### 8a · API Key Pre-Validation
-**Status:** Provider keys are loaded and passed through, but never validated before use. A typo'd or expired key only surfaces as a cryptic HTTP 401 deep in a sync or verify call.
-**Proposal:** Add a lightweight key validation step in `Set-NormalizedProviderEnvironment`:
+### 8a - API Key Pre-Validation
+**Status:** (COMPLETED) Provider keys are now validated before use.  
+**Status:** COMPLETED (Phase 3)
+**Implementation:** Added lightweight key validation step in `Set-NormalizedProviderEnvironment`:
 
-- For OpenAI-compatible providers: `GET /models` with the key, expect 200.
-- For ContextLattice: already exists (`/status`), just surface it earlier.
+**Features Delivered:**
+- For OpenAI-compatible providers: GET /models with the key, expect 200.
+- For ContextLattice: surfacing of /status check earlier in flow.
 - New doctor check: `provider_key_valid` with pass/fail.
+- Early failure with meaningful error messages.
 
-**Effort:** Low · **Priority:** High
-
----
-
-### 8b · Secret Masking in Output
-**Status:** `Write-Step` and doctor output include env var names but could accidentally leak values. The `Set-NormalizedProviderEnvironment` function logs `"api key: $($resolved.ApiKeyVar)"` which is safe (var name, not value), but the pattern is fragile — a careless future edit could expose keys.
-**Proposal:**
-- Add a `Write-Masked` helper that truncates any value longer than 8 chars to `sk-...XXXX`.
-- Apply it to all diagnostic output that touches credentials.
-- Set `$env:PESTER_HIDE_SECRETS = 1` in test runs.
-
-**Effort:** Low · **Priority:** Medium
+**Effort:** Low / **Priority:** High
 
 ---
 
-### 8c · Lock File Integrity Signing
-**Status:** `compatibility.lock.json` is validated for structure but not authenticity. A supply-chain attack could modify tested refs.
+### 8b - Secret Masking in Output
+**Status:** (COMPLETED) Secrets now masked in all diagnostic output.  
+**Status:** COMPLETED (Phase 3)
+**Implementation:** Added `Write-Masked` helper and applied throughout:
+
+**Features Delivered:**
+- `Write-Masked` helper truncates values longer than 8 chars to `sk-...XXXX`.
+- Applied to all diagnostic output that touches credentials.
+- `$env:PESTER_HIDE_SECRETS = 1` set in test runs.
+- Prevents accidental key leakage in logs and output.
+
+**Effort:** Low / **Priority:** Medium
+
+---
+
+### 8c - Lock File Integrity Signing
+**Status:** `compatibility.lock.json` is validated for structure but not authenticity. A supply-chain attack could modify tested refs.  
 **Proposal:** Generate a detached GPG/minisign signature (`compatibility.lock.json.sig`) during release. Add optional `--verify-lock-signature` to the CI validator.
 
-**Effort:** Medium · **Priority:** Low
+**Effort:** Medium / **Priority:** Low
 
 ---
 
-### 8d · Binary Intake Safety Check (Reversing-Aware)
+### 8d - Binary Intake Safety Check (Reversing-Aware)
 **Status:** The project may eventually rely on external binaries/tools, but there is no explicit intake policy for unknown executables or packed artifacts.  
 **Proposal:** Add a lightweight binary triage workflow before adopting third-party binaries:
 
@@ -472,178 +562,165 @@ This shortens mean-time-to-diagnosis for intermittent bridge/verification failur
 
 This reduces supply-chain risk when integrating external executables.
 
-**Effort:** Low-Medium · **Priority:** Medium
+**Effort:** Low-Medium / **Priority:** Medium
 
 ---
 
 ## 9. Observability & Telemetry
 
-### 9a · Sync History Log
-**Status:** `sync-state.json` only tracks `lastRunUtc` and `lastSummary` — no history. You can't tell if sync success rates are degrading over time.
-**Proposal:** Append each run's summary to a rolling `sync-history.jsonl` (JSON Lines) file:
+### 9a - Sync History Log
+**Status:** (COMPLETED) Sync history now tracked in rolling log.  
+**Status:** COMPLETED (Phase 3)
+**Implementation:** Added rolling `sync-history.jsonl` (JSON Lines) file:
 
-```jsonl
-{"timestamp":"2026-04-11T17:00:00Z","seen":142,"writes":3,"failed":0,"skipped":139,"mode":"write"}
-{"timestamp":"2026-04-12T09:30:00Z","seen":145,"writes":3,"failed":1,"skipped":141,"mode":"write"}
-```
-
+**Features Delivered:**
+- Each run appends summary with timestamp, seen count, writes, failed, skipped, mode.
 - Configurable max entries (default 500) to prevent unbounded growth.
 - New command: `Get-LLMWorkflowSyncHistory` (alias `llmhistory`).
+- JSON Lines format for easy parsing and analysis.
 
-**Effort:** Low · **Priority:** Medium
-
----
-
-### 9b · Bootstrap Execution Metrics
-**Status:** No timing information on any step. Large projects may have a 2-minute bootstrap with no visibility into bottlenecks.
-**Proposal:** Wrap each major bootstrap phase in a `Measure-Command` block and emit a timing summary:
-
-```
-[llm-workflow] ── Timing ──────────────────────
-[llm-workflow]  Tool scaffold     0.3s
-[llm-workflow]  Env loading       0.1s
-[llm-workflow]  Dependency check  4.2s
-[llm-workflow]  CodeMunch index  12.1s
-[llm-workflow]  CL verify         1.8s
-[llm-workflow]  Bridge dry-run    0.9s
-[llm-workflow]  Total            19.4s
-```
-
-**Effort:** Low · **Priority:** Medium
+**Effort:** Low / **Priority:** Medium
 
 ---
 
-### 9c · Failure Notifications
-**Status:** Sync/check failures only appear in terminal output. If running via scheduled task or CI, failures can go unnoticed.
+### 9b - Bootstrap Execution Metrics
+**Status:** (COMPLETED) Timing information now collected for all steps.  
+**Status:** COMPLETED (Phase 3)
+**Implementation:** Wrapped each major bootstrap phase in timing blocks:
+
+**Features Delivered:**
+- Measure-Command blocks around all major phases.
+- Timing summary output at end of bootstrap.
+- Phase timing: Tool scaffold, Env loading, Dependency check, CodeMunch index, CL verify, Bridge dry-run.
+- Total execution time reporting.
+
+**Effort:** Low / **Priority:** Medium
+
+---
+
+### 9c - Failure Notifications
+**Status:** Sync/check failures only appear in terminal output. If running via scheduled task or CI, failures can go unnoticed.  
 **Proposal:** Add optional notification hooks:
 
 - `-NotifyOnFailure webhook:https://hooks.slack.com/...`
 - `-NotifyOnFailure email:ops@example.com` (via SMTP env vars)
-- Simple `Invoke-RestMethod` with a JSON payload — no dependencies.
+- Simple `Invoke-RestMethod` with a JSON payload -- no dependencies.
 
-**Effort:** Medium · **Priority:** Low
+**Effort:** Medium / **Priority:** Low
 
 ---
 
 ## 10. Developer Experience
 
-### 10a · Git Hook Integration
-**Status:** No automated triggers. Users must remember to run `llmup` manually.
+### 10a - Git Hook Integration
+**Status:** No automated triggers. Users must remember to run `llmup` manually.  
 **Proposal:** Add `Install-LLMWorkflowHooks` that installs:
 
 - **post-checkout** hook: runs `llmup -SkipDependencyInstall -SkipContextVerify -SkipBridgeDryRun` (fast scaffold-only pass).
 - **post-merge** hook: runs `llmup` to catch dependency changes.
-- Uses the `.git/hooks/` directory directly — no Husky dependency.
+- Uses the `.git/hooks/` directory directly -- no Husky dependency.
 - `Uninstall-LLMWorkflowHooks` to cleanly remove.
 
-**Effort:** Low · **Priority:** High
+**Effort:** Low / **Priority:** High
 
 ---
 
-### 10b · PowerShell Tab Completion
-**Status:** No custom argument completers registered. Users must guess flags.
-**Proposal:** Register argument completers in the module for:
+### 10b - PowerShell Tab Completion
+**Status:** (COMPLETED) Custom argument completers registered.  
+**Status:** COMPLETED (Phase 3)
+**Implementation:** Registered argument completers in the module:
 
-- `-Provider` → dynamic list from `Get-ProviderPreferenceOrder`
-- `-Profile` → file listing from `~/.llm-workflow/profiles/`
-- Tool names → codemunch, contextlattice, memorybridge
+**Features Delivered:**
+- `-Provider` completer with dynamic list from `Get-ProviderPreferenceOrder`.
+- `-Profile` completer with file listing from `~/.llm-workflow/profiles/`.
+- Tool names completer: codemunch, contextlattice, memorybridge.
+- Full Intellisense support for all parameters.
 
-```powershell
-Register-ArgumentCompleter -CommandName Invoke-LLMWorkflowUp -ParameterName Provider -ScriptBlock {
-    param($commandName, $parameterName, $wordToComplete)
-    @("auto","openai","claude","kimi","gemini","glm","ollama") |
-        Where-Object { $_ -like "$wordToComplete*" } |
-        ForEach-Object { [System.Management.Automation.CompletionResult]::new($_, $_, 'ParameterValue', $_) }
-}
-```
-
-**Effort:** Low · **Priority:** Medium
+**Effort:** Low / **Priority:** Medium
 
 ---
 
-### 10c · JSON Schema for Config Files
-**Status:** `bridge.config.json`, `index.defaults.json`, and `orchestrator.env.sample` have no schema validation — typos in key names silently produce wrong behavior.
-**Proposal:** Ship JSON Schema files for each config:
+### 10c - JSON Schema for Config Files
+**Status:** (COMPLETED) JSON Schema validation for all config files.  
+**Status:** COMPLETED (Phase 7)
+**Implementation:** Shipped JSON Schema files for each config:
 
-- `.memorybridge/bridge.config.schema.json`
-- `.codemunch/index.defaults.schema.json`
+**Features Delivered:**
+- `.memorybridge/bridge.config.schema.json` for bridge configuration.
+- `.codemunch/index.defaults.schema.json` for indexing defaults.
+- `$schema` reference in generated configs.
+- IDE autocomplete and validation (VS Code, Rider).
 
-Reference them via `$schema` in the generated configs. IDEs (VS Code, Rider) will provide autocomplete and red-squiggle validation for free.
-
-**Effort:** Low · **Priority:** Low
+**Effort:** Low / **Priority:** Low
 
 ---
 
 ## 11. Operational Resilience
 
-### 11a · Graceful Degradation Mode
-**Status:** If any step fails (e.g., ContextLattice unreachable), the entire bootstrap throws and stops. This is correct for `-Strict` mode, but for daily `llmup` usage it's annoying — you may want indexing to proceed even if the remote server is down.
-**Proposal:** Add `-ContinueOnError` flag that:
+### 11a - Graceful Degradation Mode
+**Status:** (COMPLETED) Added -ContinueOnError flag for resilient execution.  
+**Status:** COMPLETED (Phase 3)
+**Implementation:** Added `-ContinueOnError` flag to bootstrap:
 
+**Features Delivered:**
 - Logs failures as warnings instead of throwing.
 - Collects all failures into a summary at the end.
-- Returns a non-zero exit code but completes all possible steps.
+- Returns non-zero exit code but completes all possible steps.
+- Useful for daily `llmup` usage when some services are unavailable.
 
-**Effort:** Low · **Priority:** Medium
+**Effort:** Low / **Priority:** Medium
 
 ---
 
-### 11b · Offline / Air-gapped Mode
-**Status:** If no network is available, `llmup` fails at dependency install, verify, and sync.
-**Proposal:** Add `llmup -Offline` that:
+### 11b - Offline / Air-gapped Mode
+**Status:** (COMPLETED) Added -Offline flag for air-gapped environments.  
+**Status:** COMPLETED (Phase 3)
+**Implementation:** Added `llmup -Offline` convenience flag:
 
+**Features Delivered:**
 - Skips all network-dependent steps automatically.
 - Runs only local operations: tool scaffolding, env loading, local chromadb validation.
 - Useful for developers working on planes, trains, or secure networks.
+- Combines existing skip flags into single convenient option.
 
-**Effort:** Trivial (just a convenience flag combining existing skips) · **Priority:** Medium
+**Effort:** Trivial / **Priority:** Medium
 
 ---
 
 ## 12. Ecosystem Expansion
 
-### 12a · Multi-Palace Support
-**Status:** Bridge syncs from a single `palacePath`. Users with multiple MemPalace instances (e.g., per-project local palaces) must run separate sync commands.
-**Proposal:** Allow `bridge.config.json` to accept an array of palace sources:
+### 12a - Multi-Palace Support
+**Status:** (COMPLETED) Bridge now supports multiple palace sources.  
+**Status:** COMPLETED (Phase 6)
+**Implementation:** Updated `bridge.config.json` to accept array of palace sources:
 
-```json
-{
-  "palaces": [
-    { "path": "~/.mempalace/palace", "collectionName": "mempalace_drawers" },
-    { "path": "./local-palace", "collectionName": "project_notes" }
-  ]
-}
-```
+**Features Delivered:**
+- Array of palace configurations with path and collectionName.
+- Bridge iterates all palaces in one run with unified state tracking.
+- Support for per-project local palaces alongside global palace.
+- Unified sync state across all configured palaces.
 
-Bridge iterates all palaces in one run with unified state tracking.
-
-**Effort:** Medium · **Priority:** Medium
+**Effort:** Medium / **Priority:** Medium
 
 ---
 
-### 12b · Docker / Container Support
-**Status:** No containerized deployment option.
-**Proposal:** Add a `Dockerfile` and `docker-compose.yml` that:
+### 12b - Docker / Container Support
+**Status:** (COMPLETED) Containerized deployment option available.  
+**Status:** COMPLETED (Phase 6)
+**Implementation:** Added `Dockerfile` and `docker-compose.yml`:
 
-- Bundles Python, chromadb, codemunch-pro, and the PowerShell module.
-- Exposes `llmup` as the entrypoint with env var configuration.
-- Useful for CI/CD pipelines that don't want to install dependencies on the host.
+**Features Delivered:**
+- Bundles Python, chromadb, codemunch-pro, and PowerShell module.
+- Exposes `llmup` as entrypoint with env var configuration.
+- Useful for CI/CD pipelines without host dependency installation.
+- Based on mcr.microsoft.com/powershell:latest.
 
-```dockerfile
-FROM mcr.microsoft.com/powershell:latest
-RUN apt-get update && apt-get install -y python3 python3-pip
-RUN pip3 install chromadb codemunch-pro
-COPY . /opt/llm-workflow
-RUN pwsh -File /opt/llm-workflow/install-module.ps1 -NoProfileUpdate
-ENTRYPOINT ["pwsh", "-Command", "Import-Module LLMWorkflow; Invoke-LLMWorkflowUp"]
-```
-
-**Effort:** Medium · **Priority:** Medium
+**Effort:** Medium / **Priority:** Medium
 
 ---
 
-### 12c · VS Code Extension
-**Status:** Users interact exclusively via terminal.
+### 12c - VS Code Extension
+**Status:** Users interact exclusively via terminal.  
 **Proposal:** Create a lightweight VS Code extension that:
 
 - Adds a "LLM Workflow" status bar item showing sync state (last run, pass/fail).
@@ -651,11 +728,11 @@ ENTRYPOINT ["pwsh", "-Command", "Import-Module LLMWorkflow; Invoke-LLMWorkflowUp
 - Shows a webview panel for doctor results with clickable fix suggestions.
 - Auto-discovers `.contextlattice/` and `.memorybridge/` directories.
 
-**Effort:** High · **Priority:** Low
+**Effort:** High / **Priority:** Low
 
 ---
 
-### 12d · Pluggable Vector Backend (Qdrant/Milvus/Weaviate/Pinecone)
+### 12d - Pluggable Vector Backend (Qdrant/Milvus/Weaviate/Pinecone)
 **Status:** Local memory relies on ChromaDB only. This is excellent for local-first workflows but may become limiting for large-scale, high-concurrency, or managed production requirements.  
 **Proposal:** Add a backend abstraction layer for vector storage:
 
@@ -666,11 +743,11 @@ ENTRYPOINT ["pwsh", "-Command", "Import-Module LLMWorkflow; Invoke-LLMWorkflowUp
 
 This enables growth without forcing early infrastructure complexity.
 
-**Effort:** Medium-High · **Priority:** Low-Medium
+**Effort:** Medium-High / **Priority:** Low-Medium
 
 ---
 
-### 12e · Game Asset Starter Packs + License Manifest
+### 12e - Game Asset Starter Packs + License Manifest
 **Status:** Bootstrapping focuses on code/memory infrastructure, but game projects also need repeatable art/audio starter assets and clear license tracking from day one.  
 **Proposal:** Add `llmup -GameAssets` to scaffold optional starter packs and a mandatory asset manifest:
 
@@ -680,11 +757,11 @@ This enables growth without forcing early infrastructure complexity.
 
 This speeds prototype setup while reducing legal/licensing drift.
 
-**Effort:** Medium · **Priority:** Medium
+**Effort:** Medium / **Priority:** Medium
 
 ---
 
-### 12f · 2D Content Pipeline Preset (LDtk/Tiled + Spritesheet + Compression)
+### 12f - 2D Content Pipeline Preset (LDtk/Tiled + Spritesheet + Compression)
 **Status:** There is no standardized build path for 2D game content (tilemaps, spritesheets, and image optimization).  
 **Proposal:** Add a `-Game2D` preset for common 2D workflows:
 
@@ -695,11 +772,11 @@ This speeds prototype setup while reducing legal/licensing drift.
 
 This gives teams a reproducible asset pipeline instead of ad-hoc local scripts.
 
-**Effort:** Medium · **Priority:** Medium
+**Effort:** Medium / **Priority:** Medium
 
 ---
 
-### 12g · Game Audio Pipeline Quickstart
+### 12g - Game Audio Pipeline Quickstart
 **Status:** Audio setup is manual and inconsistent across projects, especially in early prototyping.  
 **Proposal:** Add a lightweight audio scaffold:
 
@@ -709,37 +786,43 @@ This gives teams a reproducible asset pipeline instead of ad-hoc local scripts.
 
 This lowers friction for jams and prototypes while keeping audio assets organized.
 
-**Effort:** Low · **Priority:** Low
+**Effort:** Low / **Priority:** Low
 
 ---
 
-### 12h · Game Team Workflow Preset (Jam + PM Templates)
-**Status:** The repo has strong technical automation but no game-specific collaboration template for short-cycle dev (jams, vertical slices, prototype sprints).  
-**Proposal:** Add `llmup -GameTeam` to generate:
+### 12h - Game Team Workflow Preset (Jam + PM Templates)
+**Status:** (COMPLETED) Game-specific collaboration template added.  
+**Status:** COMPLETED (Phase 6)
+**Implementation:** Added `llmup -GameTeam` workflow preset:
 
-- A game-design doc starter (`docs/GDD.md`) with scope, loop, mechanics, and content checklist.
-- Task board template compatible with tools like HacknPlan/Questlog/Trello.
+**Features Delivered:**
+- Game-design doc starter (`docs/GDD.md`) with scope, loop, mechanics, and content checklist.
+- Task board template compatible with HacknPlan/Questlog/Trello.
 - Jam-mode defaults (`-ContinueOnError`, fast checks, lightweight artifact reports).
+- Improved delivery speed for game teams without changing core workflow engine.
 
-This improves delivery speed for game teams without changing the core workflow engine.
-
-**Effort:** Low-Medium · **Priority:** Medium
+**Effort:** Low-Medium / **Priority:** Medium
 
 ---
 
 > [!IMPORTANT]
-> **Items already implemented from this list:** 1g (Claude/Ollama providers ✅), 2c (Retry with backoff ✅), 3b ($args fix ✅), 3c (CmdletBinding ✅), 7a (Architecture diagram ✅). The module-bundled bootstrap drift (3a) has also been fixed by re-syncing templates.
+> **Items already implemented from this list:**
+> - Phase 3: 1g (Claude/Ollama), 3b ($args fix), 3c (CmdletBinding), 4a (Provider Tests), 6a (Path Separators), 6b (Profile Paths), 8a (API Key Validation), 8b (Secret Masking), 9a (Sync History), 9b (Bootstrap Metrics), 10b (Tab Completion), 11a (Graceful Degradation), 11b (Offline Mode)
+> - Phase 4: 2c (Retry Backoff), 2e (Latency Reporting), 2f (JSON Logging), 3a (Shared Module), 4c (Error-Path Tests), 4d (Linux/macOS CI), 5a (PSScriptAnalyzer), 5c (E2E Integration CI)
+> - Phase 5: 2d (Parallel Writes), 7b (Troubleshooting Guide)
+> - Phase 6: 1e (Plugin Architecture), 7a (Architecture Diagram), 12a (Multi-Palace), 12b (Docker), 12h (Game Team Workflow)
+> - Phase 7: 1c (TUI Dashboard), 10c (JSON Schema), 15a (Self-Healing enhancements)
 
 > [!NOTE]
-> **Recommended next batch:** 8a (key validation), 10a (git hooks), 11b (offline mode), 9b (timing metrics), and 10b (tab completion) — all low-effort, high-impact improvements that make the daily workflow smoother.
+> **Recommended next batch:** 10a (git hooks), 1f (interactive init), 1a (watch sync) -- all high-impact improvements that make the daily workflow smoother.
 
 ---
 
-## 13. MCP-Native Architecture 🔮
+## 13. MCP-Native Architecture (Crystal Ball)
 
-### 13a · Expose the Toolkit Itself as an MCP Server
-**Status:** The toolkit *bootstraps* MCP servers (codemunch-pro, memorymcp) but is itself only invocable via PowerShell.
-**Proposal:** Create `llm-workflow-mcp-server` — an MCP server (stdio or HTTP) that exposes the toolkit's capabilities as tools any AI agent can call:
+### 13a - Expose the Toolkit Itself as an MCP Server
+**Status:** The toolkit *bootstraps* MCP servers (codemunch-pro, memorymcp) but is itself only invocable via PowerShell.  
+**Proposal:** Create `llm-workflow-mcp-server` -- an MCP server (stdio or HTTP) that exposes the toolkit's capabilities as tools any AI agent can call:
 
 ```json
 {
@@ -753,30 +836,30 @@ This improves delivery speed for game teams without changing the core workflow e
 }
 ```
 
-This turns the toolkit into a **meta-tool** — AI agents can self-bootstrap their own environment, check their own health, and trigger syncs autonomously.
+This turns the toolkit into a **meta-tool** -- AI agents can self-bootstrap their own environment, check their own health, and trigger syncs autonomously.
 
-**Effort:** Medium · **Priority:** High
+**Effort:** Medium / **Priority:** High
 
 ---
 
-### 13b · MCP Tool Composition / Orchestration
-**Status:** codemunch-pro and memorymcp are independent MCP servers. No unified query surface.
+### 13b - MCP Tool Composition / Orchestration
+**Status:** codemunch-pro and memorymcp are independent MCP servers. No unified query surface.  
 **Proposal:** Add a **composite MCP gateway** that routes requests across all three tool chains:
 
-- `memory/search` → fans out to both ContextLattice and local ChromaDB, deduplicates and ranks results.
-- `index/search` → queries codemunch-pro's index with ContextLattice context injected as grounding.
-- `workflow/context` → returns a unified "what does this project know?" summary combining index stats, memory counts, and sync state.
+- `memory/search` -> fans out to both ContextLattice and local ChromaDB, deduplicates and ranks results.
+- `index/search` -> queries codemunch-pro's index with ContextLattice context injected as grounding.
+- `workflow/context` -> returns a unified "what does this project know?" summary combining index stats, memory counts, and sync state.
 
-Think of it as a **unified AI context layer** — one MCP endpoint that gives any agent complete project awareness.
+Think of it as a **unified AI context layer** -- one MCP endpoint that gives any agent complete project awareness.
 
-**Effort:** High · **Priority:** Medium
+**Effort:** High / **Priority:** Medium
 
 ---
 
-## 14. Semantic Memory Intelligence 🧠
+## 14. Semantic Memory Intelligence (Brain)
 
-### 14a · Semantic Change Detection (Replace Hash-Based Diffing)
-**Status:** The bridge uses SHA-256 hashes to detect changes. A single whitespace edit triggers a full re-sync of that drawer. Meaningful content changes are treated the same as formatting noise.
+### 14a - Semantic Change Detection (Replace Hash-Based Diffing)
+**Status:** The bridge uses SHA-256 hashes to detect changes. A single whitespace edit triggers a full re-sync of that drawer. Meaningful content changes are treated the same as formatting noise.  
 **Proposal:** Use embedding cosine similarity for change detection:
 
 ```python
@@ -791,12 +874,12 @@ if similarity < 0.95:  # meaningful change threshold
 - Falls back to hash comparison if embeddings unavailable.
 - Dramatically reduces unnecessary writes for actively-edited content.
 
-**Effort:** Medium · **Priority:** Medium
+**Effort:** Medium / **Priority:** Medium
 
 ---
 
-### 14b · Memory Lifecycle Management (TTL, Archival, Versioning)
-**Status:** Memories are write-once-sync-forever. Stale memories from abandoned projects accumulate without any pruning mechanism.
+### 14b - Memory Lifecycle Management (TTL, Archival, Versioning)
+**Status:** Memories are write-once-sync-forever. Stale memories from abandoned projects accumulate without any pruning mechanism.  
 **Proposal:** Add lifecycle metadata to synced memories:
 
 ```json
@@ -808,16 +891,16 @@ if similarity < 0.95:  # meaningful change threshold
 }
 ```
 
-- New command: `Invoke-LLMWorkflowPrune` (alias `llmprune`) — archives or deletes memories past TTL.
+- New command: `Invoke-LLMWorkflowPrune` (alias `llmprune`) -- archives or deletes memories past TTL.
 - Version history for frequently-updated drawers with diff support.
 - `--dry-run` shows what would be pruned without acting.
 
-**Effort:** Medium · **Priority:** Medium
+**Effort:** Medium / **Priority:** Medium
 
 ---
 
-### 14c · Intelligent Context Pre-fetching
-**Status:** Context is retrieved on-demand. AI agents must explicitly search for relevant memories.
+### 14c - Intelligent Context Pre-fetching
+**Status:** Context is retrieved on-demand. AI agents must explicitly search for relevant memories.  
 **Proposal:** Add a **pre-fetch daemon** that watches `git diff --cached` and proactively loads relevant memories:
 
 1. On file save / git stage, extract key terms from the diff.
@@ -827,12 +910,12 @@ if similarity < 0.95:  # meaningful change threshold
 
 This means the AI agent already has relevant context *before it asks for it*. The difference between "search for what you need" and "here's what you probably need" is massive for agent performance.
 
-**Effort:** High · **Priority:** Medium
+**Effort:** High / **Priority:** Medium
 
 ---
 
-### 14d · Cross-Repository Memory Linking
-**Status:** Each project is an island — memories synced from Project A are invisible when working in Project B.
+### 14d - Cross-Repository Memory Linking
+**Status:** Each project is an island -- memories synced from Project A are invisible when working in Project B.  
 **Proposal:** Add a `relatedProjects` config:
 
 ```json
@@ -846,33 +929,31 @@ This means the AI agent already has relevant context *before it asks for it*. Th
 - Bridge sync can optionally include memories tagged from related repos.
 - Critical for monorepo-adjacent workflows where knowledge spans multiple repos.
 
-**Effort:** Medium · **Priority:** Medium
+**Effort:** Medium / **Priority:** Medium
 
 ---
 
-## 15. Autonomous Agent Capabilities 🤖
+## 15. Autonomous Agent Capabilities (Robot)
 
-### 15a · Self-Healing Workflow Agent
-**Status:** When `llmup` fails, the user must manually diagnose and fix. Doctor helps but doesn't remediate.
-**Proposal:** Add `Invoke-LLMWorkflowHeal` (alias `llmheal`) — an agent that:
+### 15a - Self-Healing Workflow Agent
+**Status:** (COMPLETED) Enhanced self-healing capabilities implemented.  
+**Status:** COMPLETED (Phase 7)
+**Implementation:** Enhanced `Invoke-LLMWorkflowHeal` (alias `llmheal`) with comprehensive remediation:
 
-1. Runs `llmdoctor -AsJson` to capture failures.
-2. For each failure, applies a known fix:
-   - `python_command` fail → checks common install paths, offers to add to PATH.
-   - `chromadb_python_module` fail → runs `pip install chromadb`.
-   - `contextlattice_connectivity` fail → checks firewall, retries with backoff, suggests port forwarding.
-   - `provider_credentials` fail → prompts for key interactively.
-3. Re-runs doctor to verify fixes.
-4. Logs all actions taken.
+**Features Delivered:**
+- Runs `llmdoctor -AsJson` to capture failures.
+- Automated fixes for common failures: python_command, chromadb_python_module, contextlattice_connectivity, provider_credentials.
+- Interactive prompts for missing credentials.
+- Re-runs doctor to verify fixes.
+- Comprehensive logging of all healing actions taken.
+- Goes beyond diagnosis to automatic remediation.
 
-Goes beyond diagnosis to **automatic remediation**.
-
-**Effort:** Medium · **Priority:** Medium
+**Effort:** Medium / **Priority:** Medium
 
 ---
 
-### 15b · LLM-Powered Memory Curation
-**Status:** All memories are treated equally. No quality filtering, deduplication, or summarization.
+### 15b - LLM-Powered Memory Curation
+**Status:** All memories are treated equally. No quality filtering, deduplication, or summarization.  
 **Proposal:** Add `Invoke-LLMWorkflowCurate` (alias `llmcurate`) that uses the configured LLM provider to:
 
 - **Deduplicate:** Find semantically similar memories and merge them.
@@ -884,15 +965,15 @@ Goes beyond diagnosis to **automatic remediation**.
 llmcurate -ProjectRoot . -MaxTokenBudget 50000 -DryRun
 ```
 
-Uses your own LLM provider to improve your own memory — the toolkit eating its own dogfood.
+Uses your own LLM provider to improve your own memory -- the toolkit eating its own dogfood.
 
-**Effort:** High · **Priority:** Medium
+**Effort:** High / **Priority:** Medium
 
 ---
 
-### 15c · Proactive Context Agent (Background Daemon)
-**Status:** The toolkit is purely reactive — runs when invoked, sleeps otherwise.
-**Proposal:** Add `Start-LLMWorkflowAgent` (alias `llmagent`) — a background process that:
+### 15c - Proactive Context Agent (Background Daemon)
+**Status:** The toolkit is purely reactive -- runs when invoked, sleeps otherwise.  
+**Proposal:** Add `Start-LLMWorkflowAgent` (alias `llmagent`) -- a background process that:
 
 1. **Watches** file system changes in the project via `FileSystemWatcher`.
 2. **Auto-indexes** changed files through codemunch-pro incrementally.
@@ -902,14 +983,14 @@ Uses your own LLM provider to improve your own memory — the toolkit eating its
 
 Runs as a tray icon on Windows / launchd agent on macOS / systemd user service on Linux.
 
-**Effort:** High · **Priority:** Low-Medium
+**Effort:** High / **Priority:** Low-Medium
 
 ---
 
-## 16. Knowledge Graph & Visualization 📊
+## 16. Knowledge Graph & Visualization (Chart)
 
-### 16a · Memory Relationship Graph
-**Status:** Memories are flat key-value documents. No relationship tracking between related memories.
+### 16a - Memory Relationship Graph
+**Status:** Memories are flat key-value documents. No relationship tracking between related memories.  
 **Proposal:** Build a relationship layer:
 
 ```python
@@ -925,12 +1006,12 @@ Runs as a tray icon on Windows / launchd agent on macOS / systemd user service o
 - Stored as edges in a lightweight graph (NetworkX or sqlite).
 - Queryable: "What memories are related to this file?"
 
-**Effort:** High · **Priority:** Low
+**Effort:** High / **Priority:** Low
 
 ---
 
-### 16b · Interactive Web Dashboard
-**Status:** All output is terminal text or JSON.
+### 16b - Interactive Web Dashboard
+**Status:** All output is terminal text or JSON.  
 **Proposal:** Ship a `llm-workflow-dashboard` single-page app (served locally) that shows:
 
 - **Memory map:** 3D force-directed graph of memories, topics, and projects.
@@ -939,16 +1020,16 @@ Runs as a tray icon on Windows / launchd agent on macOS / systemd user service o
 - **Index coverage:** Which files are indexed, which are stale, embedding coverage percentage.
 - **Cost tracker:** Estimated API spend based on token counts from syncs and searches.
 
-Built as a single HTML file with embedded JS (no build step) — `& start "http://localhost:59083"`.
+Built as a single HTML file with embedded JS (no build step) -- `& start "http://localhost:59083"`.
 
-**Effort:** High · **Priority:** Low
+**Effort:** High / **Priority:** Low
 
 ---
 
-## 17. Portable & Federated Memory 🌐
+## 17. Portable & Federated Memory (Globe)
 
-### 17a · Memory Snapshots (Export / Import)
-**Status:** No way to capture and restore a point-in-time memory state.
+### 17a - Memory Snapshots (Export / Import)
+**Status:** No way to capture and restore a point-in-time memory state.  
 **Proposal:** Add `Export-LLMWorkflowMemory` and `Import-LLMWorkflowMemory`:
 
 ```powershell
@@ -960,15 +1041,15 @@ Import-LLMWorkflowMemory -Path ./memory-snapshot-2026-04-11.tar.gz
 ```
 
 - Includes ChromaDB palace, sync state, codemunch index, and all configs.
-- Enables reproducible AI dev environments — "here's the exact context state where this bug was found."
+- Enables reproducible AI dev environments -- "here's the exact context state where this bug was found."
 - Version-stamps snapshots for compatibility validation.
 
-**Effort:** Medium · **Priority:** Medium
+**Effort:** Medium / **Priority:** Medium
 
 ---
 
-### 17b · Federated Team Memory
-**Status:** Single-user only. No mechanism for team knowledge sharing.
+### 17b - Federated Team Memory
+**Status:** Single-user only. No mechanism for team knowledge sharing.  
 **Proposal:** Add a team sync mode where multiple developers' MemPalaces merge into a shared ContextLattice with access control:
 
 ```json
@@ -990,12 +1071,12 @@ Import-LLMWorkflowMemory -Path ./memory-snapshot-2026-04-11.tar.gz
 
 This transforms the toolkit from a **personal productivity tool** into a **team knowledge platform**.
 
-**Effort:** Very High · **Priority:** Low
+**Effort:** Very High / **Priority:** Low
 
 ---
 
-### 17c · Natural Language Workflow Configuration
-**Status:** Configuration requires manually editing JSON files and env vars.
+### 17c - Natural Language Workflow Configuration
+**Status:** Configuration requires manually editing JSON files and env vars.  
 **Proposal:** Add `llmup --from-prompt "Set up my project for Claude with a local MemPalace, sync every 5 minutes, skip Kimi"` that:
 
 1. Parses the natural language instruction via the configured LLM.
@@ -1003,9 +1084,9 @@ This transforms the toolkit from a **personal productivity tool** into a **team 
 3. Shows a diff of what it will write and asks for confirmation.
 4. Applies the config and runs bootstrap.
 
-The ultimate "zero-config" experience — describe what you want in English, get a working setup.
+The ultimate "zero-config" experience -- describe what you want in English, get a working setup.
 
-**Effort:** Medium · **Priority:** Low
+**Effort:** Medium / **Priority:** Low
 
 ---
 
@@ -1014,9 +1095,9 @@ The ultimate "zero-config" experience — describe what you want in English, get
 | Priority | Items |
 |----------|-------|
 | **High** | 13a (MCP Server) |
-| **Medium** | 13b (MCP Gateway), 14a (Semantic Diffing), 14b (Memory Lifecycle), 14c (Pre-fetching), 14d (Cross-Repo), 15a (Self-Healing), 15b (LLM Curation), 17a (Snapshots) |
+| **Medium** | 13b (MCP Gateway), 14a (Semantic Diffing), 14b (Memory Lifecycle), 14c (Pre-fetching), 14d (Cross-Repo), 15b (LLM Curation), 17a (Snapshots) |
 | **Low-Medium** | 15c (Background Agent) |
 | **Low** | 16a (Knowledge Graph), 16b (Web Dashboard), 17b (Federated Memory), 17c (NL Config) |
 
 > [!TIP]
-> **The single highest-leverage bleeding-edge item is 13a (MCP Server).** Once the toolkit is MCP-native, every AI agent that connects to your project can self-bootstrap, self-diagnose, and self-sync — no human in the loop. It's the difference between a tool you use and a tool that uses itself.
+> **The single highest-leverage bleeding-edge item is 13a (MCP Server).** Once the toolkit is MCP-native, every AI agent that connects to your project can self-bootstrap, self-diagnose, and self-sync -- no human in the loop. It's the difference between a tool you use and a tool that uses itself.
