@@ -1,0 +1,13 @@
+﻿{
+  "$schema": "./index.defaults.schema.json",
+  "include_patterns": [],
+  "exclude_patterns": [
+    ".git/*",
+    "node_modules/*",
+    "build/*",
+    "dist/*",
+    ".venv/*",
+    "venv/*",
+    ".cache/*"
+  ]
+}

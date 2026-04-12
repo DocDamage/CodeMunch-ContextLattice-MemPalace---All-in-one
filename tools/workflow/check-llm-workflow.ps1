@@ -1,7 +1,7 @@
-﻿[CmdletBinding()]
+[CmdletBinding()]
 param(
     [string]$ProjectRoot = ".",
-    [ValidateSet("auto", "openai", "kimi", "gemini", "glm")]
+    [ValidateSet("auto", "openai", "kimi", "gemini", "glm", "claude", "ollama")]
     [string]$Provider = "auto",
     [switch]$SkipDependencyInstall,
     [switch]$SkipProviderNormalize,

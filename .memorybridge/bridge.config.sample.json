@@ -1,0 +1,13 @@
+﻿{
+  "$schema": "./bridge.config.schema.json",
+  "version": "1.0",
+  "orchestratorUrl": "http://127.0.0.1:8075",
+  "apiKeyEnvVar": "CONTEXTLATTICE_ORCHESTRATOR_API_KEY",
+  "palacePath": "~/.mempalace/palace",
+  "collectionName": "mempalace_drawers",
+  "defaultProjectName": "my-project",
+  "topicPrefix": "mempalace",
+  "wingProjectMap": {
+    "default_wing": "my-project"
+  }
+}

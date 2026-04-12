@@ -1,0 +1,108 @@
+{
+  "name": "Game Team Workflow",
+  "version": "1.0.0",
+  "description": "Optimized preset for game development teams with GDD, asset management, and jam workflows",
+  "presetType": "gameteam",
+  "jamModeDefaults": {
+    "continueOnError": true,
+    "fastChecksOnly": true,
+    "lightweightArtifacts": true,
+    "skipBridgeDryRun": true,
+    "skipContextVerify": false
+  },
+  "folderStructure": [
+    "docs/",
+    "assets/",
+    "assets/sfx/",
+    "assets/music/",
+    "assets/art/",
+    ".llm-workflow/"
+  ],
+  "templateFiles": [
+    {
+      "source": "GDD.md",
+      "destination": "docs/GDD.md",
+      "description": "Game Design Document template"
+    },
+    {
+      "source": "TASKS.md",
+      "destination": "docs/TASKS.md",
+      "description": "Task board compatible with HacknPlan, Trello, and GitHub Projects"
+    },
+    {
+      "source": "ASSET_MANIFEST.json",
+      "destination": "assets/ASSET_MANIFEST.json",
+      "description": "Asset tracking with license management"
+    }
+  ],
+  "gameTemplates": [
+    {
+      "id": "2d-platformer",
+      "name": "2D Platformer",
+      "description": "Classic 2D platformer with physics-based movement",
+      "tags": ["2d", "platformer", "physics"],
+      "defaultEngine": "Unity|Godot|GameMaker"
+    },
+    {
+      "id": "topdown-rpg",
+      "name": "Top-Down RPG",
+      "description": "Top-down adventure/RPG with tile-based movement",
+      "tags": ["2d", "rpg", "topdown", "tilemap"],
+      "defaultEngine": "Unity|Godot|RPGMaker"
+    },
+    {
+      "id": "puzzle",
+      "name": "Puzzle Game",
+      "description": "Grid-based or physics puzzle game",
+      "tags": ["puzzle", "casual", "grid"],
+      "defaultEngine": "Any"
+    },
+    {
+      "id": "fps-prototype",
+      "name": "FPS Prototype",
+      "description": "First-person shooter mechanics prototype",
+      "tags": ["3d", "fps", "shooter", "action"],
+      "defaultEngine": "Unity|Unreal|Godot"
+    },
+    {
+      "id": "visual-novel",
+      "name": "Visual Novel",
+      "description": "Story-focused visual novel with branching dialogue",
+      "tags": ["2d", "vn", "story", "dialogue"],
+      "defaultEngine": "RenPy|Unity| TyranoBuilder"
+    },
+    {
+      "id": "roguelike",
+      "name": "Roguelike/Roguelite",
+      "description": "Procedural dungeon crawler with permadeath",
+      "tags": ["2d", "roguelike", "procedural", "dungeon"],
+      "defaultEngine": "Unity|Godot"
+    },
+    {
+      "id": "card-game",
+      "name": "Card Game",
+      "description": "Digital card game with deck building mechanics",
+      "tags": ["2d", "card", "deckbuilding", "strategy"],
+      "defaultEngine": "Unity|Godot"
+    },
+    {
+      "id": "endless-runner",
+      "name": "Endless Runner",
+      "description": "Auto-scrolling endless runner",
+      "tags": ["2d", "endless", "arcade", "mobile"],
+      "defaultEngine": "Unity|Godot"
+    }
+  ],
+  "defaultChecks": {
+    "preBuild": [
+      "Validate asset manifest",
+      "Check for missing textures",
+      "Verify audio files exist"
+    ],
+    "postBuild": [
+      "Test build size",
+      "Verify all scenes in build",
+      "Check for debug code"
+    ]
+  }
+}

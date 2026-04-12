@@ -1,0 +1,129 @@
+{
+  "project": "{{PROJECT_NAME}}",
+  "version": "1.0.0",
+  "created": "{{CREATED_DATE}}",
+  "lastUpdated": "{{LAST_UPDATED}}",
+  "assetCount": 0,
+  "totalSize": "0 MB",
+  "categories": {
+    "art": {
+      "description": "Visual assets - sprites, textures, models, UI elements",
+      "folder": "assets/art",
+      "assetCount": 0,
+      "assets": []
+    },
+    "sfx": {
+      "description": "Sound effects and short audio clips",
+      "folder": "assets/sfx",
+      "assetCount": 0,
+      "assets": []
+    },
+    "music": {
+      "description": "Background music and long-form audio",
+      "folder": "assets/music",
+      "assetCount": 0,
+      "assets": []
+    }
+  },
+  "licenseSummary": {
+    "original": 0,
+    "cc0": 0,
+    "ccBy": 0,
+    "ccBySa": 0,
+    "proprietary": 0,
+    "unknown": 0
+  },
+  "templates": {
+    "art": {
+      "id": "",
+      "name": "",
+      "fileName": "",
+      "path": "",
+      "type": "sprite|texture|model|ui|animation|shader",
+      "format": "png|jpg|psd|fbx|obj|blend|aseprite",
+      "dimensions": "",
+      "fileSize": "",
+      "tags": [],
+      "status": "todo|wip|review|done",
+      "priority": "p0|p1|p2",
+      "assignedTo": "",
+      "createdDate": "",
+      "modifiedDate": "",
+      "source": "original|opengameart|itchio|kenney|unity|unreal|custom",
+      "sourceUrl": "",
+      "license": "original|CC0|CC-BY|CC-BY-SA|CC-BY-NC|proprietary|unknown",
+      "licenseUrl": "",
+      "author": "",
+      "notes": ""
+    },
+    "sfx": {
+      "id": "",
+      "name": "",
+      "fileName": "",
+      "path": "",
+      "type": "ui|ambient|action|impact|voice|foley",
+      "format": "wav|mp3|ogg|flac",
+      "duration": "",
+      "fileSize": "",
+      "tags": [],
+      "status": "todo|wip|review|done",
+      "priority": "p0|p1|p2",
+      "assignedTo": "",
+      "createdDate": "",
+      "modifiedDate": "",
+      "source": "original|freesound|opengameart|custom|sfxlibrary",
+      "sourceUrl": "",
+      "license": "original|CC0|CC-BY|proprietary|unknown",
+      "licenseUrl": "",
+      "author": "",
+      "notes": ""
+    },
+    "music": {
+      "id": "",
+      "name": "",
+      "fileName": "",
+      "path": "",
+      "type": "background|menu|boss|victory|ambient",
+      "format": "wav|mp3|ogg|flac",
+      "duration": "",
+      "loopable": false,
+      "fileSize": "",
+      "tags": [],
+      "status": "todo|wip|review|done",
+      "priority": "p0|p1|p2",
+      "assignedTo": "",
+      "createdDate": "",
+      "modifiedDate": "",
+      "source": "original|incompetech|opengameart|custom|composer",
+      "sourceUrl": "",
+      "license": "original|CC0|CC-BY|proprietary|unknown",
+      "licenseUrl": "",
+      "author": "",
+      "notes": ""
+    }
+  },
+  "exampleAssets": [
+    {
+      "id": "art-001",
+      "name": "Player Sprite Sheet",
+      "fileName": "player_sprites.png",
+      "path": "assets/art/characters",
+      "type": "sprite",
+      "format": "png",
+      "dimensions": "256x256",
+      "fileSize": "32 KB",
+      "tags": ["character", "player", "animation"],
+      "status": "wip",
+      "priority": "p0",
+      "assignedTo": "artist1",
+      "createdDate": "2026-01-01",
+      "modifiedDate": "2026-01-05",
+      "source": "original",
+      "sourceUrl": "",
+      "license": "original",
+      "licenseUrl": "",
+      "author": "Team",
+      "notes": "8-frame walk animation"
+    }
+  ]
+}

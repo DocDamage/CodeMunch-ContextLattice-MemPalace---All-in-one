@@ -4,6 +4,7 @@ param()
 $ErrorActionPreference = "Stop"
 
 function Get-RelativeFileHashes {
+    [CmdletBinding()]
     param(
         [Parameter(Mandatory = $true)]
         [string]$Root
@@ -21,6 +22,7 @@ function Get-RelativeFileHashes {
 }
 
 function Compare-DirectoryContent {
+    [CmdletBinding()]
     param(
         [string]$SourcePath,
         [string]$TargetPath
@@ -59,20 +61,20 @@ function Compare-DirectoryContent {
     }
 }
 
-$repoRoot = (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot "..\..")).Path
+$repoRoot = (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot ".." "..")).Path
 
 $pairs = @(
     @{
-        Source = Join-Path $repoRoot "tools\codemunch"
-        Target = Join-Path $repoRoot "module\LLMWorkflow\templates\tools\codemunch"
+        Source = Join-Path $repoRoot "tools" "codemunch"
+        Target = Join-Path $repoRoot "module" "LLMWorkflow" "templates" "tools" "codemunch"
     },
     @{
-        Source = Join-Path $repoRoot "tools\contextlattice"
-        Target = Join-Path $repoRoot "module\LLMWorkflow\templates\tools\contextlattice"
+        Source = Join-Path $repoRoot "tools" "contextlattice"
+        Target = Join-Path $repoRoot "module" "LLMWorkflow" "templates" "tools" "contextlattice"
     },
     @{
-        Source = Join-Path $repoRoot "tools\memorybridge"
-        Target = Join-Path $repoRoot "module\LLMWorkflow\templates\tools\memorybridge"
+        Source = Join-Path $repoRoot "tools" "memorybridge"
+        Target = Join-Path $repoRoot "module" "LLMWorkflow" "templates" "tools" "memorybridge"
     }
 )
 
@@ -84,12 +86,12 @@ foreach ($pair in $pairs) {
 # workflow installer scripts are mirrored outside template trees.
 $scriptPairs = @(
     @{
-        Source = Join-Path $repoRoot "tools\workflow\bootstrap-llm-workflow.ps1"
-        Target = Join-Path $repoRoot "module\LLMWorkflow\scripts\bootstrap-llm-workflow.ps1"
+        Source = Join-Path $repoRoot "tools" "workflow" "bootstrap-llm-workflow.ps1"
+        Target = Join-Path $repoRoot "module" "LLMWorkflow" "scripts" "bootstrap-llm-workflow.ps1"
     },
     @{
-        Source = Join-Path $repoRoot "tools\workflow\install-global-llm-workflow.ps1"
-        Target = Join-Path $repoRoot "module\LLMWorkflow\scripts\install-global-llm-workflow.ps1"
+        Source = Join-Path $repoRoot "tools" "workflow" "install-global-llm-workflow.ps1"
+        Target = Join-Path $repoRoot "module" "LLMWorkflow" "scripts" "install-global-llm-workflow.ps1"
     }
 )
 

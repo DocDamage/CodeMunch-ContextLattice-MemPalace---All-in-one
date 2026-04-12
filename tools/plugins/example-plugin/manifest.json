@@ -1,0 +1,9 @@
+{
+  "name": "example-plugin",
+  "description": "Example plugin demonstrating the LLM Workflow plugin architecture",
+  "version": "1.0.0",
+  "author": "Your Name",
+  "bootstrapScript": "tools/example-plugin/bootstrap.ps1",
+  "checkScript": "tools/example-plugin/check.ps1",
+  "runOn": ["bootstrap", "check"]
+}

@@ -9,7 +9,7 @@ $ErrorActionPreference = "Stop"
 function Assert-HasProperty {
     param(
         [Parameter(Mandatory = $true)]
-        [object]$Object,
+        [PSObject]$Object,
         [Parameter(Mandatory = $true)]
         [string]$PropertyName
     )

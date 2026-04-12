@@ -1,0 +1,229 @@
+﻿{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://raw.githubusercontent.com/DocDamage/CodeMunch-ContextLattice-MemPalace---All-in-one/main/.memorybridge/bridge.config.schema.json",
+  "title": "MemoryBridge Configuration",
+  "description": "Configuration for the MemPalace to ContextLattice bridge sync process",
+  "type": "object",
+  "definitions": {
+    "palaceConfig": {
+      "type": "object",
+      "title": "Palace Configuration",
+      "description": "Configuration for a single MemPalace instance",
+      "properties": {
+        "path": {
+          "type": "string",
+          "title": "Palace Path",
+          "description": "Path to the ChromaDB palace directory. Supports ~ for home directory.",
+          "default": "~/.mempalace/palace",
+          "examples": ["~/.mempalace/palace", "/data/mempalace/work"]
+        },
+        "collectionName": {
+          "type": "string",
+          "title": "Collection Name",
+          "description": "Name of the ChromaDB collection containing drawers",
+          "default": "mempalace_drawers",
+          "examples": ["mempalace_drawers", "project_drawers"]
+        },
+        "topicPrefix": {
+          "type": "string",
+          "title": "Topic Prefix",
+          "description": "Prefix for topic paths in ContextLattice",
+          "default": "mempalace",
+          "examples": ["mempalace", "docs", "knowledge"]
+        },
+        "wingProjectMap": {
+          "type": "object",
+          "title": "Wing to Project Mapping",
+          "description": "Maps MemPalace wing names to ContextLattice project names",
+          "additionalProperties": {
+            "type": "string",
+            "description": "ContextLattice project name for this wing"
+          },
+          "default": {"default_wing": "my-project"},
+          "examples": [
+            {"default_wing": "my-project"},
+            {"frontend": "web-app", "backend": "api-service"}
+          ]
+        }
+      },
+      "required": ["path"]
+    }
+  },
+  "properties": {
+    "$schema": {
+      "type": "string",
+      "title": "Schema Reference",
+      "description": "URL to this JSON schema file for IDE validation",
+      "format": "uri",
+      "default": "https://raw.githubusercontent.com/DocDamage/CodeMunch-ContextLattice-MemPalace---All-in-one/main/.memorybridge/bridge.config.schema.json"
+    },
+    "version": {
+      "type": "string",
+      "title": "Config Version",
+      "description": "Version of the bridge config format",
+      "enum": ["1.0", "2.0"],
+      "default": "1.0"
+    },
+    "orchestratorUrl": {
+      "type": "string",
+      "title": "Orchestrator URL",
+      "description": "URL of the ContextLattice orchestrator API",
+      "format": "uri",
+      "pattern": "^https?://[^:]+:[0-9]+$",
+      "default": "http://127.0.0.1:8075",
+      "examples": ["http://127.0.0.1:8075", "https://contextlattice.example.com"]
+    },
+    "apiKeyEnvVar": {
+      "type": "string",
+      "title": "API Key Environment Variable",
+      "description": "Name of environment variable containing the ContextLattice API key",
+      "default": "CONTEXTLATTICE_ORCHESTRATOR_API_KEY",
+      "examples": ["CONTEXTLATTICE_ORCHESTRATOR_API_KEY", "MY_API_KEY"]
+    },
+    "palacePath": {
+      "type": "string",
+      "title": "Palace Path (Legacy)",
+      "description": "Path to the ChromaDB palace directory. Use 'palaces' array for multi-palace configs (v2.0+). Supports ~ for home directory.",
+      "default": "~/.mempalace/palace",
+      "examples": ["~/.mempalace/palace", "/data/palace"]
+    },
+    "collectionName": {
+      "type": "string",
+      "title": "Collection Name (Legacy)",
+      "description": "Name of the ChromaDB collection. Use 'palaces' array for multi-palace configs (v2.0+)",
+      "default": "mempalace_drawers",
+      "examples": ["mempalace_drawers"]
+    },
+    "defaultProjectName": {
+      "type": "string",
+      "title": "Default Project Name",
+      "description": "Default ContextLattice project name for drawers without wing mapping",
+      "default": "my-project",
+      "examples": ["my-project", "main-project"]
+    },
+    "topicPrefix": {
+      "type": "string",
+      "title": "Topic Prefix (Legacy)",
+      "description": "Prefix for topic paths. Use 'palaces' array for multi-palace configs (v2.0+)",
+      "default": "mempalace",
+      "examples": ["mempalace", "docs"]
+    },
+    "wingProjectMap": {
+      "type": "object",
+      "title": "Wing to Project Mapping (Legacy)",
+      "description": "Maps wing names to project names. Use 'palaces' array for multi-palace configs (v2.0+)",
+      "additionalProperties": {
+        "type": "string"
+      },
+      "default": {"default_wing": "my-project"},
+      "examples": [
+        {"default_wing": "my-project"},
+        {"frontend": "web-app", "backend": "api-service", "docs": "documentation"}
+      ]
+    },
+    "palaces": {
+      "type": "array",
+      "title": "Palace Configurations",
+      "description": "Array of palace configurations for multi-palace setup (v2.0+)",
+      "items": {
+        "$ref": "#/definitions/palaceConfig"
+      },
+      "examples": [
+        [
+          {
+            "path": "~/.mempalace/work",
+            "collectionName": "work_drawers",
+            "topicPrefix": "work",
+            "wingProjectMap": {"default_wing": "work-project"}
+          },
+          {
+            "path": "~/.mempalace/personal",
+            "collectionName": "personal_drawers",
+            "topicPrefix": "personal",
+            "wingProjectMap": {"default_wing": "personal-project"}
+          }
+        ]
+      ]
+    },
+    "syncOptions": {
+      "type": "object",
+      "title": "Sync Options",
+      "description": "Default options for sync operations",
+      "properties": {
+        "batchSize": {
+          "type": "integer",
+          "title": "Batch Size",
+          "description": "Number of drawers to process per batch",
+          "minimum": 1,
+          "maximum": 1000,
+          "default": 250
+        },
+        "workers": {
+          "type": "integer",
+          "title": "Worker Count",
+          "description": "Number of parallel workers for sync operations",
+          "minimum": 1,
+          "maximum": 16,
+          "default": 4
+        },
+        "strict": {
+          "type": "boolean",
+          "title": "Strict Mode",
+          "description": "Stop on first error during sync",
+          "default": false
+        }
+      }
+    }
+  },
+  "required": ["orchestratorUrl"],
+  "oneOf": [
+    {
+      "title": "Legacy Single-Palace Format",
+      "required": ["palacePath"]
+    },
+    {
+      "title": "Multi-Palace Format (v2.0+)",
+      "required": ["palaces"],
+      "properties": {
+        "version": {
+          "const": "2.0"
+        }
+      }
+    }
+  ],
+  "examples": [
+    {
+      "$schema": "./bridge.config.schema.json",
+      "version": "1.0",
+      "orchestratorUrl": "http://127.0.0.1:8075",
+      "apiKeyEnvVar": "CONTEXTLATTICE_ORCHESTRATOR_API_KEY",
+      "palacePath": "~/.mempalace/palace",
+      "collectionName": "mempalace_drawers",
+      "defaultProjectName": "my-project",
+      "topicPrefix": "mempalace",
+      "wingProjectMap": {
+        "default_wing": "my-project"
+      }
+    },
+    {
+      "$schema": "./bridge.config.schema.json",
+      "version": "2.0",
+      "orchestratorUrl": "http://127.0.0.1:8075",
+      "apiKeyEnvVar": "CONTEXTLATTICE_ORCHESTRATOR_API_KEY",
+      "defaultProjectName": "my-project",
+      "palaces": [
+        {
+          "path": "~/.mempalace/work",
+          "collectionName": "work_drawers",
+          "topicPrefix": "work",
+          "wingProjectMap": {"default_wing": "work-project"}
+        }
+      ],
+      "syncOptions": {
+        "batchSize": 250,
+        "workers": 4,
+        "strict": false
+      }
+    }
+  ]
+}

@@ -1,3 +1,4 @@
+[CmdletBinding()]
 param(
     [string]$ConfigPath = ".memorybridge/bridge.config.json",
     [string]$StatePath = ".memorybridge/sync-state.json",
@@ -8,11 +9,15 @@ param(
     [string]$CollectionName = "",
     [string]$DefaultProjectName = "",
     [string]$TopicPrefix = "",
+    [int]$PalaceIndex = -1,
     [int]$Limit = 0,
     [int]$BatchSize = 250,
+    [int]$Workers = 4,
     [switch]$DryRun,
     [switch]$ForceResync,
-    [switch]$Strict
+    [switch]$Strict,
+    [switch]$SemanticDiff,
+    [double]$SimilarityThreshold = 0.95
 )
 
 $ErrorActionPreference = "Stop"
@@ -22,7 +27,7 @@ if (-not (Test-Path -LiteralPath $scriptPath)) {
     throw "Missing bridge script: $scriptPath"
 }
 
-$args = @(
+$pyArgs = @(
     $scriptPath,
     "--config-file", $ConfigPath,
     "--state-file", $StatePath,
@@ -30,41 +35,52 @@ $args = @(
 )
 
 if (-not [string]::IsNullOrWhiteSpace($OrchestratorUrl)) {
-    $args += @("--orchestrator-url", $OrchestratorUrl)
+    $pyArgs += @("--orchestrator-url", $OrchestratorUrl)
 }
 if (-not [string]::IsNullOrWhiteSpace($ApiKey)) {
-    $args += @("--api-key", $ApiKey)
+    $pyArgs += @("--api-key", $ApiKey)
 }
 if (-not [string]::IsNullOrWhiteSpace($ApiKeyEnvVar)) {
-    $args += @("--api-key-env-var", $ApiKeyEnvVar)
+    $pyArgs += @("--api-key-env-var", $ApiKeyEnvVar)
 }
 if (-not [string]::IsNullOrWhiteSpace($PalacePath)) {
-    $args += @("--palace-path", $PalacePath)
+    $pyArgs += @("--palace-path", $PalacePath)
 }
 if (-not [string]::IsNullOrWhiteSpace($CollectionName)) {
-    $args += @("--collection-name", $CollectionName)
+    $pyArgs += @("--collection-name", $CollectionName)
 }
 if (-not [string]::IsNullOrWhiteSpace($DefaultProjectName)) {
-    $args += @("--default-project-name", $DefaultProjectName)
+    $pyArgs += @("--default-project-name", $DefaultProjectName)
 }
 if (-not [string]::IsNullOrWhiteSpace($TopicPrefix)) {
-    $args += @("--topic-prefix", $TopicPrefix)
+    $pyArgs += @("--topic-prefix", $TopicPrefix)
+}
+if ($PalaceIndex -ge 0) {
+    $pyArgs += @("--palace-index", "$PalaceIndex")
 }
 if ($Limit -gt 0) {
-    $args += @("--limit", "$Limit")
+    $pyArgs += @("--limit", "$Limit")
 }
 if ($DryRun) {
-    $args += "--dry-run"
+    $pyArgs += "--dry-run"
 }
 if ($ForceResync) {
-    $args += "--force-resync"
+    $pyArgs += "--force-resync"
 }
 if ($Strict) {
-    $args += "--strict"
+    $pyArgs += "--strict"
+}
+if ($SemanticDiff) {
+    $pyArgs += "--semantic-diff"
+}
+if ($SimilarityThreshold -ne 0.95) {
+    $pyArgs += @("--similarity-threshold", "$SimilarityThreshold")
+}
+if ($Workers -ne 4) {
+    $pyArgs += @("--workers", "$Workers")
 }
 
-& python @args
+& python @pyArgs
 if ($LASTEXITCODE -ne 0) {
     throw "MemPalace -> ContextLattice sync failed with exit code $LASTEXITCODE."
 }
-

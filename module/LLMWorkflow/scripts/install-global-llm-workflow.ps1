@@ -2,19 +2,21 @@
 param(
     [string]$InstallRoot = "$HOME\.llm-workflow",
     [string]$ToolkitSource = "",
-    [switch]$NoProfileUpdate,
     [string]$ProfilePath = $PROFILE,
+    [switch]$NoProfileUpdate,
     [switch]$SkipUserEnvPersist
 )
 
 $ErrorActionPreference = "Stop"
 
 function Write-Step {
+    [CmdletBinding()]
     param([string]$Message)
     Write-Output "[llm-workflow-install] $Message"
 }
 
 function Ensure-Dir {
+    [CmdletBinding()]
     param([string]$Path)
     if (-not (Test-Path -LiteralPath $Path)) {
         New-Item -ItemType Directory -Path $Path -Force | Out-Null
@@ -22,6 +24,7 @@ function Ensure-Dir {
 }
 
 function Set-Or-ReplaceProfileBlock {
+    [CmdletBinding()]
     param(
         [string]$ProfilePath,
         [string]$BlockText,
@@ -50,12 +53,12 @@ function Set-Or-ReplaceProfileBlock {
     Set-Content -LiteralPath $ProfilePath -Value $updated -Encoding UTF8
 }
 
-$sourceToolsRoot = ""
+# Resolve toolkit source
 if (-not [string]::IsNullOrWhiteSpace($ToolkitSource)) {
     $sourceToolsRoot = (Resolve-Path -LiteralPath $ToolkitSource).Path
 } else {
     $scriptRoot = Split-Path -Parent $MyInvocation.MyCommand.Path
-    $repoRoot = (Resolve-Path -LiteralPath (Join-Path $scriptRoot "..\..")).Path
+    $repoRoot = (Resolve-Path -LiteralPath (Join-Path (Join-Path $scriptRoot "..") "..")).Path
     $sourceToolsRoot = Join-Path $repoRoot "tools"
 }
 
@@ -67,7 +70,7 @@ foreach ($name in $requiredToolDirs) {
 }
 
 $installRootPath = [System.IO.Path]::GetFullPath($InstallRoot)
-$templatesRoot = Join-Path $installRootPath "templates\tools"
+$templatesRoot = Join-Path (Join-Path $installRootPath "templates") "tools"
 $scriptsRoot = Join-Path $installRootPath "scripts"
 
 Ensure-Dir -Path $installRootPath
@@ -84,45 +87,131 @@ foreach ($name in $requiredToolDirs) {
     Write-Step "Installed template tools/$name"
 }
 
-$bootstrapSrc = Join-Path $sourceToolsRoot "workflow\bootstrap-llm-workflow.ps1"
-$siblingBootstrapSrc = Join-Path (Split-Path -Parent $MyInvocation.MyCommand.Path) "bootstrap-llm-workflow.ps1"
-if (Test-Path -LiteralPath $siblingBootstrapSrc) {
-    $bootstrapSrc = $siblingBootstrapSrc
-}
+$bootstrapSrc = Join-Path (Join-Path $sourceToolsRoot "workflow") "bootstrap-llm-workflow.ps1"
 $bootstrapDst = Join-Path $scriptsRoot "bootstrap-llm-workflow.ps1"
-Copy-Item -LiteralPath $bootstrapSrc -Destination $bootstrapDst -Force
+if (Test-Path -LiteralPath $bootstrapSrc) {
+    Copy-Item -LiteralPath $bootstrapSrc -Destination $bootstrapDst -Force
+}
+$checkSrc = Join-Path (Join-Path $sourceToolsRoot "workflow") "check-llm-workflow.ps1"
+$checkDst = Join-Path $scriptsRoot "check-llm-workflow.ps1"
+if (Test-Path -LiteralPath $checkSrc) {
+    Copy-Item -LiteralPath $checkSrc -Destination $checkDst -Force
+}
+$doctorSrc = Join-Path (Join-Path $sourceToolsRoot "workflow") "doctor-llm-workflow.ps1"
+$doctorDst = Join-Path $scriptsRoot "doctor-llm-workflow.ps1"
+if (Test-Path -LiteralPath $doctorSrc) {
+    Copy-Item -LiteralPath $doctorSrc -Destination $doctorDst -Force
+}
 
-$launcherPath = Join-Path $installRootPath "llm-workflow-up.ps1"
+$upLauncherPath = Join-Path $installRootPath "llm-workflow-up.ps1"
 @"
 [CmdletBinding()]
 param(
     [string]`$ProjectRoot = ".",
+    [ValidateSet("auto", "openai", "kimi", "gemini", "glm", "claude", "ollama")]
+    [string]`$Provider = "auto",
     [switch]`$SkipDependencyInstall,
+    [switch]`$SkipProviderNormalize,
     [switch]`$SkipContextVerify,
     [switch]`$SkipBridgeDryRun,
     [switch]`$SmokeTestContext,
-    [switch]`$RequireSearchHit
+    [switch]`$RequireSearchHit,
+    [switch]`$RunCodemunchIndex,
+    [switch]`$CodemunchEmbed,
+    [switch]`$DeepCheck,
+    [switch]`$FailIfNoProviderKey,
+    [switch]`$FailIfContextMissing,
+    [int]`$ContextSearchAttempts = 20,
+    [int]`$ContextSearchDelaySec = 1,
+    [int]`$ContextTimeoutSec = 20
 )
 
-`$scriptPath = Join-Path `$PSScriptRoot "scripts\bootstrap-llm-workflow.ps1"
+`$scriptPath = Join-Path `$PSScriptRoot "scripts" "bootstrap-llm-workflow.ps1"
 `$invokeArgs = @{
     ProjectRoot = `$ProjectRoot
     ToolkitSource = "$templatesRoot"
+    Provider = `$Provider
 }
 if (`$SkipDependencyInstall) { `$invokeArgs["SkipDependencyInstall"] = `$true }
+if (`$SkipProviderNormalize) { `$invokeArgs["SkipProviderNormalize"] = `$true }
 if (`$SkipContextVerify) { `$invokeArgs["SkipContextVerify"] = `$true }
 if (`$SkipBridgeDryRun) { `$invokeArgs["SkipBridgeDryRun"] = `$true }
 if (`$SmokeTestContext) { `$invokeArgs["SmokeTestContext"] = `$true }
 if (`$RequireSearchHit) { `$invokeArgs["RequireSearchHit"] = `$true }
-& `$scriptPath @invokeArgs
-"@ | Set-Content -LiteralPath $launcherPath -Encoding UTF8
+if (`$RunCodemunchIndex) { `$invokeArgs["RunCodemunchIndex"] = `$true }
+if (`$CodemunchEmbed) { `$invokeArgs["CodemunchEmbed"] = `$true }
+if (`$DeepCheck) { `$invokeArgs["DeepCheck"] = `$true }
+if (`$FailIfNoProviderKey) { `$invokeArgs["FailIfNoProviderKey"] = `$true }
+if (`$FailIfContextMissing) { `$invokeArgs["FailIfContextMissing"] = `$true }
+`$invokeArgs["ContextSearchAttempts"] = `$ContextSearchAttempts
+`$invokeArgs["ContextSearchDelaySec"] = `$ContextSearchDelaySec
+`$invokeArgs["ContextTimeoutSec"] = `$ContextTimeoutSec
 
-[System.Environment]::SetEnvironmentVariable("LLM_WORKFLOW_TOOLKIT_SOURCE", $templatesRoot, "Process")
+& `$scriptPath @invokeArgs
+"@ | Set-Content -LiteralPath $upLauncherPath -Encoding UTF8
+
+$checkLauncherPath = Join-Path $installRootPath "llm-workflow-check.ps1"
+@"
+[CmdletBinding()]
+param(
+    [string]`$ProjectRoot = ".",
+    [ValidateSet("auto", "openai", "kimi", "gemini", "glm", "claude", "ollama")]
+    [string]`$Provider = "auto",
+    [switch]`$SkipDependencyInstall,
+    [switch]`$SkipProviderNormalize,
+    [int]`$ContextSearchAttempts = 90,
+    [int]`$ContextSearchDelaySec = 2,
+    [int]`$ContextTimeoutSec = 30
+)
+
+`$scriptPath = Join-Path `$PSScriptRoot "llm-workflow-up.ps1"
+`$invokeArgs = @{
+    ProjectRoot = `$ProjectRoot
+    Provider = `$Provider
+    DeepCheck = `$true
+    RunCodemunchIndex = `$true
+    CodemunchEmbed = `$true
+    SmokeTestContext = `$true
+    FailIfContextMissing = `$true
+}
+if (`$SkipDependencyInstall) { `$invokeArgs["SkipDependencyInstall"] = `$true }
+if (`$SkipProviderNormalize) { `$invokeArgs["SkipProviderNormalize"] = `$true }
+`$invokeArgs["ContextSearchAttempts"] = `$ContextSearchAttempts
+`$invokeArgs["ContextSearchDelaySec"] = `$ContextSearchDelaySec
+`$invokeArgs["ContextTimeoutSec"] = `$ContextTimeoutSec
+& `$scriptPath @invokeArgs
+"@ | Set-Content -LiteralPath $checkLauncherPath -Encoding UTF8
+
+$doctorLauncherPath = Join-Path $installRootPath "llm-workflow-doctor.ps1"
+@"
+[CmdletBinding()]
+param(
+    [string]`$ProjectRoot = ".",
+    [ValidateSet("auto", "openai", "kimi", "gemini", "glm", "claude", "ollama")]
+    [string]`$Provider = "auto",
+    [switch]`$CheckContext,
+    [int]`$TimeoutSec = 10,
+    [switch]`$AsJson,
+    [switch]`$Strict
+)
+
+`$scriptPath = Join-Path `$PSScriptRoot "scripts" "doctor-llm-workflow.ps1"
+`$invokeArgs = @{
+    ProjectRoot = `$ProjectRoot
+    Provider = `$Provider
+    TimeoutSec = `$TimeoutSec
+}
+if (`$CheckContext) { `$invokeArgs["CheckContext"] = `$true }
+if (`$AsJson) { `$invokeArgs["AsJson"] = `$true }
+if (`$Strict) { `$invokeArgs["Strict"] = `$true }
+
+& `$scriptPath @invokeArgs
+"@ | Set-Content -LiteralPath $doctorLauncherPath -Encoding UTF8
+
 if (-not $SkipUserEnvPersist) {
     [System.Environment]::SetEnvironmentVariable("LLM_WORKFLOW_TOOLKIT_SOURCE", $templatesRoot, "User")
+    [System.Environment]::SetEnvironmentVariable("LLM_WORKFLOW_TOOLKIT_SOURCE", $templatesRoot, "Process")
     Write-Step "Set user env LLM_WORKFLOW_TOOLKIT_SOURCE=$templatesRoot"
-} else {
-    Write-Step "Skipped user env persist for LLM_WORKFLOW_TOOLKIT_SOURCE."
 }
 
 $startMarker = "# >>> llm-workflow >>>"
@@ -133,32 +222,107 @@ function llm-workflow-up {
     [CmdletBinding()]
     param(
         [string]`$ProjectRoot = ".",
+        [ValidateSet("auto", "openai", "kimi", "gemini", "glm", "claude", "ollama")]
+        [string]`$Provider = "auto",
         [switch]`$SkipDependencyInstall,
+        [switch]`$SkipProviderNormalize,
         [switch]`$SkipContextVerify,
         [switch]`$SkipBridgeDryRun,
         [switch]`$SmokeTestContext,
-        [switch]`$RequireSearchHit
+        [switch]`$RequireSearchHit,
+        [switch]`$RunCodemunchIndex,
+        [switch]`$CodemunchEmbed,
+        [switch]`$DeepCheck,
+        [switch]`$FailIfNoProviderKey,
+        [switch]`$FailIfContextMissing,
+        [int]`$ContextSearchAttempts = 20,
+        [int]`$ContextSearchDelaySec = 1,
+        [int]`$ContextTimeoutSec = 20
     )
 
     `$invokeArgs = @{
         ProjectRoot = `$ProjectRoot
+        Provider = `$Provider
     }
     if (`$SkipDependencyInstall) { `$invokeArgs["SkipDependencyInstall"] = `$true }
+    if (`$SkipProviderNormalize) { `$invokeArgs["SkipProviderNormalize"] = `$true }
     if (`$SkipContextVerify) { `$invokeArgs["SkipContextVerify"] = `$true }
     if (`$SkipBridgeDryRun) { `$invokeArgs["SkipBridgeDryRun"] = `$true }
     if (`$SmokeTestContext) { `$invokeArgs["SmokeTestContext"] = `$true }
     if (`$RequireSearchHit) { `$invokeArgs["RequireSearchHit"] = `$true }
-    & "$launcherPath" @invokeArgs
+    if (`$RunCodemunchIndex) { `$invokeArgs["RunCodemunchIndex"] = `$true }
+    if (`$CodemunchEmbed) { `$invokeArgs["CodemunchEmbed"] = `$true }
+    if (`$DeepCheck) { `$invokeArgs["DeepCheck"] = `$true }
+    if (`$FailIfNoProviderKey) { `$invokeArgs["FailIfNoProviderKey"] = `$true }
+    if (`$FailIfContextMissing) { `$invokeArgs["FailIfContextMissing"] = `$true }
+    `$invokeArgs["ContextSearchAttempts"] = `$ContextSearchAttempts
+    `$invokeArgs["ContextSearchDelaySec"] = `$ContextSearchDelaySec
+    `$invokeArgs["ContextTimeoutSec"] = `$ContextTimeoutSec
+    & "$upLauncherPath" @invokeArgs
 }
+
+function llm-workflow-check {
+    [CmdletBinding()]
+    param(
+        [string]`$ProjectRoot = ".",
+        [ValidateSet("auto", "openai", "kimi", "gemini", "glm", "claude", "ollama")]
+        [string]`$Provider = "auto",
+        [switch]`$SkipDependencyInstall,
+        [switch]`$SkipProviderNormalize,
+        [int]`$ContextSearchAttempts = 90,
+        [int]`$ContextSearchDelaySec = 2,
+        [int]`$ContextTimeoutSec = 30
+    )
+
+    `$invokeArgs = @{
+        ProjectRoot = `$ProjectRoot
+        Provider = `$Provider
+    }
+    if (`$SkipDependencyInstall) { `$invokeArgs["SkipDependencyInstall"] = `$true }
+    if (`$SkipProviderNormalize) { `$invokeArgs["SkipProviderNormalize"] = `$true }
+    `$invokeArgs["ContextSearchAttempts"] = `$ContextSearchAttempts
+    `$invokeArgs["ContextSearchDelaySec"] = `$ContextSearchDelaySec
+    `$invokeArgs["ContextTimeoutSec"] = `$ContextTimeoutSec
+    & "$checkLauncherPath" @invokeArgs
+}
+
+function llm-workflow-doctor {
+    [CmdletBinding()]
+    param(
+        [string]`$ProjectRoot = ".",
+        [ValidateSet("auto", "openai", "kimi", "gemini", "glm", "claude", "ollama")]
+        [string]`$Provider = "auto",
+        [switch]`$CheckContext,
+        [int]`$TimeoutSec = 10,
+        [switch]`$AsJson,
+        [switch]`$Strict
+    )
+
+    `$invokeArgs = @{
+        ProjectRoot = `$ProjectRoot
+        Provider = `$Provider
+        TimeoutSec = `$TimeoutSec
+    }
+    if (`$CheckContext) { `$invokeArgs["CheckContext"] = `$true }
+    if (`$AsJson) { `$invokeArgs["AsJson"] = `$true }
+    if (`$Strict) { `$invokeArgs["Strict"] = `$true }
+    & "$doctorLauncherPath" @invokeArgs
+}
+
 Set-Alias llmup llm-workflow-up -Scope Global
+Set-Alias llmcheck llm-workflow-check -Scope Global
+Set-Alias llmdoctor llm-workflow-doctor -Scope Global
 $endMarker
 "@
 
-Write-Step "Installed launcher: $launcherPath"
 if (-not $NoProfileUpdate) {
     Set-Or-ReplaceProfileBlock -ProfilePath $ProfilePath -BlockText $profileBlock -StartMarker $startMarker -EndMarker $endMarker
-    Write-Step "Updated PowerShell profile: $ProfilePath"
-    Write-Step "Open a new shell, then run: llm-workflow-up"
-} else {
-    Write-Step "Skipped profile update (--NoProfileUpdate)."
 }
+
+Write-Step "Installed launcher: $upLauncherPath"
+Write-Step "Installed launcher: $checkLauncherPath"
+Write-Step "Installed launcher: $doctorLauncherPath"
+if (-not $NoProfileUpdate) {
+    Write-Step "Updated PowerShell profile: $ProfilePath"
+}
+Write-Step "Open a new shell, then run: llm-workflow-up, llm-workflow-check, or llm-workflow-doctor"

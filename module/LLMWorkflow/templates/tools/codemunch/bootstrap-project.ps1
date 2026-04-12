@@ -1,3 +1,4 @@
+[CmdletBinding()]
 param(
     [string]$ProjectRoot = "."
 )
@@ -10,10 +11,19 @@ if (-not (Test-Path -LiteralPath $codemunchDir)) {
     New-Item -ItemType Directory -Path $codemunchDir -Force | Out-Null
 }
 
+$schemaPath = Join-Path $codemunchDir "index.defaults.schema.json"
+if (-not (Test-Path -LiteralPath $schemaPath)) {
+    $sourceSchema = Join-Path $PSScriptRoot "..\..\..\..\..\.codemunch\index.defaults.schema.json"
+    if (Test-Path -LiteralPath $sourceSchema) {
+        Copy-Item -LiteralPath $sourceSchema -Destination $schemaPath -Force
+    }
+}
+
 $indexDefaultsPath = Join-Path $codemunchDir "index.defaults.json"
 if (-not (Test-Path -LiteralPath $indexDefaultsPath)) {
     @'
 {
+  "$schema": "./index.defaults.schema.json",
   "include_patterns": [],
   "exclude_patterns": [
     ".git/*",
@@ -43,6 +53,7 @@ if (-not (Test-Path -LiteralPath $mcpSnippetPath)) {
 }
 
 Write-Output "Bootstrapped codemunch project files:"
+Write-Output " - $schemaPath"
 Write-Output " - $indexDefaultsPath"
 Write-Output " - $mcpSnippetPath"
 

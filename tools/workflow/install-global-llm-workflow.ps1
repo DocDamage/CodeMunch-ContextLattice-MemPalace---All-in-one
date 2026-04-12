@@ -1,4 +1,4 @@
-﻿[CmdletBinding()]
+[CmdletBinding()]
 param(
     [string]$InstallRoot = "$HOME\.llm-workflow"
 )
@@ -6,11 +6,13 @@ param(
 $ErrorActionPreference = "Stop"
 
 function Write-Step {
+    [CmdletBinding()]
     param([string]$Message)
     Write-Output "[llm-workflow-install] $Message"
 }
 
 function Ensure-Dir {
+    [CmdletBinding()]
     param([string]$Path)
     if (-not (Test-Path -LiteralPath $Path)) {
         New-Item -ItemType Directory -Path $Path -Force | Out-Null
@@ -18,6 +20,7 @@ function Ensure-Dir {
 }
 
 function Set-Or-ReplaceProfileBlock {
+    [CmdletBinding()]
     param(
         [string]$ProfilePath,
         [string]$BlockText,
@@ -47,7 +50,7 @@ function Set-Or-ReplaceProfileBlock {
 }
 
 $scriptRoot = Split-Path -Parent $MyInvocation.MyCommand.Path
-$repoRoot = (Resolve-Path -LiteralPath (Join-Path $scriptRoot "..\..")).Path
+$repoRoot = (Resolve-Path -LiteralPath (Join-Path $scriptRoot ".." "..")).Path
 $sourceToolsRoot = Join-Path $repoRoot "tools"
 
 $requiredToolDirs = @("codemunch", "contextlattice", "memorybridge")
@@ -58,7 +61,7 @@ foreach ($name in $requiredToolDirs) {
 }
 
 $installRootPath = [System.IO.Path]::GetFullPath($InstallRoot)
-$templatesRoot = Join-Path $installRootPath "templates\tools"
+$templatesRoot = Join-Path $installRootPath "templates" "tools"
 $scriptsRoot = Join-Path $installRootPath "scripts"
 
 Ensure-Dir -Path $installRootPath
@@ -75,15 +78,15 @@ foreach ($name in $requiredToolDirs) {
     Write-Step "Installed template tools/$name"
 }
 
-$bootstrapSrc = Join-Path $sourceToolsRoot "workflow\bootstrap-llm-workflow.ps1"
+$bootstrapSrc = Join-Path $sourceToolsRoot "workflow" "bootstrap-llm-workflow.ps1"
 $bootstrapDst = Join-Path $scriptsRoot "bootstrap-llm-workflow.ps1"
 Copy-Item -LiteralPath $bootstrapSrc -Destination $bootstrapDst -Force
-$checkSrc = Join-Path $sourceToolsRoot "workflow\check-llm-workflow.ps1"
+$checkSrc = Join-Path $sourceToolsRoot "workflow" "check-llm-workflow.ps1"
 $checkDst = Join-Path $scriptsRoot "check-llm-workflow.ps1"
 if (Test-Path -LiteralPath $checkSrc) {
     Copy-Item -LiteralPath $checkSrc -Destination $checkDst -Force
 }
-$doctorSrc = Join-Path $sourceToolsRoot "workflow\doctor-llm-workflow.ps1"
+$doctorSrc = Join-Path $sourceToolsRoot "workflow" "doctor-llm-workflow.ps1"
 $doctorDst = Join-Path $scriptsRoot "doctor-llm-workflow.ps1"
 if (Test-Path -LiteralPath $doctorSrc) {
     Copy-Item -LiteralPath $doctorSrc -Destination $doctorDst -Force
@@ -94,7 +97,7 @@ $upLauncherPath = Join-Path $installRootPath "llm-workflow-up.ps1"
 [CmdletBinding()]
 param(
     [string]`$ProjectRoot = ".",
-    [ValidateSet("auto", "openai", "kimi", "gemini", "glm")]
+    [ValidateSet("auto", "openai", "kimi", "gemini", "glm", "claude", "ollama")]
     [string]`$Provider = "auto",
     [switch]`$SkipDependencyInstall,
     [switch]`$SkipProviderNormalize,
@@ -112,7 +115,7 @@ param(
     [int]`$ContextTimeoutSec = 20
 )
 
-`$scriptPath = Join-Path `$PSScriptRoot "scripts\bootstrap-llm-workflow.ps1"
+`$scriptPath = Join-Path `$PSScriptRoot "scripts" "bootstrap-llm-workflow.ps1"
 `$invokeArgs = @{
     ProjectRoot = `$ProjectRoot
     ToolkitSource = "$templatesRoot"
@@ -141,7 +144,7 @@ $checkLauncherPath = Join-Path $installRootPath "llm-workflow-check.ps1"
 [CmdletBinding()]
 param(
     [string]`$ProjectRoot = ".",
-    [ValidateSet("auto", "openai", "kimi", "gemini", "glm")]
+    [ValidateSet("auto", "openai", "kimi", "gemini", "glm", "claude", "ollama")]
     [string]`$Provider = "auto",
     [switch]`$SkipDependencyInstall,
     [switch]`$SkipProviderNormalize,
@@ -173,7 +176,7 @@ $doctorLauncherPath = Join-Path $installRootPath "llm-workflow-doctor.ps1"
 [CmdletBinding()]
 param(
     [string]`$ProjectRoot = ".",
-    [ValidateSet("auto", "openai", "kimi", "gemini", "glm")]
+    [ValidateSet("auto", "openai", "kimi", "gemini", "glm", "claude", "ollama")]
     [string]`$Provider = "auto",
     [switch]`$CheckContext,
     [int]`$TimeoutSec = 10,
@@ -181,7 +184,7 @@ param(
     [switch]`$Strict
 )
 
-`$scriptPath = Join-Path `$PSScriptRoot "scripts\doctor-llm-workflow.ps1"
+`$scriptPath = Join-Path `$PSScriptRoot "scripts" "doctor-llm-workflow.ps1"
 `$invokeArgs = @{
     ProjectRoot = `$ProjectRoot
     Provider = `$Provider
@@ -206,7 +209,7 @@ function llm-workflow-up {
     [CmdletBinding()]
     param(
         [string]`$ProjectRoot = ".",
-        [ValidateSet("auto", "openai", "kimi", "gemini", "glm")]
+        [ValidateSet("auto", "openai", "kimi", "gemini", "glm", "claude", "ollama")]
         [string]`$Provider = "auto",
         [switch]`$SkipDependencyInstall,
         [switch]`$SkipProviderNormalize,
@@ -249,7 +252,7 @@ function llm-workflow-check {
     [CmdletBinding()]
     param(
         [string]`$ProjectRoot = ".",
-        [ValidateSet("auto", "openai", "kimi", "gemini", "glm")]
+        [ValidateSet("auto", "openai", "kimi", "gemini", "glm", "claude", "ollama")]
         [string]`$Provider = "auto",
         [switch]`$SkipDependencyInstall,
         [switch]`$SkipProviderNormalize,
@@ -274,7 +277,7 @@ function llm-workflow-doctor {
     [CmdletBinding()]
     param(
         [string]`$ProjectRoot = ".",
-        [ValidateSet("auto", "openai", "kimi", "gemini", "glm")]
+        [ValidateSet("auto", "openai", "kimi", "gemini", "glm", "claude", "ollama")]
         [string]`$Provider = "auto",
         [switch]`$CheckContext,
         [int]`$TimeoutSec = 10,

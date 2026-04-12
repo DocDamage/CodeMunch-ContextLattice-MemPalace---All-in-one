@@ -7,11 +7,13 @@ param(
 $ErrorActionPreference = "Stop"
 
 function Write-Step {
+    [CmdletBinding()]
     param([string]$Message)
     Write-Output "[llmworkflow-module] $Message"
 }
 
 function Ensure-Dir {
+    [CmdletBinding()]
     param([string]$Path)
     if (-not (Test-Path -LiteralPath $Path)) {
         New-Item -ItemType Directory -Path $Path -Force | Out-Null
@@ -19,6 +21,7 @@ function Ensure-Dir {
 }
 
 function Set-Or-ReplaceProfileBlock {
+    [CmdletBinding()]
     param(
         [string]$ProfilePath,
         [string]$BlockText,
@@ -50,7 +53,7 @@ function Set-Or-ReplaceProfileBlock {
 }
 
 $repoRoot = $PSScriptRoot
-$moduleSource = Join-Path $repoRoot "module\LLMWorkflow"
+$moduleSource = Join-Path $repoRoot "module" "LLMWorkflow"
 if (-not (Test-Path -LiteralPath $moduleSource)) {
     throw "Missing module source: $moduleSource"
 }
@@ -61,14 +64,19 @@ if ([string]::IsNullOrWhiteSpace($ModuleVersion)) {
     $ModuleVersion = [string]$manifestData.ModuleVersion
 }
 
-$candidatePaths = @($env:PSModulePath -split ';' | Where-Object { $_ -and $_ -like "$HOME*" })
+$candidatePaths = @($env:PSModulePath -split [IO.Path]::PathSeparator | Where-Object { $_ -and $_ -like "$HOME*" })
 if ($candidatePaths.Count -gt 0) {
     $moduleBase = $candidatePaths[0]
 } else {
-    $moduleBase = Join-Path $HOME "Documents\WindowsPowerShell\Modules"
+    # Platform-specific fallback
+    if ($IsWindows -or ($PSVersionTable.PSVersion.Major -lt 6)) {
+        $moduleBase = Join-Path $HOME "Documents\WindowsPowerShell\Modules"
+    } else {
+        $moduleBase = Join-Path $HOME ".local/share/powershell/Modules"
+    }
 }
 
-$targetModulePath = Join-Path $moduleBase ("LLMWorkflow\" + $ModuleVersion)
+$targetModulePath = Join-Path $moduleBase "LLMWorkflow" $ModuleVersion
 Remove-Module LLMWorkflow -ErrorAction SilentlyContinue
 if (Test-Path -LiteralPath $targetModulePath) {
     Remove-Item -LiteralPath $targetModulePath -Recurse -Force

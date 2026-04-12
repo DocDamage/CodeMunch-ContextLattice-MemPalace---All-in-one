@@ -12,11 +12,14 @@ param(
 $ErrorActionPreference = "Stop"
 
 function Write-Step {
+    [CmdletBinding()]
     param([string]$Message)
     Write-Output "[llm-workflow] $Message"
 }
 
 function Resolve-ToolkitSourcePath {
+    [CmdletBinding()]
+    [OutputType([string])]
     param([string]$RequestedSource)
 
     if (-not [string]::IsNullOrWhiteSpace($RequestedSource)) {
@@ -45,6 +48,7 @@ function Resolve-ToolkitSourcePath {
 }
 
 function Ensure-ToolFolder {
+    [CmdletBinding()]
     param(
         [string]$ToolsRoot,
         [string]$ProjectPath,
@@ -68,6 +72,7 @@ function Ensure-ToolFolder {
 }
 
 function Import-EnvFile {
+    [CmdletBinding()]
     param([string]$Path)
 
     if (-not (Test-Path -LiteralPath $Path)) {
@@ -98,6 +103,7 @@ function Import-EnvFile {
 }
 
 function Ensure-PythonImport {
+    [CmdletBinding()]
     param(
         [string]$ImportName,
         [string]$InstallName
@@ -119,6 +125,7 @@ function Ensure-PythonImport {
 }
 
 function Ensure-CodemunchCommand {
+    [CmdletBinding()]
     $cmd = Get-Command codemunch-pro -ErrorAction SilentlyContinue
     if ($cmd) {
         Write-Step "codemunch-pro command found: $($cmd.Source)"
@@ -133,6 +140,7 @@ function Ensure-CodemunchCommand {
 }
 
 function Invoke-IfExists {
+    [CmdletBinding()]
     param(
         [string]$ScriptPath,
         [hashtable]$NamedArgs = @{}
@@ -164,18 +172,18 @@ if (-not $SkipDependencyInstall) {
     Ensure-PythonImport -ImportName "chromadb" -InstallName "chromadb"
 }
 
-$codemunchBootstrap = Join-Path $projectPath "tools\codemunch\bootstrap-project.ps1"
-$contextBootstrap = Join-Path $projectPath "tools\contextlattice\bootstrap-project.ps1"
-$contextVerify = Join-Path $projectPath "tools\contextlattice\verify.ps1"
-$memoryBootstrap = Join-Path $projectPath "tools\memorybridge\bootstrap-project.ps1"
-$memorySync = Join-Path $projectPath "tools\memorybridge\sync-from-mempalace.ps1"
+$codemunchBootstrap = Join-Path (Join-Path (Join-Path $projectPath "tools") "codemunch") "bootstrap-project.ps1"
+$contextBootstrap = Join-Path (Join-Path (Join-Path $projectPath "tools") "contextlattice") "bootstrap-project.ps1"
+$contextVerify = Join-Path (Join-Path (Join-Path $projectPath "tools") "contextlattice") "verify.ps1"
+$memoryBootstrap = Join-Path (Join-Path (Join-Path $projectPath "tools") "memorybridge") "bootstrap-project.ps1"
+$memorySync = Join-Path (Join-Path (Join-Path $projectPath "tools") "memorybridge") "sync-from-mempalace.ps1"
 
 Invoke-IfExists -ScriptPath $codemunchBootstrap -NamedArgs @{ ProjectRoot = $projectPath }
 Invoke-IfExists -ScriptPath $contextBootstrap -NamedArgs @{ ProjectRoot = $projectPath }
 Invoke-IfExists -ScriptPath $memoryBootstrap -NamedArgs @{ ProjectRoot = $projectPath }
 
 Import-EnvFile -Path (Join-Path $projectPath ".env")
-Import-EnvFile -Path (Join-Path $projectPath ".contextlattice\orchestrator.env")
+Import-EnvFile -Path (Join-Path (Join-Path $projectPath ".contextlattice") "orchestrator.env")
 
 if (-not $SkipContextVerify) {
     if (-not [string]::IsNullOrWhiteSpace($env:CONTEXTLATTICE_ORCHESTRATOR_API_KEY)) {

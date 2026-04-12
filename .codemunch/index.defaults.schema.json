@@ -1,0 +1,104 @@
+﻿{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://raw.githubusercontent.com/DocDamage/CodeMunch-ContextLattice-MemPalace---All-in-one/main/.codemunch/index.defaults.schema.json",
+  "title": "CodeMunch Index Defaults",
+  "description": "Default include and exclude patterns for CodeMunch project indexing",
+  "type": "object",
+  "properties": {
+    "$schema": {
+      "type": "string",
+      "title": "Schema Reference",
+      "description": "URL to this JSON schema file for IDE validation",
+      "format": "uri",
+      "default": "https://raw.githubusercontent.com/DocDamage/CodeMunch-ContextLattice-MemPalace---All-in-one/main/.codemunch/index.defaults.schema.json"
+    },
+    "include_patterns": {
+      "type": "array",
+      "title": "Include Patterns",
+      "description": "File patterns to include in indexing. Empty array means include all files except excluded ones.",
+      "items": {
+        "type": "string",
+        "title": "Glob Pattern",
+        "description": "Glob pattern for file matching (e.g., '*.py', 'src/**/*.js')"
+      },
+      "default": [],
+      "examples": [
+        [],
+        ["*.py", "*.md"],
+        ["src/**/*"]
+      ]
+    },
+    "exclude_patterns": {
+      "type": "array",
+      "title": "Exclude Patterns",
+      "description": "File patterns to exclude from indexing. Applied after include patterns.",
+      "items": {
+        "type": "string",
+        "title": "Glob Pattern",
+        "description": "Glob pattern for files to exclude"
+      },
+      "default": [
+        ".git/*",
+        "node_modules/*",
+        "build/*",
+        "dist/*",
+        ".venv/*",
+        "venv/*",
+        ".cache/*"
+      ],
+      "examples": [
+        [".git/*", "node_modules/*"],
+        [".git/*", "*.log", "*.tmp", "__pycache__/*"]
+      ]
+    },
+    "maxFileSize": {
+      "type": "integer",
+      "title": "Maximum File Size",
+      "description": "Maximum file size in bytes to include in indexing",
+      "minimum": 1024,
+      "default": 1048576,
+      "examples": [1048576, 5242880]
+    },
+    "binaryExtensions": {
+      "type": "array",
+      "title": "Binary Extensions",
+      "description": "File extensions to treat as binary and skip content indexing",
+      "items": {
+        "type": "string",
+        "pattern": "^\\.[a-zA-Z0-9]+$"
+      },
+      "default": [".exe", ".dll", ".so", ".dylib", ".bin", ".dat"],
+      "examples": [
+        [".exe", ".dll", ".so"],
+        [".png", ".jpg", ".gif"]
+      ]
+    }
+  },
+  "examples": [
+    {
+      "$schema": "./index.defaults.schema.json",
+      "include_patterns": [],
+      "exclude_patterns": [
+        ".git/*",
+        "node_modules/*",
+        "build/*",
+        "dist/*",
+        ".venv/*",
+        "venv/*",
+        ".cache/*"
+      ]
+    },
+    {
+      "$schema": "./index.defaults.schema.json",
+      "include_patterns": ["*.py", "*.md", "*.json"],
+      "exclude_patterns": [
+        ".git/*",
+        "__pycache__/*",
+        "*.egg-info/*",
+        ".pytest_cache/*"
+      ],
+      "maxFileSize": 2097152,
+      "binaryExtensions": [".pyc", ".so", ".dylib"]
+    }
+  ]
+}

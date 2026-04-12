@@ -5,7 +5,7 @@ param(
 
 $ErrorActionPreference = "Stop"
 
-$scriptPath = Join-Path $PSScriptRoot "tools\workflow\install-global-llm-workflow.ps1"
+$scriptPath = Join-Path $PSScriptRoot "tools" "workflow" "install-global-llm-workflow.ps1"
 if (-not (Test-Path -LiteralPath $scriptPath)) {
     throw "Missing installer script: $scriptPath"
 }

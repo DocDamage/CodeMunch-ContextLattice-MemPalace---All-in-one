@@ -1,0 +1,55 @@
+# Docker Compose Override for Local Development
+# Copy to docker-compose.override.yml and customize
+
+version: "3.8"
+
+services:
+  llm-workflow:
+    # Uncomment for development with local code changes
+    # volumes:
+    #   - .:/opt/llm-workflow:ro
+    
+    # Uncomment for GPU support (NVIDIA)
+    # deploy:
+    #   resources:
+    #     reservations:
+    #       devices:
+    #         - driver: nvidia
+    #           count: all
+    #           capabilities: [gpu]
+    
+    # Additional environment variables for development
+    environment:
+      - LLM_WORKFLOW_LOG_LEVEL=DEBUG
+      - LLM_WORKFLOW_DEV_MODE=true
+    
+    # Keep container running for development
+    # command: ["tail", "-f", "/dev/null"]
+
+  # Optional: Add pgAdmin for database management (if using external DB)
+  # pgadmin:
+  #   image: dpage/pgadmin4:latest
+  #   environment:
+  #     PGADMIN_DEFAULT_EMAIL: admin@localhost
+  #     PGADMIN_DEFAULT_PASSWORD: admin
+  #   ports:
+  #     - "5050:80"
+  #   networks:
+  #     - llm-network
+  #   profiles:
+  #     - db-admin
+
+  # Optional: Redis for caching
+  # redis:
+  #   image: redis:alpine
+  #   volumes:
+  #     - redis-data:/data
+  #   networks:
+  #     - llm-network
+  #   profiles:
+  #     - cache
+
+# Additional volumes for optional services
+# volumes:
+#   redis-data:
+#     driver: local

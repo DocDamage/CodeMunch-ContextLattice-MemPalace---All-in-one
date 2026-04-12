@@ -7,8 +7,8 @@
     Copyright = '(c) DocDamage. All rights reserved.'
     Description = 'All-in-one workflow module for CodeMunch Pro, ContextLattice, and MemPalace.'
     PowerShellVersion = '5.1'
-    FunctionsToExport = @('Install-LLMWorkflow', 'Uninstall-LLMWorkflow', 'Update-LLMWorkflow', 'Get-LLMWorkflowVersion', 'Test-LLMWorkflowSetup', 'Invoke-LLMWorkflowUp')
-    AliasesToExport = @('llmup', 'llmdown', 'llmcheck', 'llmver', 'llmupdate')
+    FunctionsToExport = @('Install-LLMWorkflow', 'Uninstall-LLMWorkflow', 'Update-LLMWorkflow', 'Get-LLMWorkflowVersion', 'Test-LLMWorkflowSetup', 'Invoke-LLMWorkflowUp', 'Test-ProviderKey', 'Get-ProviderProfile', 'Resolve-ProviderProfile', 'Get-ProviderPreferenceOrder', 'Get-LLMWorkflowPlugins', 'Register-LLMWorkflowPlugin', 'Unregister-LLMWorkflowPlugin', 'Invoke-LLMWorkflowPlugins', 'Get-LLMWorkflowPalaces', 'Test-LLMWorkflowPalace', 'Sync-LLMWorkflowPalace', 'Sync-LLMWorkflowAllPalaces', 'Get-LLMWorkflowPluginManifest', 'Save-LLMWorkflowPluginManifest', 'New-LLMWorkflowGamePreset', 'Get-LLMWorkflowGameTemplates', 'Export-LLMWorkflowAssetManifest', 'Show-LLMWorkflowDashboard', 'Invoke-LLMWorkflowHeal', 'Test-LLMWorkflowIssue', 'Repair-LLMWorkflowIssue', 'Get-LLMWorkflowRepairHistory', 'Clear-LLMWorkflowRepairHistory', 'Export-LLMWorkflowRepairHistory')
+    AliasesToExport = @('llmup', 'llmdown', 'llmcheck', 'llmver', 'llmupdate', 'llmplugins', 'llmpalaces', 'llmsync', 'llmdashboard', 'llmheal')
     CmdletsToExport = @()
     VariablesToExport = @()
     PrivateData = @{

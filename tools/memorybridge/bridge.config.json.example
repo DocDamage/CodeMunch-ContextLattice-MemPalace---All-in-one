@@ -1,0 +1,19 @@
+{
+  "version": "2.0",
+  "palaces": [
+    {
+      "path": "~/.mempalace/palace",
+      "collectionName": "mempalace_drawers",
+      "topicPrefix": "mempalace",
+      "wingProjectMap": {}
+    },
+    {
+      "path": "./local-palace",
+      "collectionName": "project_notes",
+      "topicPrefix": "project",
+      "wingProjectMap": {}
+    }
+  ],
+  "orchestratorUrl": "http://127.0.0.1:8075",
+  "apiKeyEnvVar": "CONTEXTLATTICE_ORCHESTRATOR_API_KEY"
+}

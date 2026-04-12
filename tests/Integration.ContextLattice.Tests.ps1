@@ -3,6 +3,8 @@ Set-StrictMode -Version Latest
 $repoRoot = (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot "..")).Path
 
 function Get-FreeTcpPort {
+    [CmdletBinding()]
+    param()
     $listener = [System.Net.Sockets.TcpListener]::new([System.Net.IPAddress]::Loopback, 0)
     $listener.Start()
     try {
@@ -13,6 +15,7 @@ function Get-FreeTcpPort {
 }
 
 function Start-MockContextLattice {
+    [CmdletBinding()]
     param(
         [string]$StateFile,
         [string]$ApiKey
@@ -54,6 +57,7 @@ function Start-MockContextLattice {
 }
 
 function Stop-MockContextLattice {
+    [CmdletBinding()]
     param([System.Diagnostics.Process]$Process)
     if ($Process -and -not $Process.HasExited) {
         try {

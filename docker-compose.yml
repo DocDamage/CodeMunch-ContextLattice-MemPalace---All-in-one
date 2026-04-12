@@ -1,0 +1,151 @@
+# LLM Workflow Toolkit - Docker Compose
+# Multi-service orchestration for containerized deployment
+
+version: "3.8"
+
+services:
+  # Main LLM Workflow service
+  llm-workflow:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: final
+    image: llm-workflow:latest
+    container_name: llm-workflow
+    environment:
+      # API Keys (set these in .env file or environment)
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
+      - CLAUDE_API_KEY=${CLAUDE_API_KEY:-}
+      - KIMI_API_KEY=${KIMI_API_KEY:-}
+      - MOONSHOT_API_KEY=${MOONSHOT_API_KEY:-}
+      - GEMINI_API_KEY=${GEMINI_API_KEY:-}
+      - GOOGLE_API_KEY=${GOOGLE_API_KEY:-}
+      - GLM_API_KEY=${GLM_API_KEY:-}
+      - ZHIPU_API_KEY=${ZHIPU_API_KEY:-}
+      - OLLAMA_API_KEY=${OLLAMA_API_KEY:-}
+      # ContextLattice Configuration
+      - CONTEXTLATTICE_ORCHESTRATOR_URL=${CONTEXTLATTICE_ORCHESTRATOR_URL:-http://contextlattice:8075}
+      - CONTEXTLATTICE_ORCHESTRATOR_API_KEY=${CONTEXTLATTICE_ORCHESTRATOR_API_KEY:-}
+      # Provider Configuration
+      - LLM_PROVIDER=${LLM_PROVIDER:-openai}
+      - OPENAI_BASE_URL=${OPENAI_BASE_URL:-}
+      - ANTHROPIC_BASE_URL=${ANTHROPIC_BASE_URL:-}
+      - KIMI_BASE_URL=${KIMI_BASE_URL:-}
+      - GEMINI_BASE_URL=${GEMINI_BASE_URL:-}
+      - GLM_BASE_URL=${GLM_BASE_URL:-}
+      - OLLAMA_BASE_URL=${OLLAMA_BASE_URL:-http://host.docker.internal:11434}
+      # MemPalace Configuration
+      - MEMPALACE_PALACE_PATH=${MEMPALACE_PALACE_PATH:-/data/mempalace}
+      # Toolkit Configuration
+      - LLM_WORKFLOW_TOOLKIT_SOURCE=/opt/llm-workflow/module/LLMWorkflow/templates/tools
+      - LLM_WORKFLOW_LOG_LEVEL=${LLM_WORKFLOW_LOG_LEVEL:-INFO}
+    volumes:
+      # Mount current project directory
+      - .:/workspace
+      # Persistent storage for MemPalace data
+      - mempalace-data:/data/mempalace
+      # Optional: Mount custom tools
+      - ${CUSTOM_TOOLS_PATH:-/dev/null}:/custom-tools:ro
+    working_dir: /workspace
+    command: ["llmup"]
+    # Keep container running for exec access
+    stdin_open: true
+    tty: true
+    networks:
+      - llm-network
+    depends_on:
+      chromadb:
+        condition: service_started
+      contextlattice:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # ChromaDB service for local MemPalace
+  chromadb:
+    image: chromadb/chroma:latest
+    container_name: llm-chromadb
+    environment:
+      - IS_PERSISTENT=TRUE
+      - CHROMA_SERVER_HOST=0.0.0.0
+      - CHROMA_SERVER_PORT=8000
+      - CHROMA_SERVER_CORS_ALLOW_ORIGINS=["*"]
+      - PERSIST_DIRECTORY=/chroma/chroma
+    volumes:
+      - chromadb-data:/chroma/chroma
+    ports:
+      - "${CHROMADB_PORT:-8000}:8000"
+    networks:
+      - llm-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/v1/heartbeat"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    restart: unless-stopped
+
+  # ContextLattice Orchestrator (optional local instance)
+  contextlattice:
+    image: ${CONTEXTLATTICE_IMAGE:-alpine:latest}
+    container_name: llm-contextlattice
+    environment:
+      - PORT=8075
+      - API_KEY=${CONTEXTLATTICE_ORCHESTRATOR_API_KEY:-dev-key}
+    ports:
+      - "${CONTEXTLATTICE_PORT:-8075}:8075"
+    networks:
+      - llm-network
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8075/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 5s
+    # Note: Replace with actual ContextLattice image when available
+    # For now, this is a placeholder that should be overridden
+    command: >
+      sh -c "echo 'ContextLattice placeholder - configure CONTEXTLATTICE_IMAGE' && 
+             while true; do sleep 3600; done"
+    restart: unless-stopped
+
+  # Ollama service for local LLM inference (optional)
+  ollama:
+    image: ollama/ollama:latest
+    container_name: llm-ollama
+    environment:
+      - OLLAMA_HOST=0.0.0.0:11434
+    volumes:
+      - ollama-data:/root/.ollama
+    ports:
+      - "${OLLAMA_PORT:-11434}:11434"
+    networks:
+      - llm-network
+    # GPU support (optional)
+    # deploy:
+    #   resources:
+    #     reservations:
+    #       devices:
+    #         - driver: nvidia
+    #           count: all
+    #           capabilities: [gpu]
+    restart: unless-stopped
+    profiles:
+      - ollama
+
+# Named volumes for persistent data
+volumes:
+  mempalace-data:
+    driver: local
+  chromadb-data:
+    driver: local
+  ollama-data:
+    driver: local
+
+# Network configuration
+networks:
+  llm-network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16

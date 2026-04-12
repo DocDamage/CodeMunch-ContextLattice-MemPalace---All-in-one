@@ -43,25 +43,43 @@ def _as_text(value: Any) -> str:
     return str(value)
 
 
-def _post_json(url: str, api_key: str, payload: dict[str, Any], timeout: int = 30) -> dict[str, Any]:
-    body = json.dumps(payload).encode("utf-8")
-    req = request.Request(
-        url=url,
-        data=body,
-        method="POST",
-        headers={
-            "content-type": "application/json",
-            "x-api-key": api_key,
-        },
-    )
-    with request.urlopen(req, timeout=timeout) as resp:
-        text = resp.read().decode("utf-8", errors="replace")
-        if not text.strip():
-            return {}
+def _post_json(
+    url: str,
+    api_key: str,
+    payload: dict[str, Any],
+    timeout: int = 30,
+    retries: int = 3,
+    backoff_base: float = 1.0,
+) -> dict[str, Any]:
+    import time
+
+    last_exc: Exception | None = None
+    for attempt in range(retries + 1):
         try:
-            return json.loads(text)
-        except json.JSONDecodeError:
-            return {"raw": text}
+            body = json.dumps(payload).encode("utf-8")
+            req = request.Request(
+                url=url,
+                data=body,
+                method="POST",
+                headers={
+                    "content-type": "application/json",
+                    "x-api-key": api_key,
+                },
+            )
+            with request.urlopen(req, timeout=timeout) as resp:
+                text = resp.read().decode("utf-8", errors="replace")
+                if not text.strip():
+                    return {}
+                try:
+                    return json.loads(text)
+                except json.JSONDecodeError:
+                    return {"raw": text}
+        except Exception as exc:
+            last_exc = exc
+            if attempt < retries:
+                delay = backoff_base * (2 ** attempt)
+                time.sleep(delay)
+    raise last_exc  # type: ignore[misc]
 
 
 def _get_json(url: str, api_key: str, timeout: int = 15) -> dict[str, Any]:

@@ -1,4 +1,4 @@
-﻿[CmdletBinding()]
+[CmdletBinding()]
 param(
     [string]$ProjectRoot = ".",
     [string]$ToolkitSource = "",
@@ -15,20 +15,216 @@ param(
     [switch]$DeepCheck,
     [switch]$FailIfNoProviderKey,
     [switch]$FailIfContextMissing,
+    [switch]$Offline,
     [int]$ContextSearchAttempts = 20,
     [int]$ContextSearchDelaySec = 1,
-    [int]$ContextTimeoutSec = 20
+    [int]$ContextTimeoutSec = 20,
+    [switch]$ContinueOnError,
+    [switch]$ShowTiming,
+    [switch]$AsJson,
+    [switch]$Strict
 )
 
 $ErrorActionPreference = "Stop"
 $script:WorkflowScriptRoot = if (-not [string]::IsNullOrWhiteSpace($PSScriptRoot)) { $PSScriptRoot } else { (Split-Path -Parent $PSCommandPath) }
 
+# Phase results tracking for graceful degradation
+$script:PhaseResults = @()
+
+# Timing tracking
+$script:PhaseTimings = @{}
+
+# JSON output tracking
+$script:JsonOutput = @{
+    startTime = [DateTime]::UtcNow.ToString("o")
+    phases = @()
+    summary = @{}
+    timing = @{}
+}
+
 function Write-Step {
-    param([string]$Message)
+    [CmdletBinding()]
+    param([string]$Message, [switch]$NoJson)
+    if ($AsJson -and -not $NoJson) {
+        # In JSON mode, only capture to structured output, don't write to console
+        return
+    }
     Write-Output "[llm-workflow] $Message"
 }
 
+function Write-JsonOutput {
+    [CmdletBinding()]
+    param([int]$ExitCode = 0)
+    $script:JsonOutput.endTime = [DateTime]::UtcNow.ToString("o")
+    $script:JsonOutput.exitCode = $ExitCode
+    $script:JsonOutput.success = ($ExitCode -eq 0)
+    $script:JsonOutput | ConvertTo-Json -Depth 10 | Write-Output
+}
+
+function Measure-Phase {
+    [CmdletBinding()]
+    param(
+        [string]$PhaseName,
+        [scriptblock]$ScriptBlock,
+        [switch]$SkipTiming
+    )
+
+    Write-Step "Starting phase: $PhaseName"
+    
+    $stopwatch = $null
+    if (($ShowTiming -or $AsJson) -and -not $SkipTiming) {
+        $stopwatch = [System.Diagnostics.Stopwatch]::StartNew()
+    }
+    
+    $phaseOutput = @{
+        name = $PhaseName
+        startTime = [DateTime]::UtcNow.ToString("o")
+        status = "SUCCESS"
+        message = ""
+    }
+    
+    if ($ContinueOnError) {
+        try {
+            & $ScriptBlock
+            $script:PhaseResults += @{
+                Name = $PhaseName
+                Status = "SUCCESS"
+                Message = ""
+            }
+            if ($stopwatch) {
+                $stopwatch.Stop()
+                $script:PhaseTimings[$PhaseName] = $stopwatch.Elapsed
+                $phaseOutput.durationMs = [int]$stopwatch.Elapsed.TotalMilliseconds
+            }
+            Write-Step "Completed phase: $PhaseName [OK]"
+        }
+        catch {
+            $errorMsg = $_.Exception.Message
+            $script:PhaseResults += @{
+                Name = $PhaseName
+                Status = "FAILED"
+                Message = $errorMsg
+            }
+            $phaseOutput.status = "FAILED"
+            $phaseOutput.message = $errorMsg
+            if ($stopwatch) {
+                $stopwatch.Stop()
+                $script:PhaseTimings[$PhaseName] = $stopwatch.Elapsed
+                $phaseOutput.durationMs = [int]$stopwatch.Elapsed.TotalMilliseconds
+            }
+            Write-Step "Failed phase: $PhaseName [FAIL] - $errorMsg"
+        }
+    }
+    else {
+        & $ScriptBlock
+        $script:PhaseResults += @{
+            Name = $PhaseName
+            Status = "SUCCESS"
+            Message = ""
+        }
+        if ($stopwatch) {
+            $stopwatch.Stop()
+            $script:PhaseTimings[$PhaseName] = $stopwatch.Elapsed
+            $phaseOutput.durationMs = [int]$stopwatch.Elapsed.TotalMilliseconds
+        }
+    }
+    
+    $phaseOutput.endTime = [DateTime]::UtcNow.ToString("o")
+    $script:JsonOutput.phases += $phaseOutput
+}
+
+function Write-Summary {
+    [CmdletBinding()]
+    param([switch]$AsJsonOutput)
+    
+    $failedPhases = @()
+    $successCount = 0
+    $skippedCount = 0
+    
+    foreach ($result in $script:PhaseResults) {
+        $name = $result.Name
+        $status = $result.Status
+        $message = $result.Message
+        
+        switch ($status) {
+            "SUCCESS" { $successCount++ }
+            "FAILED" { $failedPhases += $result }
+            "SKIPPED" { $skippedCount++ }
+        }
+    }
+    
+    $errorCount = $failedPhases.Count
+    $totalCount = $script:PhaseResults.Count
+    
+    # Populate JSON summary
+    $script:JsonOutput.summary = @{
+        totalPhases = $totalCount
+        successCount = $successCount
+        failedCount = $errorCount
+        skippedCount = $skippedCount
+        failedPhases = @($failedPhases | ForEach-Object { 
+            @{ name = $_.Name; message = $_.Message }
+        })
+    }
+    
+    # Populate timing info if available
+    if ($script:PhaseTimings.Count -gt 0) {
+        $timingInfo = @{}
+        $totalMs = 0
+        foreach ($key in $script:PhaseTimings.Keys) {
+            $ms = [int]$script:PhaseTimings[$key].TotalMilliseconds
+            $timingInfo[$key] = $ms
+            $totalMs += $ms
+        }
+        $timingInfo["totalMs"] = $totalMs
+        $script:JsonOutput.timing = $timingInfo
+    }
+    
+    if ($AsJsonOutput) {
+        return $errorCount
+    }
+    
+    Write-Step "-- Summary -----------------------"
+    
+    foreach ($result in $script:PhaseResults) {
+        $name = $result.Name
+        $status = $result.Status
+        $message = $result.Message
+        
+        switch ($status) {
+            "SUCCESS" {
+                $statusLabel = "[OK]"
+                $displayMsg = "SUCCESS"
+                Write-Step "$($statusLabel.PadRight(6)) $($name.PadRight(25)) $displayMsg"
+            }
+            "FAILED" {
+                $statusLabel = "[FAIL]"
+                $displayMsg = "FAILED: $message"
+                Write-Step "$($statusLabel.PadRight(6)) $($name.PadRight(25)) $displayMsg"
+            }
+            "SKIPPED" {
+                $statusLabel = "[SKIP]"
+                $displayMsg = "SKIPPED (dependency failed)"
+                Write-Step "$($statusLabel.PadRight(6)) $($name.PadRight(25)) $displayMsg"
+            }
+        }
+    }
+    
+    Write-Step "----------------------------------------"
+    
+    if ($errorCount -eq 0) {
+        Write-Step "All phases completed successfully (exit code 0)"
+        return 0
+    }
+    else {
+        Write-Step "Completed with $errorCount error$(if ($errorCount -ne 1) { 's' }) (exit code 1)"
+        return 1
+    }
+}
+
 function Resolve-ToolkitSourcePath {
+    [CmdletBinding()]
+    [OutputType([string])]
     param([string]$RequestedSource)
 
     if (-not [string]::IsNullOrWhiteSpace($RequestedSource)) {
@@ -59,13 +255,14 @@ function Resolve-ToolkitSourcePath {
 }
 
 function Ensure-ToolFolder {
+    [CmdletBinding()]
     param(
         [string]$ToolsRoot,
         [string]$ProjectPath,
         [string]$ToolName
     )
 
-    $target = Join-Path (Join-Path $ProjectPath "tools") $ToolName
+    $target = Join-Path $ProjectPath "tools" $ToolName
     if (Test-Path -LiteralPath $target) {
         Write-Step "tools/$ToolName already exists."
         return
@@ -82,6 +279,7 @@ function Ensure-ToolFolder {
 }
 
 function Import-EnvFile {
+    [CmdletBinding()]
     param([string]$Path)
 
     if (-not (Test-Path -LiteralPath $Path)) {
@@ -120,6 +318,7 @@ function Ensure-PythonCommand {
 }
 
 function Test-PythonImport {
+    [CmdletBinding()]
     param([string]$ImportName)
 
     $probe = "import importlib.util; print(bool(importlib.util.find_spec(r'$ImportName')))"
@@ -129,6 +328,7 @@ function Test-PythonImport {
 }
 
 function Ensure-PythonImport {
+    [CmdletBinding()]
     param(
         [string]$ImportName,
         [string]$InstallName,
@@ -158,6 +358,7 @@ function Ensure-PythonImport {
 }
 
 function Ensure-CodemunchRuntime {
+    [CmdletBinding()]
     param([switch]$InstallIfMissing)
 
     $cmd = Get-Command codemunch-pro -ErrorAction SilentlyContinue
@@ -185,6 +386,7 @@ function Ensure-CodemunchRuntime {
 }
 
 function Get-FirstEnvValue {
+    [CmdletBinding()]
     param([string[]]$Names)
 
     foreach ($name in $Names) {
@@ -204,6 +406,7 @@ function Get-FirstEnvValue {
 }
 
 function Get-ProviderProfile {
+    [CmdletBinding()]
     param([string]$Name)
 
     switch ($Name.ToLowerInvariant()) {
@@ -246,10 +449,13 @@ function Get-ProviderProfile {
 }
 
 function Get-ProviderPreferenceOrder {
+    [CmdletBinding()]
+    param()
     return @("openai", "kimi", "gemini", "glm")
 }
 
 function Resolve-ProviderProfile {
+    [CmdletBinding()]
     param([string]$RequestedProvider)
 
     $requested = $RequestedProvider.ToLowerInvariant()
@@ -282,7 +488,8 @@ function Resolve-ProviderProfile {
                     BaseUrl = if ([string]::IsNullOrWhiteSpace($preferredBase.Value)) { $preferredProfile.DefaultBaseUrl } else { $preferredBase.Value }
                 }
             }
-        } catch {
+        }
+        catch {
         }
     }
 
@@ -305,6 +512,7 @@ function Resolve-ProviderProfile {
 }
 
 function Set-NormalizedProviderEnvironment {
+    [CmdletBinding()]
     param(
         [string]$RequestedProvider,
         [switch]$FailIfMissing
@@ -334,12 +542,18 @@ function Set-NormalizedProviderEnvironment {
 }
 
 function Invoke-IfExists {
+    [CmdletBinding()]
     param(
         [string]$ScriptPath,
-        [hashtable]$NamedArgs = @{}
+        [hashtable]$NamedArgs = @{},
+        [switch]$SkipOnError
     )
 
     if (-not (Test-Path -LiteralPath $ScriptPath)) {
+        if ($SkipOnError -and $ContinueOnError) {
+            Write-Step "Skipping: script not found - $ScriptPath"
+            return
+        }
         throw "Missing script: $ScriptPath"
     }
 
@@ -354,6 +568,15 @@ function Invoke-IfExists {
     }
 }
 
+# Handle offline mode
+if ($Offline) {
+    $SkipDependencyInstall = $true
+    $SkipContextVerify = $true
+    $SkipBridgeDryRun = $true
+    Write-Step "Running in offline mode. Network operations disabled."
+}
+
+# Main execution
 if ($DeepCheck) {
     $SmokeTestContext = $true
     $RunCodemunchIndex = $true
@@ -379,102 +602,265 @@ $toolsSource = Resolve-ToolkitSourcePath -RequestedSource $ToolkitSource
 Write-Step "Project root: $projectPath"
 Write-Step "Toolkit source: $toolsSource"
 
-Ensure-ToolFolder -ToolsRoot $toolsSource -ProjectPath $projectPath -ToolName "codemunch"
-Ensure-ToolFolder -ToolsRoot $toolsSource -ProjectPath $projectPath -ToolName "contextlattice"
-Ensure-ToolFolder -ToolsRoot $toolsSource -ProjectPath $projectPath -ToolName "memorybridge"
-
-Import-EnvFile -Path (Join-Path $projectPath ".env")
-Import-EnvFile -Path (Join-Path $projectPath ".contextlattice\orchestrator.env")
-
-if (-not $SkipProviderNormalize) {
-    Set-NormalizedProviderEnvironment -RequestedProvider $Provider -FailIfMissing:$FailIfNoProviderKey
+Measure-Phase -PhaseName "Tool scaffold" -ScriptBlock {
+    Ensure-ToolFolder -ToolsRoot $toolsSource -ProjectPath $projectPath -ToolName "codemunch"
+    Ensure-ToolFolder -ToolsRoot $toolsSource -ProjectPath $projectPath -ToolName "contextlattice"
+    Ensure-ToolFolder -ToolsRoot $toolsSource -ProjectPath $projectPath -ToolName "memorybridge"
 }
 
-$requiresPython = (-not $SkipDependencyInstall) -or (-not $SkipBridgeDryRun) -or $RunCodemunchIndex
-if ($requiresPython) {
-    Ensure-PythonCommand
+Measure-Phase -PhaseName "Environment load" -ScriptBlock {
+    Import-EnvFile -Path (Join-Path $projectPath ".env")
+    Import-EnvFile -Path (Join-Path $projectPath ".contextlattice" "orchestrator.env")
 }
 
-if (-not $SkipDependencyInstall) {
-    $null = Ensure-CodemunchRuntime -InstallIfMissing
-    $null = Ensure-PythonImport -ImportName "chromadb" -InstallName "chromadb" -InstallIfMissing
-} else {
+Measure-Phase -PhaseName "Provider normalize" -ScriptBlock {
+    if (-not $SkipProviderNormalize) {
+        Set-NormalizedProviderEnvironment -RequestedProvider $Provider -FailIfMissing:$FailIfNoProviderKey
+    }
+    else {
+        Write-Step "Provider normalization skipped (flag set)"
+    }
+}
+
+Measure-Phase -PhaseName "Python check" -ScriptBlock {
+    $requiresPython = (-not $SkipDependencyInstall) -or (-not $SkipBridgeDryRun) -or $RunCodemunchIndex
+    if ($Offline) {
+        $requiresPython = $false
+        Write-Step "Python check skipped (offline mode)"
+    }
+    if ($requiresPython) {
+        Ensure-PythonCommand
+    }
+    else {
+        Write-Step "Python check skipped (not required)"
+    }
+}
+
+Measure-Phase -PhaseName "Dependency check" -ScriptBlock {
+    if (-not $SkipDependencyInstall) {
+        $null = Ensure-CodemunchRuntime -InstallIfMissing
+        $null = Ensure-PythonImport -ImportName "chromadb" -InstallName "chromadb" -InstallIfMissing
+    }
+    else {
+        if ($RunCodemunchIndex) {
+            $codemunchReady = Ensure-CodemunchRuntime
+            if (-not $codemunchReady) {
+                throw "codemunch runtime is missing. Re-run without -SkipDependencyInstall to install codemunch-pro."
+            }
+        }
+
+        if (-not $SkipBridgeDryRun) {
+            $chromadbReady = Ensure-PythonImport -ImportName "chromadb" -InstallName "chromadb"
+            if (-not $chromadbReady) {
+                throw "chromadb module is missing. Re-run without -SkipDependencyInstall to install chromadb."
+            }
+        }
+    }
+}
+
+$codemunchBootstrap = Join-Path $projectPath "tools" "codemunch" "bootstrap-project.ps1"
+$codemunchIndex = Join-Path $projectPath "tools" "codemunch" "index-project.ps1"
+$contextBootstrap = Join-Path $projectPath "tools" "contextlattice" "bootstrap-project.ps1"
+$contextVerify = Join-Path $projectPath "tools" "contextlattice" "verify.ps1"
+$memoryBootstrap = Join-Path $projectPath "tools" "memorybridge" "bootstrap-project.ps1"
+$memorySync = Join-Path $projectPath "tools" "memorybridge" "sync-from-mempalace.ps1"
+
+Measure-Phase -PhaseName "CodeMunch bootstrap" -ScriptBlock {
+    Invoke-IfExists -ScriptPath $codemunchBootstrap -NamedArgs @{ ProjectRoot = $projectPath } -SkipOnError
+}
+
+Measure-Phase -PhaseName "ContextLattice bootstrap" -ScriptBlock {
+    Invoke-IfExists -ScriptPath $contextBootstrap -NamedArgs @{ ProjectRoot = $projectPath } -SkipOnError
+}
+
+Measure-Phase -PhaseName "MemoryBridge bootstrap" -ScriptBlock {
+    Invoke-IfExists -ScriptPath $memoryBootstrap -NamedArgs @{ ProjectRoot = $projectPath } -SkipOnError
+}
+
+Measure-Phase -PhaseName "CodeMunch index" -ScriptBlock {
     if ($RunCodemunchIndex) {
-        $codemunchReady = Ensure-CodemunchRuntime
-        if (-not $codemunchReady) {
-            throw "codemunch runtime is missing. Re-run without -SkipDependencyInstall to install codemunch-pro."
+        $indexArgs = @{
+            ProjectRoot = $projectPath
+            OutFile = ".codemunch\last-index.json"
         }
-    }
-
-    if (-not $SkipBridgeDryRun) {
-        $chromadbReady = Ensure-PythonImport -ImportName "chromadb" -InstallName "chromadb"
-        if (-not $chromadbReady) {
-            throw "chromadb module is missing. Re-run without -SkipDependencyInstall to install chromadb."
+        if ($CodemunchEmbed) {
+            $indexArgs["Embed"] = $true
         }
+        Invoke-IfExists -ScriptPath $codemunchIndex -NamedArgs $indexArgs -SkipOnError
     }
-}
-
-$codemunchBootstrap = Join-Path $projectPath "tools\codemunch\bootstrap-project.ps1"
-$codemunchIndex = Join-Path $projectPath "tools\codemunch\index-project.ps1"
-$contextBootstrap = Join-Path $projectPath "tools\contextlattice\bootstrap-project.ps1"
-$contextVerify = Join-Path $projectPath "tools\contextlattice\verify.ps1"
-$memoryBootstrap = Join-Path $projectPath "tools\memorybridge\bootstrap-project.ps1"
-$memorySync = Join-Path $projectPath "tools\memorybridge\sync-from-mempalace.ps1"
-
-Invoke-IfExists -ScriptPath $codemunchBootstrap -NamedArgs @{ ProjectRoot = $projectPath }
-Invoke-IfExists -ScriptPath $contextBootstrap -NamedArgs @{ ProjectRoot = $projectPath }
-Invoke-IfExists -ScriptPath $memoryBootstrap -NamedArgs @{ ProjectRoot = $projectPath }
-
-if ($RunCodemunchIndex) {
-    $indexArgs = @{
-        ProjectRoot = $projectPath
-        OutFile = ".codemunch\last-index.json"
+    else {
+        $script:PhaseResults[-1].Status = "SKIPPED"
+        $script:PhaseResults[-1].Message = "Skipped (flag not set)"
+        Write-Step "CodeMunch index skipped (flag not set)"
     }
-    if ($CodemunchEmbed) {
-        $indexArgs["Embed"] = $true
-    }
-    Invoke-IfExists -ScriptPath $codemunchIndex -NamedArgs $indexArgs
 }
 
 $hasContextApiKey = -not [string]::IsNullOrWhiteSpace($env:CONTEXTLATTICE_ORCHESTRATOR_API_KEY)
 
-if (-not $SkipContextVerify) {
-    if ($hasContextApiKey) {
-        $verifyArgs = @{
-            SearchAttempts = $ContextSearchAttempts
-            SearchDelaySec = $ContextSearchDelaySec
-            TimeoutSec = $ContextTimeoutSec
+Measure-Phase -PhaseName "ContextLattice verify" -ScriptBlock {
+    if (-not $SkipContextVerify) {
+        if ($hasContextApiKey) {
+            $verifyArgs = @{
+                SearchAttempts = $ContextSearchAttempts
+                SearchDelaySec = $ContextSearchDelaySec
+                TimeoutSec = $ContextTimeoutSec
+            }
+            if ($SmokeTestContext) {
+                $verifyArgs["SmokeTest"] = $true
+            }
+            if ($RequireSearchHit) {
+                $verifyArgs["RequireSearchHit"] = $true
+            }
+            Invoke-IfExists -ScriptPath $contextVerify -NamedArgs $verifyArgs -SkipOnError
         }
-        if ($SmokeTestContext) {
-            $verifyArgs["SmokeTest"] = $true
+        else {
+            $msg = "CONTEXTLATTICE_ORCHESTRATOR_API_KEY is not set."
+            if ($FailIfContextMissing) {
+                throw $msg
+            }
+            Write-Warning "[llm-workflow] Skipping ContextLattice verify: $msg"
         }
-        if ($RequireSearchHit) {
-            $verifyArgs["RequireSearchHit"] = $true
-        }
-        Invoke-IfExists -ScriptPath $contextVerify -NamedArgs $verifyArgs
-    } else {
-        $msg = "CONTEXTLATTICE_ORCHESTRATOR_API_KEY is not set."
-        if ($FailIfContextMissing) {
-            throw $msg
-        }
-        Write-Warning "[llm-workflow] Skipping ContextLattice verify: $msg"
+    }
+    else {
+        Write-Step "ContextLattice verify skipped (flag set)"
     }
 }
 
-if (-not $SkipBridgeDryRun) {
-    if ($hasContextApiKey) {
-        $bridgeArgs = @{ DryRun = $true }
-        if ($DeepCheck) {
-            $bridgeArgs["Strict"] = $true
+Measure-Phase -PhaseName "MemoryBridge dry-run" -ScriptBlock {
+    if (-not $SkipBridgeDryRun) {
+        if ($hasContextApiKey) {
+            $bridgeArgs = @{ DryRun = $true }
+            if ($DeepCheck) {
+                $bridgeArgs["Strict"] = $true
+            }
+            Invoke-IfExists -ScriptPath $memorySync -NamedArgs $bridgeArgs -SkipOnError
         }
-        Invoke-IfExists -ScriptPath $memorySync -NamedArgs $bridgeArgs
-    } else {
-        $msg = "CONTEXTLATTICE_ORCHESTRATOR_API_KEY is not set."
-        if ($FailIfContextMissing) {
-            throw $msg
+        else {
+            $msg = "CONTEXTLATTICE_ORCHESTRATOR_API_KEY is not set."
+            if ($FailIfContextMissing) {
+                throw $msg
+            }
+            Write-Warning "[llm-workflow] Skipping MemPalace bridge dry-run: $msg"
         }
-        Write-Warning "[llm-workflow] Skipping MemPalace bridge dry-run: $msg"
+    }
+    else {
+        Write-Step "MemoryBridge dry-run skipped (flag set)"
     }
 }
 
-Write-Step "Workflow bootstrap complete."
+Measure-Phase -PhaseName "Plugin bootstrap" -ScriptBlock {
+    $pluginManifestPath = Join-Path $projectPath ".llm-workflow" "plugins.json"
+    if (Test-Path -LiteralPath $pluginManifestPath) {
+        Write-Step "Loading plugin manifest..."
+        try {
+            $pluginContent = Get-Content -LiteralPath $pluginManifestPath -Raw -Encoding UTF8
+            $pluginManifest = $pluginContent | ConvertFrom-Json -ErrorAction Stop
+            if ($pluginManifest.plugins -and $pluginManifest.plugins.Count -gt 0) {
+                Write-Step "Found $($pluginManifest.plugins.Count) registered plugin(s)"
+                $bootstrapPlugins = @($pluginManifest.plugins | Where-Object { $_.runOn -contains "bootstrap" })
+                Write-Step "Executing $($bootstrapPlugins.Count) bootstrap plugin(s)..."
+                foreach ($plugin in $bootstrapPlugins) {
+                    if (-not $plugin.bootstrapScript) {
+                        Write-Warning "[llm-workflow] Plugin '$($plugin.name)' has no bootstrapScript defined"
+                        continue
+                    }
+                    $scriptPath = Join-Path $projectPath $plugin.bootstrapScript
+                    if (-not (Test-Path -LiteralPath $scriptPath)) {
+                        $warnMsg = "Plugin '$($plugin.name)' bootstrap script not found: $($plugin.bootstrapScript)"
+                        if ($Strict) {
+                            throw $warnMsg
+                        }
+                        Write-Warning "[llm-workflow] $warnMsg"
+                        continue
+                    }
+                    Write-Step "Running plugin: $($plugin.name)"
+                    $global:LASTEXITCODE = 0
+                    & $scriptPath -ProjectRoot $projectPath 2>&1 | ForEach-Object {
+                        Write-Output "[plugin:$($plugin.name)] $_"
+                    }
+                    $exitCode = $global:LASTEXITCODE
+                    if ($exitCode -ne 0) {
+                        $errMsg = "Plugin '$($plugin.name)' failed with exit code $exitCode"
+                        if ($Strict) {
+                            throw $errMsg
+                        }
+                        Write-Warning "[llm-workflow] $errMsg"
+                    }
+                    else {
+                        Write-Step "Plugin '$($plugin.name)' completed successfully"
+                    }
+                }
+            }
+            else {
+                Write-Step "No plugins registered"
+            }
+        }
+        catch {
+            $errMsg = "Failed to process plugins: $($_.Exception.Message)"
+            if ($Strict) {
+                throw $errMsg
+            }
+            Write-Warning "[llm-workflow] $errMsg"
+        }
+    }
+    else {
+        Write-Step "No plugin manifest found (skipping plugin phase)"
+    }
+}
+
+function Write-TimingSummary {
+    [CmdletBinding()]
+    param()
+    if (-not $ShowTiming) {
+        return
+    }
+    
+    Write-Step "-- Timing -----------------------"
+    
+    # Define the phases we want to display in order
+    $timingPhases = @(
+        "Tool scaffold",
+        "Environment load",
+        "Dependency check",
+        "CodeMunch index",
+        "ContextLattice verify",
+        "MemoryBridge dry-run"
+    )
+    
+    # Map phase names to display names
+    $displayNames = @{
+        "Tool scaffold" = "Tool scaffold"
+        "Environment load" = "Env loading"
+        "Dependency check" = "Dependency check"
+        "CodeMunch index" = "CodeMunch index"
+        "ContextLattice verify" = "CL verify"
+        "MemoryBridge dry-run" = "Bridge dry-run"
+    }
+    
+    $totalTicks = 0
+    
+    foreach ($phase in $timingPhases) {
+        if ($script:PhaseTimings.ContainsKey($phase)) {
+            $elapsed = $script:PhaseTimings[$phase]
+            $totalTicks += $elapsed.Ticks
+            $seconds = $elapsed.TotalSeconds.ToString("F1")
+            $displayName = $displayNames[$phase]
+            Write-Step " $($displayName.PadRight(18)) $($seconds)s"
+        }
+    }
+    
+    $totalSeconds = [TimeSpan]::FromTicks($totalTicks).TotalSeconds.ToString("F1")
+    Write-Step " $($"Total".PadRight(18)) $($totalSeconds)s"
+}
+
+$exitCode = Write-Summary -AsJsonOutput:$AsJson
+
+if ($AsJson) {
+    Write-JsonOutput -ExitCode $exitCode
+}
+else {
+    Write-TimingSummary
+    Write-Step "Workflow bootstrap complete."
+}
+
+exit $exitCode

@@ -1,3 +1,4 @@
+[CmdletBinding()]
 param(
     [string]$ProjectRoot = "."
 )
@@ -12,10 +13,20 @@ if (-not (Test-Path -LiteralPath $bridgeDir)) {
 
 $defaultProject = Split-Path -Leaf $root
 
+$schemaPath = Join-Path $bridgeDir "bridge.config.schema.json"
+if (-not (Test-Path -LiteralPath $schemaPath)) {
+    $sourceSchema = Join-Path $PSScriptRoot "..\..\..\..\..\.memorybridge\bridge.config.schema.json"
+    if (Test-Path -LiteralPath $sourceSchema) {
+        Copy-Item -LiteralPath $sourceSchema -Destination $schemaPath -Force
+    }
+}
+
 $samplePath = Join-Path $bridgeDir "bridge.config.sample.json"
 if (-not (Test-Path -LiteralPath $samplePath)) {
 @"
 {
+  "`$schema": "./bridge.config.schema.json",
+  "version": "1.0",
   "orchestratorUrl": "http://127.0.0.1:8075",
   "apiKeyEnvVar": "CONTEXTLATTICE_ORCHESTRATOR_API_KEY",
   "palacePath": "~/.mempalace/palace",
@@ -46,6 +57,7 @@ if (-not (Test-Path -LiteralPath $statePath)) {
 }
 
 Write-Output "Bootstrapped memory bridge files:"
+Write-Output " - $schemaPath"
 Write-Output " - $samplePath"
 Write-Output " - $configPath"
 Write-Output " - $statePath"

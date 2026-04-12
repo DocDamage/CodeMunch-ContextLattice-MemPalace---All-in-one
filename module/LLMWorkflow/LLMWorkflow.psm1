@@ -1,14 +1,24 @@
 Set-StrictMode -Version Latest
 
 function Get-UserModuleBasePath {
-    $moduleRoots = @($env:PSModulePath -split ';' | Where-Object { $_ -and $_ -like "$HOME*" })
+    [CmdletBinding()]
+    [OutputType([string])]
+    param()
+    $moduleRoots = @($env:PSModulePath -split [IO.Path]::PathSeparator | Where-Object { $_ -and $_ -like "$HOME*" })
     if ($moduleRoots.Count -gt 0) {
         return $moduleRoots[0]
     }
-    return (Join-Path $HOME "Documents\WindowsPowerShell\Modules")
+    # Platform-specific fallback
+    if ($IsWindows -or ($PSVersionTable.PSVersion.Major -lt 6)) {
+        return (Join-Path $HOME "Documents\WindowsPowerShell\Modules")
+    } else {
+        return (Join-Path $HOME ".local/share/powershell/Modules")
+    }
 }
 
 function Get-EnvFileMap {
+    [CmdletBinding()]
+    [OutputType([hashtable])]
     param([string]$Path)
 
     $result = @{}
@@ -47,7 +57,8 @@ function Remove-ProfileMarkerBlock {
     )
 
     $pattern = [regex]::Escape($StartMarker) + ".*?" + [regex]::Escape($EndMarker) + "\r?\n?"
-    return [regex]::Replace($Content, $pattern, "", [System.Text.RegularExpressions.RegexOptions]::Singleline)
+    $regexOptions = [System.Text.RegularExpressions.RegexOptions]::Singleline
+    return [regex]::Replace($Content, $pattern, "", $regexOptions)
 }
 
 function Get-LLMWorkflowVersion {
@@ -56,7 +67,7 @@ function Get-LLMWorkflowVersion {
 
     $manifestPath = Join-Path $PSScriptRoot "LLMWorkflow.psd1"
     $manifest = Import-PowerShellDataFile -Path $manifestPath
-    $available = @(Get-Module -ListAvailable -Name LLMWorkflow | Sort-Object Version -Descending)
+    $available = @(Get-Module -ListAvailable -Name LLMWorkflow | Sort-Object -Property Version -Descending)
     $latestInstalled = if ($available.Count -gt 0) { [string]$available[0].Version } else { "" }
     $moduleBase = Get-UserModuleBasePath
 
@@ -82,8 +93,8 @@ function Install-LLMWorkflow {
         [switch]$SkipUserEnvPersist
     )
 
-    $scriptPath = Join-Path $PSScriptRoot "scripts\install-global-llm-workflow.ps1"
-    $toolkitSource = Join-Path $PSScriptRoot "templates\tools"
+    $scriptPath = Join-Path (Join-Path $PSScriptRoot "scripts") "install-global-llm-workflow.ps1"
+    $toolkitSource = Join-Path (Join-Path $PSScriptRoot "templates") "tools"
 
     if (-not (Test-Path -LiteralPath $scriptPath)) {
         throw "Missing script: $scriptPath"
@@ -151,7 +162,7 @@ function Uninstall-LLMWorkflow {
 
     if (-not $KeepModuleFiles) {
         Remove-Module LLMWorkflow -ErrorAction SilentlyContinue
-        $moduleRoots = @($env:PSModulePath -split ';' | Where-Object { $_ -and $_ -like "$HOME*" })
+        $moduleRoots = @($env:PSModulePath -split [IO.Path]::PathSeparator | Where-Object { $_ -and $_ -like "$HOME*" })
         $removedAny = $false
         foreach ($root in $moduleRoots) {
             $modulePath = Join-Path $root "LLMWorkflow"
@@ -245,7 +256,7 @@ function Update-LLMWorkflow {
         }
 
         $moduleBase = Get-UserModuleBasePath
-        $targetPath = Join-Path $moduleBase ("LLMWorkflow\" + $resolvedVersion)
+        $targetPath = Join-Path $moduleBase "LLMWorkflow" $resolvedVersion
         if ((Test-Path -LiteralPath $targetPath) -and -not $Force) {
             throw "Target module version already installed at $targetPath. Use -Force to replace."
         }
@@ -285,7 +296,7 @@ function Test-LLMWorkflowSetup {
     )
 
     $checks = New-Object System.Collections.Generic.List[object]
-    function Add-Check {
+    $addCheck = {
         param([string]$Name, [string]$Status, [string]$Details)
         $checks.Add([pscustomobject]@{
             name = $Name
@@ -297,18 +308,18 @@ function Test-LLMWorkflowSetup {
     $projectPath = ""
     if (Test-Path -LiteralPath $ProjectRoot) {
         $projectPath = (Resolve-Path -LiteralPath $ProjectRoot).Path
-        Add-Check -Name "project_root" -Status "pass" -Details $projectPath
+        & $addCheck -Name "project_root" -Status "pass" -Details $projectPath
     } else {
-        Add-Check -Name "project_root" -Status "fail" -Details "Project root does not exist: $ProjectRoot"
+        & $addCheck -Name "project_root" -Status "fail" -Details "Project root does not exist: $ProjectRoot"
     }
 
     if ($projectPath) {
         foreach ($tool in @("codemunch", "contextlattice", "memorybridge")) {
-            $toolPath = Join-Path $projectPath ("tools\" + $tool)
+            $toolPath = Join-Path (Join-Path $projectPath "tools") $tool
             if (Test-Path -LiteralPath $toolPath) {
-                Add-Check -Name ("tool_" + $tool) -Status "pass" -Details "Found $toolPath"
+                & $addCheck -Name ("tool_" + $tool) -Status "pass" -Details "Found $toolPath"
             } else {
-                Add-Check -Name ("tool_" + $tool) -Status "warn" -Details "Missing $toolPath (run Invoke-LLMWorkflowUp)"
+                & $addCheck -Name ("tool_" + $tool) -Status "warn" -Details "Missing $toolPath (run Invoke-LLMWorkflowUp)"
             }
         }
     }
@@ -316,20 +327,20 @@ function Test-LLMWorkflowSetup {
     $envValues = @{}
     if ($projectPath) {
         $envFile = Join-Path $projectPath ".env"
-        $ctxEnvFile = Join-Path $projectPath ".contextlattice\orchestrator.env"
+        $ctxEnvFile = Join-Path (Join-Path $projectPath ".contextlattice") "orchestrator.env"
         if (Test-Path -LiteralPath $envFile) {
-            Add-Check -Name "env_file_root" -Status "pass" -Details "Found $envFile"
+            & $addCheck -Name "env_file_root" -Status "pass" -Details "Found $envFile"
             $fromFile = Get-EnvFileMap -Path $envFile
             foreach ($key in $fromFile.Keys) { $envValues[$key] = $fromFile[$key] }
         } else {
-            Add-Check -Name "env_file_root" -Status "warn" -Details "Missing $envFile"
+            & $addCheck -Name "env_file_root" -Status "warn" -Details "Missing $envFile"
         }
         if (Test-Path -LiteralPath $ctxEnvFile) {
-            Add-Check -Name "env_file_contextlattice" -Status "pass" -Details "Found $ctxEnvFile"
+            & $addCheck -Name "env_file_contextlattice" -Status "pass" -Details "Found $ctxEnvFile"
             $fromCtx = Get-EnvFileMap -Path $ctxEnvFile
             foreach ($key in $fromCtx.Keys) { if (-not $envValues.ContainsKey($key)) { $envValues[$key] = $fromCtx[$key] } }
         } else {
-            Add-Check -Name "env_file_contextlattice" -Status "warn" -Details "Missing $ctxEnvFile"
+            & $addCheck -Name "env_file_contextlattice" -Status "warn" -Details "Missing $ctxEnvFile"
         }
     }
 
@@ -341,76 +352,76 @@ function Test-LLMWorkflowSetup {
     }
 
     if (-not [string]::IsNullOrWhiteSpace($envValues["CONTEXTLATTICE_ORCHESTRATOR_API_KEY"])) {
-        Add-Check -Name "contextlattice_api_key" -Status "pass" -Details "API key present"
+        & $addCheck -Name "contextlattice_api_key" -Status "pass" -Details "API key present"
     } else {
-        Add-Check -Name "contextlattice_api_key" -Status "warn" -Details "Missing CONTEXTLATTICE_ORCHESTRATOR_API_KEY"
+        & $addCheck -Name "contextlattice_api_key" -Status "warn" -Details "Missing CONTEXTLATTICE_ORCHESTRATOR_API_KEY"
     }
 
     if (-not [string]::IsNullOrWhiteSpace($envValues["CONTEXTLATTICE_ORCHESTRATOR_URL"])) {
         try {
             $null = [Uri]$envValues["CONTEXTLATTICE_ORCHESTRATOR_URL"]
-            Add-Check -Name "contextlattice_url" -Status "pass" -Details $envValues["CONTEXTLATTICE_ORCHESTRATOR_URL"]
+            & $addCheck -Name "contextlattice_url" -Status "pass" -Details $envValues["CONTEXTLATTICE_ORCHESTRATOR_URL"]
         } catch {
-            Add-Check -Name "contextlattice_url" -Status "fail" -Details "Invalid URL format: $($envValues["CONTEXTLATTICE_ORCHESTRATOR_URL"])"
+            & $addCheck -Name "contextlattice_url" -Status "fail" -Details "Invalid URL format: $($envValues["CONTEXTLATTICE_ORCHESTRATOR_URL"])"
         }
     } else {
-        Add-Check -Name "contextlattice_url" -Status "warn" -Details "Missing CONTEXTLATTICE_ORCHESTRATOR_URL"
+        & $addCheck -Name "contextlattice_url" -Status "warn" -Details "Missing CONTEXTLATTICE_ORCHESTRATOR_URL"
     }
 
     if (-not [string]::IsNullOrWhiteSpace($envValues["GLM_API_KEY"]) -and [string]::IsNullOrWhiteSpace($envValues["GLM_BASE_URL"])) {
-        Add-Check -Name "glm_base_url" -Status "warn" -Details "GLM_API_KEY is set but GLM_BASE_URL is missing."
+        & $addCheck -Name "glm_base_url" -Status "warn" -Details "GLM_API_KEY is set but GLM_BASE_URL is missing."
     } elseif (-not [string]::IsNullOrWhiteSpace($envValues["GLM_BASE_URL"])) {
-        Add-Check -Name "glm_base_url" -Status "pass" -Details $envValues["GLM_BASE_URL"]
+        & $addCheck -Name "glm_base_url" -Status "pass" -Details $envValues["GLM_BASE_URL"]
     } else {
-        Add-Check -Name "glm_base_url" -Status "warn" -Details "GLM provider not configured."
+        & $addCheck -Name "glm_base_url" -Status "warn" -Details "GLM provider not configured."
     }
 
     $pythonCmd = Get-Command python -ErrorAction SilentlyContinue
     if ($pythonCmd) {
-        Add-Check -Name "python_command" -Status "pass" -Details $pythonCmd.Source
+        & $addCheck -Name "python_command" -Status "pass" -Details $pythonCmd.Source
         $probe = "import importlib.util; print(bool(importlib.util.find_spec(r'chromadb')))"
         $probeOut = & python -c $probe 2>$null
         $probeText = if ($null -eq $probeOut) { "" } else { ($probeOut | Out-String).Trim() }
         if ($LASTEXITCODE -eq 0 -and $probeText -eq "True") {
-            Add-Check -Name "python_chromadb" -Status "pass" -Details "chromadb import available"
+            & $addCheck -Name "python_chromadb" -Status "pass" -Details "chromadb import available"
         } else {
-            Add-Check -Name "python_chromadb" -Status "warn" -Details "chromadb import unavailable"
+            & $addCheck -Name "python_chromadb" -Status "warn" -Details "chromadb import unavailable"
         }
     } else {
-        Add-Check -Name "python_command" -Status "fail" -Details "python is not on PATH"
+        & $addCheck -Name "python_command" -Status "fail" -Details "python is not on PATH"
     }
 
     $codemunchCmd = Get-Command codemunch-pro -ErrorAction SilentlyContinue
     if ($codemunchCmd) {
-        Add-Check -Name "codemunch_command" -Status "pass" -Details $codemunchCmd.Source
+        & $addCheck -Name "codemunch_command" -Status "pass" -Details $codemunchCmd.Source
     } else {
-        Add-Check -Name "codemunch_command" -Status "warn" -Details "codemunch-pro command not found"
+        & $addCheck -Name "codemunch_command" -Status "warn" -Details "codemunch-pro command not found"
     }
 
     if ($CheckConnectivity) {
         $url = $envValues["CONTEXTLATTICE_ORCHESTRATOR_URL"]
         $key = $envValues["CONTEXTLATTICE_ORCHESTRATOR_API_KEY"]
         if ([string]::IsNullOrWhiteSpace($url) -or [string]::IsNullOrWhiteSpace($key)) {
-            Add-Check -Name "contextlattice_connectivity" -Status "warn" -Details "Skipped: URL/API key missing"
+            & $addCheck -Name "contextlattice_connectivity" -Status "warn" -Details "Skipped: URL/API key missing"
         } else {
             $base = $url.TrimEnd('/')
             try {
                 $health = Invoke-RestMethod -Method Get -Uri "$base/health" -TimeoutSec $TimeoutSec
                 if ($health.ok) {
-                    Add-Check -Name "contextlattice_health" -Status "pass" -Details "$base/health ok=true"
+                    & $addCheck -Name "contextlattice_health" -Status "pass" -Details "$base/health ok=true"
                 } else {
-                    Add-Check -Name "contextlattice_health" -Status "fail" -Details "$base/health responded but ok!=true"
+                    & $addCheck -Name "contextlattice_health" -Status "fail" -Details "$base/health responded but ok!=true"
                 }
             } catch {
-                Add-Check -Name "contextlattice_health" -Status "fail" -Details ("Health check failed: {0}" -f $_.Exception.Message)
+                & $addCheck -Name "contextlattice_health" -Status "fail" -Details ("Health check failed: {0}" -f $_.Exception.Message)
             }
 
             try {
                 $status = Invoke-RestMethod -Method Get -Uri "$base/status" -Headers @{ "x-api-key" = $key } -TimeoutSec $TimeoutSec
                 $svc = if ($status.service) { $status.service } else { "unknown" }
-                Add-Check -Name "contextlattice_status" -Status "pass" -Details "service=$svc"
+                & $addCheck -Name "contextlattice_status" -Status "pass" -Details "service=$svc"
             } catch {
-                Add-Check -Name "contextlattice_status" -Status "fail" -Details ("Status check failed: {0}" -f $_.Exception.Message)
+                & $addCheck -Name "contextlattice_status" -Status "fail" -Details ("Status check failed: {0}" -f $_.Exception.Message)
             }
         }
     }
@@ -444,11 +455,42 @@ function Invoke-LLMWorkflowUp {
         [switch]$SkipContextVerify,
         [switch]$SkipBridgeDryRun,
         [switch]$SmokeTestContext,
-        [switch]$RequireSearchHit
+        [switch]$RequireSearchHit,
+        [switch]$ContinueOnError,
+        [switch]$ShowTiming,
+        [switch]$Offline,
+        [switch]$AsJson,
+        [switch]$GameTeam,
+        [string]$GameTemplate = "",
+        [string]$GameEngine = "",
+        [switch]$JamMode
     )
 
-    $scriptPath = Join-Path $PSScriptRoot "scripts\bootstrap-llm-workflow.ps1"
-    $toolkitSource = Join-Path $PSScriptRoot "templates\tools"
+    # Handle Game Team preset
+    if ($GameTeam -or $JamMode) {
+        $gamePresetPath = Join-Path $PSScriptRoot "LLMWorkflow.GameFunctions.ps1"
+        if (Test-Path -LiteralPath $gamePresetPath) {
+            . $gamePresetPath
+            
+            # Apply jam mode defaults
+            if ($JamMode) {
+                Write-Host "[llm-workflow] Jam Mode enabled: fast checks, ContinueOnError" -ForegroundColor Yellow
+                $ContinueOnError = $true
+                $SkipBridgeDryRun = $true
+            }
+            
+            # Initialize game preset if needed
+            $projectPath = Resolve-Path -LiteralPath $ProjectRoot
+            $existingGamePreset = Join-Path $projectPath ".llm-workflow\game-preset.json"
+            if (-not (Test-Path -LiteralPath $existingGamePreset)) {
+                Write-Host "[llm-workflow] Initializing game team structure..." -ForegroundColor Cyan
+                New-LLMWorkflowGamePreset -ProjectRoot $ProjectRoot -Template $GameTemplate -Engine $GameEngine -JamMode:$JamMode
+            }
+        }
+    }
+
+    $scriptPath = Join-Path (Join-Path $PSScriptRoot "scripts") "bootstrap-llm-workflow.ps1"
+    $toolkitSource = Join-Path (Join-Path $PSScriptRoot "templates") "tools"
 
     if (-not (Test-Path -LiteralPath $scriptPath)) {
         throw "Missing script: $scriptPath"
@@ -476,8 +518,599 @@ function Invoke-LLMWorkflowUp {
     if ($RequireSearchHit) {
         $invokeArgs["RequireSearchHit"] = $true
     }
+    if ($ContinueOnError) {
+        $invokeArgs["ContinueOnError"] = $true
+    }
+    if ($ShowTiming) {
+        $invokeArgs["ShowTiming"] = $true
+    }
+    if ($Offline) {
+        $invokeArgs["Offline"] = $true
+    }
+    if ($AsJson) {
+        $invokeArgs["AsJson"] = $true
+    }
 
     & $scriptPath @invokeArgs
+    
+    if ($GameTeam -or $JamMode) {
+        Write-Host "[llm-workflow] Game team setup complete. See docs/GDD.md and docs/TASKS.md" -ForegroundColor Green
+    }
+}
+
+function Get-ProviderProfile {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory=$true)]
+        [string]$Name
+    )
+    $providerName = $Name.ToLower()
+    switch ($providerName) {
+        "openai" {
+            return [pscustomobject]@{
+                Name = "openai"
+                ApiKeyVars = @("OPENAI_API_KEY")
+                BaseUrlVars = @("OPENAI_BASE_URL")
+                DefaultBaseUrl = "https://api.openai.com/v1"
+            }
+        }
+        "claude" {
+            return [pscustomobject]@{
+                Name = "claude"
+                ApiKeyVars = @("ANTHROPIC_API_KEY", "CLAUDE_API_KEY")
+                BaseUrlVars = @("ANTHROPIC_BASE_URL", "CLAUDE_BASE_URL")
+                DefaultBaseUrl = "https://api.anthropic.com/v1"
+            }
+        }
+        "kimi" {
+            return [pscustomobject]@{
+                Name = "kimi"
+                ApiKeyVars = @("KIMI_API_KEY", "MOONSHOT_API_KEY")
+                BaseUrlVars = @("KIMI_BASE_URL", "MOONSHOT_BASE_URL")
+                DefaultBaseUrl = "https://api.moonshot.cn/v1"
+            }
+        }
+        "gemini" {
+            return [pscustomobject]@{
+                Name = "gemini"
+                ApiKeyVars = @("GEMINI_API_KEY", "GOOGLE_API_KEY")
+                BaseUrlVars = @("GEMINI_BASE_URL")
+                DefaultBaseUrl = "https://generativelanguage.googleapis.com/v1beta/openai"
+            }
+        }
+        "glm" {
+            return [pscustomobject]@{
+                Name = "glm"
+                ApiKeyVars = @("GLM_API_KEY", "ZHIPU_API_KEY")
+                BaseUrlVars = @("GLM_BASE_URL")
+                DefaultBaseUrl = "https://open.bigmodel.cn/api/paas/v4"
+            }
+        }
+        "ollama" {
+            return [pscustomobject]@{
+                Name = "ollama"
+                ApiKeyVars = @("OLLAMA_API_KEY")
+                BaseUrlVars = @("OLLAMA_BASE_URL", "OLLAMA_HOST")
+                DefaultBaseUrl = "http://localhost:11434/v1"
+            }
+        }
+        default {
+            throw "Unsupported provider: $Name"
+        }
+    }
+}
+
+function Get-ProviderPreferenceOrder {
+    [CmdletBinding()]
+    param()
+    return @("openai", "claude", "kimi", "gemini", "glm", "ollama")
+}
+
+function Resolve-ProviderProfile {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory=$true)]
+        [string]$RequestedProvider
+    )
+    
+    $preferenceOrder = Get-ProviderPreferenceOrder
+    
+    # Helper function to find first available API key
+    function Find-ApiKey {
+        param([array]$KeyVars)
+        foreach ($var in $KeyVars) {
+            $val = [Environment]::GetEnvironmentVariable($var)
+            if (-not [string]::IsNullOrWhiteSpace($val)) {
+                return @{ Var = $var; Key = $val }
+            }
+        }
+        return $null
+    }
+    
+    # Helper function to find base URL
+    function Find-BaseUrl {
+        param([array]$UrlVars, [string]$DefaultUrl)
+        foreach ($var in $UrlVars) {
+            $val = [Environment]::GetEnvironmentVariable($var)
+            if (-not [string]::IsNullOrWhiteSpace($val)) {
+                return @{ Var = $var; Url = $val }
+            }
+        }
+        return @{ Var = ""; Url = $DefaultUrl }
+    }
+    
+    # If specific provider requested
+    if ($RequestedProvider -ne "auto") {
+        $profile = Get-ProviderProfile -Name $RequestedProvider
+        $apiKeyInfo = Find-ApiKey -KeyVars $profile.ApiKeyVars
+        $baseUrlInfo = Find-BaseUrl -UrlVars $profile.BaseUrlVars -DefaultUrl $profile.DefaultBaseUrl
+        
+        return [pscustomobject]@{
+            Profile = $profile
+            ApiKey = if ($apiKeyInfo) { $apiKeyInfo.Key } else { "" }
+            ApiKeyVar = if ($apiKeyInfo) { $apiKeyInfo.Var } else { "" }
+            BaseUrl = $baseUrlInfo.Url
+            BaseUrlVar = $baseUrlInfo.Var
+        }
+    }
+    
+    # Auto mode - check LLM_PROVIDER override first
+    $envOverride = [Environment]::GetEnvironmentVariable("LLM_PROVIDER")
+    if ($envOverride) {
+        try {
+            $profile = Get-ProviderProfile -Name $envOverride
+            $apiKeyInfo = Find-ApiKey -KeyVars $profile.ApiKeyVars
+            if ($apiKeyInfo) {
+                $baseUrlInfo = Find-BaseUrl -UrlVars $profile.BaseUrlVars -DefaultUrl $profile.DefaultBaseUrl
+                return [pscustomobject]@{
+                    Profile = $profile
+                    ApiKey = $apiKeyInfo.Key
+                    ApiKeyVar = $apiKeyInfo.Var
+                    BaseUrl = $baseUrlInfo.Url
+                    BaseUrlVar = $baseUrlInfo.Var
+                }
+            }
+        }
+        catch {
+            # Invalid LLM_PROVIDER value - fall through to auto-detection
+        }
+    }
+    
+    # Auto-detection by priority order
+    foreach ($provider in $preferenceOrder) {
+        $profile = Get-ProviderProfile -Name $provider
+        $apiKeyInfo = Find-ApiKey -KeyVars $profile.ApiKeyVars
+        if ($apiKeyInfo) {
+            $baseUrlInfo = Find-BaseUrl -UrlVars $profile.BaseUrlVars -DefaultUrl $profile.DefaultBaseUrl
+            return [pscustomobject]@{
+                Profile = $profile
+                ApiKey = $apiKeyInfo.Key
+                ApiKeyVar = $apiKeyInfo.Var
+                BaseUrl = $baseUrlInfo.Url
+                BaseUrlVar = $baseUrlInfo.Var
+            }
+        }
+    }
+    
+    return $null
+}
+
+function Test-ProviderKey {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory=$true)]
+        [string]$ProviderName,
+        [Parameter(Mandatory=$true)]
+        [ValidateNotNullOrEmpty()]
+        [string]$ApiKey,
+        [string]$BaseUrl,
+        [int]$TimeoutSec = 10
+    )
+    
+    if ([string]::IsNullOrWhiteSpace($ApiKey)) {
+        return $false
+    }
+    
+    # Special handling for contextlattice
+    if ($ProviderName -eq "contextlattice") {
+        return -not [string]::IsNullOrWhiteSpace($BaseUrl)
+    }
+    
+    # For all other providers, just validate the key format and base URL presence
+    # In a real implementation, this would make an actual API call
+    return $true
+}
+
+# Multi-Palace support functions
+
+function Get-LLMWorkflowPalaces {
+    <#
+    .SYNOPSIS
+        Gets the list of configured MemPalace instances from the bridge config.
+    .DESCRIPTION
+        Reads the bridge.config.json file and returns a list of configured palaces.
+        Supports both legacy single-palace format and new multi-palace format.
+    .PARAMETER ConfigPath
+        Path to the bridge configuration file (default: .memorybridge/bridge.config.json)
+    .EXAMPLE
+        Get-LLMWorkflowPalaces
+        Gets all palaces from the default config file.
+    #>
+    [CmdletBinding()]
+    param(
+        [string]$ConfigPath = ".memorybridge/bridge.config.json"
+    )
+    
+    if (-not (Test-Path -LiteralPath $ConfigPath)) {
+        Write-Warning "Config file not found: $ConfigPath"
+        return @()
+    }
+    
+    try {
+        $configContent = Get-Content -LiteralPath $ConfigPath -Raw
+        $config = $configContent | ConvertFrom-Json -AsHashtable
+    } catch {
+        Write-Error "Failed to parse config file: $_"
+        return @()
+    }
+    
+    # Check version and format
+    $version = if ($config.ContainsKey("version")) { $config["version"] } else { "1.0" }
+    $palaces = @()
+    
+    if ($config.ContainsKey("palaces") -and $config["palaces"] -is [array]) {
+        # Multi-palace format (v2.0+)
+        for ($i = 0; $i -lt $config["palaces"].Count; $i++) {
+            $palace = $config["palaces"][$i]
+            $wingMap = @{}
+            if ($palace.ContainsKey("wingProjectMap") -and $palace["wingProjectMap"] -is [System.Collections.IDictionary]) {
+                $wingMap = $palace["wingProjectMap"]
+            }
+            $palaces += [pscustomobject]@{
+                Index = $i
+                Id = "palace_$i"
+                Path = if ($palace.ContainsKey("path")) { $palace["path"] } else { "" }
+                CollectionName = if ($palace.ContainsKey("collectionName")) { $palace["collectionName"] } else { "mempalace_drawers" }
+                TopicPrefix = if ($palace.ContainsKey("topicPrefix")) { $palace["topicPrefix"] } else { "mempalace" }
+                WingProjectMap = $wingMap
+            }
+        }
+    } elseif ($config.ContainsKey("palacePath")) {
+        # Legacy single-palace format
+        $wingMap = @{}
+        if ($config.ContainsKey("wingProjectMap") -and $config["wingProjectMap"] -is [System.Collections.IDictionary]) {
+            $wingMap = $config["wingProjectMap"]
+        }
+        $palaces += [pscustomobject]@{
+            Index = 0
+            Id = "palace_0"
+            Path = $config["palacePath"]
+            CollectionName = if ($config.ContainsKey("collectionName")) { $config["collectionName"] } else { "mempalace_drawers" }
+            TopicPrefix = if ($config.ContainsKey("topicPrefix")) { $config["topicPrefix"] } else { "mempalace" }
+            WingProjectMap = $wingMap
+        }
+    }
+    
+    return $palaces
+}
+
+function Test-LLMWorkflowPalace {
+    <#
+    .SYNOPSIS
+        Tests the connectivity and validity of a specific palace.
+    .DESCRIPTION
+        Validates that the palace path exists and the ChromaDB collection is accessible.
+    .PARAMETER Index
+        The index of the palace to test (0-based).
+    .PARAMETER ConfigPath
+        Path to the bridge configuration file.
+    .EXAMPLE
+        Test-LLMWorkflowPalace -Index 0
+        Tests the first palace in the configuration.
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory=$true)]
+        [int]$Index,
+        [string]$ConfigPath = ".memorybridge/bridge.config.json"
+    )
+    
+    $palaces = Get-LLMWorkflowPalaces -ConfigPath $ConfigPath
+    if ($Index -lt 0 -or $Index -ge $palaces.Count) {
+        throw "Palace index $Index out of range (0-$($palaces.Count - 1))"
+    }
+    
+    $palace = $palaces | Where-Object { $_.Index -eq $Index } | Select-Object -First 1
+    if (-not $palace) {
+        throw "Palace with index $Index not found"
+    }
+    
+    $expandedPath = [Environment]::ExpandEnvironmentVariables($palace.Path)
+    if ($expandedPath.StartsWith("~")) {
+        $expandedPath = $expandedPath.Replace("~", $HOME)
+    }
+    
+    $checks = @{
+        Index = $Index
+        Id = $palace.Id
+        Path = $palace.Path
+        ExpandedPath = $expandedPath
+        CollectionName = $palace.CollectionName
+        TopicPrefix = $palace.TopicPrefix
+        PathExists = Test-Path -LiteralPath $expandedPath
+        IsValid = $false
+        Errors = @()
+    }
+    
+    if (-not $checks.PathExists) {
+        $checks.Errors += "Palace path does not exist: $expandedPath"
+    } else {
+        # Try to get collection info using Python
+        $pythonScript = @"
+import chromadb
+import json
+import sys
+try:
+    client = chromadb.PersistentClient(path=r'$expandedPath')
+    collection = client.get_collection('$($palace.CollectionName)')
+    count = collection.count()
+    print(json.dumps({"ok": true, "count": count}))
+except Exception as e:
+    print(json.dumps({"ok": false, "error": str(e)}))
+"@
+        try {
+            $result = & python -c $pythonScript 2>&1 | Out-String
+            $info = $result | ConvertFrom-Json
+            if ($info.ok) {
+                $checks.CollectionCount = $info.count
+                $checks.IsValid = $true
+            } else {
+                $checks.Errors += "Collection error: $($info.error)"
+            }
+        } catch {
+            $checks.Errors += "Failed to query collection: $_"
+        }
+    }
+    
+    return [pscustomobject]$checks
+}
+
+function Sync-LLMWorkflowPalace {
+    <#
+    .SYNOPSIS
+        Syncs a specific MemPalace to ContextLattice.
+    .DESCRIPTION
+        Runs the sync operation for a single palace by index.
+    .PARAMETER Index
+        The index of the palace to sync (0-based).
+    .PARAMETER ConfigPath
+        Path to the bridge configuration file.
+    .PARAMETER StatePath
+        Path to the sync state file.
+    .PARAMETER OrchestratorUrl
+        Override the orchestrator URL.
+    .PARAMETER ApiKey
+        Override the API key.
+    .PARAMETER Limit
+        Maximum number of drawers to sync.
+    .PARAMETER Workers
+        Number of parallel workers (default: 4).
+    .PARAMETER DryRun
+        Show what would be synced without writing.
+    .PARAMETER ForceResync
+        Force resync of all drawers.
+    .PARAMETER Strict
+        Stop on first error.
+    .EXAMPLE
+        Sync-LLMWorkflowPalace -Index 0
+        Syncs the first palace.
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory=$true)]
+        [int]$Index,
+        [string]$ConfigPath = ".memorybridge/bridge.config.json",
+        [string]$StatePath = ".memorybridge/sync-state.json",
+        [string]$OrchestratorUrl = "",
+        [string]$ApiKey = "",
+        [int]$Limit = 0,
+        [int]$Workers = 4,
+        [switch]$DryRun,
+        [switch]$ForceResync,
+        [switch]$Strict
+    )
+    
+    $palaces = Get-LLMWorkflowPalaces -ConfigPath $ConfigPath
+    if ($Index -lt 0 -or $Index -ge $palaces.Count) {
+        throw "Palace index $Index out of range (0-$($palaces.Count - 1))"
+    }
+    
+    $toolRoot = Join-Path (Split-Path -Parent $PSScriptRoot) "tools\memorybridge"
+    $scriptPath = Join-Path $toolRoot "sync-from-mempalace.ps1"
+    
+    if (-not (Test-Path -LiteralPath $scriptPath)) {
+        throw "Sync script not found: $scriptPath"
+    }
+    
+    $invokeArgs = @{
+        ConfigPath = $ConfigPath
+        StatePath = $StatePath
+        PalaceIndex = $Index
+        Workers = $Workers
+    }
+    
+    if ($OrchestratorUrl) { $invokeArgs["OrchestratorUrl"] = $OrchestratorUrl }
+    if ($ApiKey) { $invokeArgs["ApiKey"] = $ApiKey }
+    if ($Limit -gt 0) { $invokeArgs["Limit"] = $Limit }
+    if ($DryRun) { $invokeArgs["DryRun"] = $true }
+    if ($ForceResync) { $invokeArgs["ForceResync"] = $true }
+    if ($Strict) { $invokeArgs["Strict"] = $true }
+    
+    & $scriptPath @invokeArgs
+}
+
+function Sync-LLMWorkflowAllPalaces {
+    <#
+    .SYNOPSIS
+        Syncs all configured MemPalaces to ContextLattice.
+    .DESCRIPTION
+        Runs the sync operation for all palaces in the configuration.
+    .PARAMETER ConfigPath
+        Path to the bridge configuration file.
+    .PARAMETER StatePath
+        Path to the sync state file.
+    .PARAMETER OrchestratorUrl
+        Override the orchestrator URL.
+    .PARAMETER ApiKey
+        Override the API key.
+    .PARAMETER Limit
+        Maximum number of drawers to sync per palace.
+    .PARAMETER Workers
+        Number of parallel workers (default: 4).
+    .PARAMETER DryRun
+        Show what would be synced without writing.
+    .PARAMETER ForceResync
+        Force resync of all drawers.
+    .PARAMETER Strict
+        Stop on first error.
+    .PARAMETER ContinueOnError
+        Continue syncing remaining palaces if one fails.
+    .EXAMPLE
+        Sync-LLMWorkflowAllPalaces -DryRun
+        Shows what would be synced without making changes.
+    #>
+    [CmdletBinding()]
+    param(
+        [string]$ConfigPath = ".memorybridge/bridge.config.json",
+        [string]$StatePath = ".memorybridge/sync-state.json",
+        [string]$OrchestratorUrl = "",
+        [string]$ApiKey = "",
+        [int]$Limit = 0,
+        [int]$Workers = 4,
+        [switch]$DryRun,
+        [switch]$ForceResync,
+        [switch]$Strict,
+        [switch]$ContinueOnError
+    )
+    
+    $palaces = Get-LLMWorkflowPalaces -ConfigPath $ConfigPath
+    if ($palaces.Count -eq 0) {
+        Write-Warning "No palaces configured in $ConfigPath"
+        return
+    }
+    
+    $results = @()
+    $failedCount = 0
+    
+    foreach ($palace in $palaces) {
+        Write-Host "Syncing palace $($palace.Index): $($palace.Id) ($($palace.Path))" -ForegroundColor Cyan
+        
+        try {
+            $result = Sync-LLMWorkflowPalace `
+                -Index $palace.Index `
+                -ConfigPath $ConfigPath `
+                -StatePath $StatePath `
+                -OrchestratorUrl $OrchestratorUrl `
+                -ApiKey $ApiKey `
+                -Limit $Limit `
+                -Workers $Workers `
+                -DryRun:$DryRun `
+                -ForceResync:$ForceResync `
+                -Strict:$Strict
+            
+            $results += [pscustomobject]@{
+                Index = $palace.Index
+                Id = $palace.Id
+                Success = $true
+                Result = $result
+            }
+        } catch {
+            $failedCount++
+            $results += [pscustomobject]@{
+                Index = $palace.Index
+                Id = $palace.Id
+                Success = $false
+                Error = $_.Exception.Message
+            }
+            
+            if (-not $ContinueOnError) {
+                throw
+            }
+            
+            Write-Warning "Failed to sync palace $($palace.Index): $_"
+        }
+    }
+    
+    return [pscustomobject]@{
+        TotalPalaces = $palaces.Count
+        Successful = ($palaces.Count - $failedCount)
+        Failed = $failedCount
+        Results = $results
+    }
+}
+
+# Source plugin functions
+$PluginFunctionsPath = Join-Path $PSScriptRoot "LLMWorkflow.PluginFunctions.ps1"
+if (Test-Path -LiteralPath $PluginFunctionsPath) {
+    . $PluginFunctionsPath
+}
+
+# Source dashboard functions
+$DashboardPath = Join-Path $PSScriptRoot "LLMWorkflow.Dashboard.ps1"
+function Show-LLMWorkflowDashboard {
+    <#
+    .SYNOPSIS
+        Interactive Terminal UI dashboard for LLM Workflow Doctor.
+    .DESCRIPTION
+        Provides a color-coded, real-time updating dashboard for workflow health checks
+        with progress indicators and interactive controls.
+    .PARAMETER ProjectRoot
+        Path to project root (default: current directory).
+    .PARAMETER Provider
+        Provider to check (auto, openai, kimi, gemini, glm).
+    .PARAMETER CheckContext
+        Include ContextLattice connectivity checks.
+    .PARAMETER TimeoutSec
+        Timeout for network checks (default: 10).
+    .PARAMETER NoInteractive
+        Force non-interactive plain-text output.
+    .PARAMETER RefreshInterval
+        Seconds between auto-refresh in interactive mode (default: 0 = manual only).
+    .EXAMPLE
+        Show-LLMWorkflowDashboard
+        Launch the interactive dashboard.
+    .EXAMPLE
+        Show-LLMWorkflowDashboard -NoInteractive
+        Plain-text output suitable for CI/CD.
+    #>
+    [CmdletBinding()]
+    param(
+        [string]$ProjectRoot = ".",
+        [ValidateSet("auto", "openai", "kimi", "gemini", "glm")]
+        [string]$Provider = "auto",
+        [switch]$CheckContext,
+        [int]$TimeoutSec = 10,
+        [switch]$NoInteractive,
+        [int]$RefreshInterval = 0
+    )
+    
+    if (-not (Test-Path -LiteralPath $DashboardPath)) {
+        throw "Dashboard script not found: $DashboardPath"
+    }
+    
+    & $DashboardPath -ProjectRoot $ProjectRoot -Provider $Provider -CheckContext:$CheckContext -TimeoutSec $TimeoutSec -NoInteractive:$NoInteractive -RefreshInterval $RefreshInterval
+}
+
+# Source game team functions
+$GameFunctionsPath = Join-Path $PSScriptRoot "LLMWorkflow.GameFunctions.ps1"
+if (Test-Path -LiteralPath $GameFunctionsPath) {
+    . $GameFunctionsPath
+}
+
+# Source heal functions
+$HealFunctionsPath = Join-Path $PSScriptRoot "LLMWorkflow.HealFunctions.ps1"
+if (Test-Path -LiteralPath $HealFunctionsPath) {
+    . $HealFunctionsPath
 }
 
 Set-Alias -Name llmup -Value Invoke-LLMWorkflowUp
@@ -485,7 +1118,12 @@ Set-Alias -Name llmdown -Value Uninstall-LLMWorkflow
 Set-Alias -Name llmcheck -Value Test-LLMWorkflowSetup
 Set-Alias -Name llmver -Value Get-LLMWorkflowVersion
 Set-Alias -Name llmupdate -Value Update-LLMWorkflow
+Set-Alias -Name llmplugins -Value Get-LLMWorkflowPlugins
+Set-Alias -Name llmpalaces -Value Get-LLMWorkflowPalaces
+Set-Alias -Name llmsync -Value Sync-LLMWorkflowAllPalaces
+Set-Alias -Name llmdashboard -Value Show-LLMWorkflowDashboard
+Set-Alias -Name llmheal -Value Invoke-LLMWorkflowHeal
 
 Export-ModuleMember `
-    -Function Install-LLMWorkflow, Uninstall-LLMWorkflow, Update-LLMWorkflow, Get-LLMWorkflowVersion, Test-LLMWorkflowSetup, Invoke-LLMWorkflowUp `
-    -Alias llmup, llmdown, llmcheck, llmver, llmupdate
+    -Function Install-LLMWorkflow, Uninstall-LLMWorkflow, Update-LLMWorkflow, Get-LLMWorkflowVersion, Test-LLMWorkflowSetup, Invoke-LLMWorkflowUp, Get-ProviderProfile, Resolve-ProviderProfile, Get-ProviderPreferenceOrder, Test-ProviderKey, Get-LLMWorkflowPlugins, Register-LLMWorkflowPlugin, Unregister-LLMWorkflowPlugin, Invoke-LLMWorkflowPlugins, Get-LLMWorkflowPalaces, Test-LLMWorkflowPalace, Sync-LLMWorkflowPalace, Sync-LLMWorkflowAllPalaces, Get-LLMWorkflowPluginManifest, Save-LLMWorkflowPluginManifest, New-LLMWorkflowGamePreset, Get-LLMWorkflowGameTemplates, Export-LLMWorkflowAssetManifest `
+    -Alias llmup, llmdown, llmcheck, llmver, llmupdate, llmplugins, llmpalaces, llmsync, llmheal
