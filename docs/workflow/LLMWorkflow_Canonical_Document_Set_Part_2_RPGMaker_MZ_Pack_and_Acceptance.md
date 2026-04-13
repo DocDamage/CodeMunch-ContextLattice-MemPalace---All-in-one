@@ -5,6 +5,12 @@
 **This is the canonical source-of-truth document.**  
 It supersedes the earlier implementation plans, review passes, and RPG Maker pack review notes. Earlier documents should be treated as archived design history after this one is adopted.
 
+## Related Docs
+- [Canonical Document Index](./LLMWorkflow_Canonical_Document_Set_INDEX.md)
+- [Post-0.9.6 Strategic Execution Plan](../implementation/LLMWorkflow_Post_0.9.6_Strategic_Execution_Plan.md)
+- [Implementation Progress](../implementation/PROGRESS.md)
+- [Remaining Work](../implementation/REMAINING_WORK.md)
+
 ---
 
 ## 22. Canonical domain-pack example: RPG Maker MZ

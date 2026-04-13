@@ -95,11 +95,11 @@ $script:RateLimitTrackers = [hashtable]::Synchronized(@{})
 
 # Secret patterns for scanning
 $script:SecretPatterns = @(
-    @{ Pattern = 'password\s*=\s*["\'][^"\']+["\']'; Name = 'Password' }
-    @{ Pattern = 'api[_-]?key\s*[=:]\s*["\'][^"\']+["\']'; Name = 'API Key' }
-    @{ Pattern = 'secret[_-]?key\s*[=:]\s*["\'][^"\']+["\']'; Name = 'Secret Key' }
-    @{ Pattern = 'private[_-]?key\s*[=:]\s*["\'][^"\']+["\']'; Name = 'Private Key' }
-    @{ Pattern = 'token\s*[=:]\s*["\'][^"\']+["\']'; Name = 'Token' }
+    @{ Pattern = "password\s*=\s*[`"'][^`"']+[`"']"; Name = 'Password' }
+    @{ Pattern = "api[_-]?key\s*[=:]\s*[`"'][^`"']+[`"']"; Name = 'API Key' }
+    @{ Pattern = "secret[_-]?key\s*[=:]\s*[`"'][^`"']+[`"']"; Name = 'Secret Key' }
+    @{ Pattern = "private[_-]?key\s*[=:]\s*[`"'][^`"']+[`"']"; Name = 'Private Key' }
+    @{ Pattern = "token\s*[=:]\s*[`"'][^`"']+[`"']"; Name = 'Token' }
     @{ Pattern = 'bearer\s+[a-zA-Z0-9_\-\.]+'; Name = 'Bearer Token' }
     @{ Pattern = '-----BEGIN (RSA |DSA |EC |OPENSSH )?PRIVATE KEY-----'; Name = 'PEM Private Key' }
     @{ Pattern = 'AKIA[0-9A-Z]{16}'; Name = 'AWS Access Key ID' }

@@ -2,6 +2,12 @@
 
 Complete guide for running LLM Workflow Toolkit in Docker containers.
 
+## Related Docs
+- [Platform Architecture](../architecture/ARCHITECTURE.md)
+- [Platform Overview](../architecture/PLATFORM_OVERVIEW.md)
+- [Implementation Progress](../implementation/PROGRESS.md)
+- [Remaining Work](../implementation/REMAINING_WORK.md)
+
 ## Table of Contents
 
 - [Quick Start](#quick-start)

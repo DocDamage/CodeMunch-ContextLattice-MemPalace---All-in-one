@@ -48,7 +48,7 @@ $script:Patterns = @{
     NamedColor = '\b(?<color>transparent|currentColor|inherit|black|white|red|green|blue|yellow|purple|orange|pink|gray|grey|cyan|magenta|lime|maroon|navy|olive|silver|teal|aqua|fuchsia)\b'
     
     # Typography
-    FontFamily = '(?:font-family|fontFamily)\s*[:=]\s*["\']?(?<value>[^;}"]+)'
+    FontFamily = "(?:font-family|fontFamily)\s*[:=]\s*[`"']?(?<value>[^;}`"]+)"
     FontSize = '(?:font-size|fontSize)\s*[:=]\s*(?<value>[^;}")]*)'
     FontWeight = '(?:font-weight|fontWeight)\s*[:=]\s*(?<value>[^;}")]*)'
     LineHeight = '(?:line-height|lineHeight)\s*[:=]\s*(?<value>[^;}")]*)'
@@ -79,7 +79,7 @@ $script:Patterns = @{
     
     # Theme modes
     DarkMode = '(?:dark|light)\s*:\s*\{|@media\s*\(\s*prefers-color-scheme\s*:\s*dark\s*\)'
-    ThemeVariant = '(?:theme|mode)\s*:\s*["\']?(?<variant>dark|light|auto|system)'
+    ThemeVariant = "(?:theme|mode)\s*:\s*[`"']?(?<variant>dark|light|auto|system)"
     
     # Animation
     AnimationName = '(?:animation|animation-name)\s*[:=]\s*(?<value>[^;}")]+)'
@@ -524,7 +524,7 @@ function Get-ThemeConfigurations {
                 }
                 
                 # Extract color definition
-                if ($line -match "^\s*['\"]?(\w+)['\"]?\s*:\s*['\"]?([^'\"\n,]+)") {
+                if ($line -match "^\s*['`"']?(\w+)['`"']?\s*:\s*['`"']?([^'`"'\n,]+)") {
                     $colorName = $matches[1]
                     $colorValue = $matches[2].Trim()
                     
@@ -662,7 +662,7 @@ function Get-StyleUtilities {
                 $content = $match.Groups[2].Value
                 
                 # Parse key-value pairs
-                $kvMatches = [regex]::Matches($content, "['\"]?(\w+)['\"]?\s*:\s*['\"]?([^'\"\n,]+)")
+                $kvMatches = [regex]::Matches($content, "['`"']?(\w+)['`"']?\s*:\s*['`"']?([^'`"'\n,]+)")
                 foreach ($kv in $kvMatches) {
                     $key = $kv.Groups[1].Value
                     $value = $kv.Groups[2].Value.Trim()
@@ -760,7 +760,7 @@ function Get-DocumentationPatterns {
             }
             
             # Extract title
-            if ($rawContent -match 'title\s*:\s*["\']([^"\']+)') {
+            if ($rawContent -match "title\s*:\s*['`"']([^`"']+)") {
                 $docs.meta['title'] = $matches[1]
             }
         }
@@ -836,4 +836,4 @@ function Get-DocumentationPatterns {
 }
 
 # Export functions
-Export-ModuleMember -Function Get-DesignTokens, Get-ThemeConfigurations, Get-StyleUtilities, Get-DocumentationPatterns
+# Public functions exported via module wildcard

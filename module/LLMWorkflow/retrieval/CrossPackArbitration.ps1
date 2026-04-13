@@ -23,6 +23,8 @@
 #requires -Version 5.1
 Set-StrictMode -Version Latest
 
+$script:TelemetryTraceLog = [System.Collections.ArrayList]::new()
+
 #region Configuration Data
 
 # Domain-specific keywords for pack relevance scoring
@@ -137,11 +139,19 @@ function Invoke-CrossPackArbitration {
         [pscustomobject]$WorkspaceContext,
 
         [Parameter()]
-        [string]$RetrievalProfile = ''
+        [string]$RetrievalProfile = '',
+
+        [Parameter()]
+        [string]$CorrelationId = [Guid]::NewGuid().ToString()
     )
 
     begin {
         $arbitrationId = [Guid]::NewGuid().ToString()
+        $traceAttributes = @{
+            Query = $Query
+            RetrievalProfile = $RetrievalProfile
+        }
+        [void](Write-FunctionTelemetry -CorrelationId $CorrelationId -FunctionName 'Invoke-CrossPackArbitration' -Attributes $traceAttributes)
         Write-Verbose "Starting cross-pack arbitration [$arbitrationId] for query: $Query"
     }
 
@@ -547,7 +557,7 @@ function Test-DomainSpecificity {
         }
 
         # Check pack scope includes
-        if ($PackManifest.scope -and $PackManifest.scope.includes) {
+        if ($PackManifest.ContainsKey('scope') -and $PackManifest.scope -and $PackManifest.scope.includes) {
             foreach ($include in $PackManifest.scope.includes) {
                 $includeWords = $include.ToLower().Split(' ', [System.StringSplitOptions]::RemoveEmptyEntries)
                 $matchCount = 0
@@ -659,7 +669,7 @@ function Get-PackAuthorityScore {
             'draft' = 0.8
         }
 
-        $status = $PackManifest.status
+        $status = if ($PackManifest.ContainsKey('status')) { $PackManifest.status } else { $null }
         if ($status -and $statusMultipliers.ContainsKey($status)) {
             $score *= $statusMultipliers[$status]
         }
@@ -672,7 +682,7 @@ function Get-PackAuthorityScore {
             'frozen' = 0.95
         }
 
-        $channel = $PackManifest.channel
+        $channel = if ($PackManifest.ContainsKey('channel')) { $PackManifest.channel } else { $null }
         if ($channel -and $channelMultipliers.ContainsKey($channel)) {
             $score *= $channelMultipliers[$channel]
         }
@@ -876,8 +886,16 @@ function Resolve-PackConflicts {
                     $id -eq $topPacks[1].packId 
                 } | Select-Object -First 1
 
-                $domain1 = if ($pack1 -is [hashtable]) { $pack1.domain } else { $pack1.Domain }
-                $domain2 = if ($pack2 -is [hashtable]) { $pack2.domain } else { $pack2.Domain }
+                $domain1 = if ($pack1 -is [hashtable]) {
+                    if ($pack1.ContainsKey('domain')) { $pack1.domain } else { $null }
+                } else {
+                    if ($pack1.PSObject.Properties['Domain']) { $pack1.Domain } else { $null }
+                }
+                $domain2 = if ($pack2 -is [hashtable]) {
+                    if ($pack2.ContainsKey('domain')) { $pack2.domain } else { $null }
+                } else {
+                    if ($pack2.PSObject.Properties['Domain']) { $pack2.Domain } else { $null }
+                }
 
                 if ($domain1 -ne $domain2) {
                     # Create a dispute set for cross-domain conflict
@@ -949,6 +967,7 @@ function New-DisputeSet {
             competingClaims = @()
             status = $Status
             preferredSource = $PreferredSource
+            resolution = ''
             createdUtc = [DateTime]::UtcNow.ToString("o")
             updatedUtc = [DateTime]::UtcNow.ToString("o")
         }

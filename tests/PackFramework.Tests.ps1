@@ -19,7 +19,7 @@
 BeforeAll {
     # Set up test environment
     $script:TestRoot = Join-Path $TestDrive "PackFrameworkTests"
-    $script:ModuleRoot = Join-Path $PSScriptRoot ".." "module" "LLMWorkflow"
+    $script:ModuleRoot = Join-Path (Join-Path $PSScriptRoot "..") "module\LLMWorkflow"
     $script:PackModulePath = Join-Path $ModuleRoot "pack"
     
     # Create test directories
@@ -35,9 +35,9 @@ BeforeAll {
     $sourceRegistryPath = Join-Path $script:PackModulePath "SourceRegistry.ps1"
     $packTransactionPath = Join-Path $script:PackModulePath "PackTransaction.ps1"
     
-    if (Test-Path $packManifestPath) { . $packManifestPath }
-    if (Test-Path $sourceRegistryPath) { . $sourceRegistryPath }
-    if (Test-Path $packTransactionPath) { . $packTransactionPath }
+    if (Test-Path $packManifestPath) { try { . $packManifestPath } catch { if ($_.Exception.Message -notlike "*Export-ModuleMember*") { throw } } }
+    if (Test-Path $sourceRegistryPath) { try { . $sourceRegistryPath } catch { if ($_.Exception.Message -notlike "*Export-ModuleMember*") { throw } } }
+    if (Test-Path $packTransactionPath) { try { . $packTransactionPath } catch { if ($_.Exception.Message -notlike "*Export-ModuleMember*") { throw } } }
 }
 
 Describe "PackManifest Module Tests" {

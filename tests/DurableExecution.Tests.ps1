@@ -22,8 +22,8 @@ BeforeAll {
     $durablePath = Join-Path $script:ModuleRoot "DurableOrchestrator.ps1"
     $failurePath = Join-Path $script:ModuleRoot "FailureTaxonomy.ps1"
 
-    if (Test-Path $durablePath) { . $durablePath }
-    if (Test-Path $failurePath) { . $failurePath }
+    if (Test-Path $durablePath) { try { . $durablePath } catch { if ($_.Exception.Message -notlike "*Export-ModuleMember*") { throw } } }
+    if (Test-Path $failurePath) { try { . $failurePath } catch { if ($_.Exception.Message -notlike "*Export-ModuleMember*") { throw } } }
 }
 
 AfterAll {

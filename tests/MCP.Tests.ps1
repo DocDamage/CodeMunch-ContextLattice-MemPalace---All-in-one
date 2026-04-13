@@ -20,7 +20,7 @@
 BeforeAll {
     # Set up test environment
     $script:TestRoot = Join-Path $env:TEMP "LLMWorkflow_MCPTests_$([Guid]::NewGuid().ToString('N'))"
-    $script:ModuleRoot = Join-Path $PSScriptRoot ".." "module" "LLMWorkflow"
+    $script:ModuleRoot = Join-Path (Join-Path $PSScriptRoot "..") "module\LLMWorkflow"
     $script:McpModulePath = Join-Path $script:ModuleRoot "mcp"
     
     # Create test directory
@@ -28,8 +28,8 @@ BeforeAll {
     
     # Import MCP module by dot-sourcing
     $mcpServerPath = Join-Path $script:McpModulePath "MCPToolkitServer.ps1"
-    if (Test-Path $mcpServerPath) { 
-        . $mcpServerPath 
+    if (Test-Path $mcpServerPath) {
+        try { . $mcpServerPath } catch { if ($_.Exception.Message -notlike "*Export-ModuleMember*") { throw } }
     }
 }
 

@@ -7,6 +7,11 @@ This document defines the strategic execution plan for the LLM Workflow platform
 This is not a bootstrap plan.
 This is a stabilization, integration, ingestion-hardening, and v1.0-readiness plan.
 
+## Related Docs
+- [Implementation Progress](./PROGRESS.md)
+- [Technical Debt Audit](./TECHNICAL_DEBT_AUDIT.md)
+- [Remaining Work](./REMAINING_WORK.md)
+
 The platform is already beyond the point where raw feature count is the main problem.
 The next stage is about making the system:
 - operationally trustworthy
@@ -175,8 +180,8 @@ If the docs disagree about what exists, then operators and contributors lose tru
 ## Deliverables
 
 - root-level `VERSION`
-- `docs/RELEASE_STATE.md`
-- `docs/DOCS_TRUTH_MATRIX.md`
+- `docs/releases/RELEASE_STATE.md`
+- `docs/reference/DOCS_TRUTH_MATRIX.md`
 - deterministic doc/version update helper
 - CI validation for version and metric drift
 

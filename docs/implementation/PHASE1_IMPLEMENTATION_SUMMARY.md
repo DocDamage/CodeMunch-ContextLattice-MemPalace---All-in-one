@@ -3,6 +3,12 @@
 ## Overview
 This document summarizes the implementation of Phase 1 priorities from IMPROVEMENT_PROPOSALS.md using an agent swarm approach.
 
+## Related Docs
+- [Post-0.9.6 Strategic Execution Plan](./LLMWorkflow_Post_0.9.6_Strategic_Execution_Plan.md)
+- [Implementation Progress](./PROGRESS.md)
+- [Technical Debt Audit](./TECHNICAL_DEBT_AUDIT.md)
+- [Remaining Work](./REMAINING_WORK.md)
+
 ## Phase 1 Priorities Completed
 
 ### Priority 1: Journaling + Checkpoints ✅

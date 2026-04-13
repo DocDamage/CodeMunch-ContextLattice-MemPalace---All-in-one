@@ -134,65 +134,6 @@ function Get-LockDirectory {
 
 <#
 .SYNOPSIS
-    Generates a new Run ID for lock identification.
-
-.DESCRIPTION
-    Creates a unique run identifier in the format: YYYYMMDDTHHMMSSZ-XXXX
-    where XXXX is a random 4-character hex string.
-
-.OUTPUTS
-    System.String. The generated Run ID.
-#>
-function New-RunId {
-    [CmdletBinding()]
-    [OutputType([string])]
-    param()
-
-    $timestamp = [DateTime]::UtcNow.ToString("yyyyMMddTHHmmssZ")
-    $randomHex = (Get-Random -Minimum 0 -Maximum 65535).ToString("x4")
-    return "$timestamp-$randomHex"
-}
-
-<#
-.SYNOPSIS
-    Detects the current execution mode.
-
-.DESCRIPTION
-    Determines if the script is running interactively, in a CI environment,
-    or as a background task.
-
-.OUTPUTS
-    System.String. One of: interactive, ci, background, scheduled
-#>
-function Get-ExecutionMode {
-    [CmdletBinding()]
-    [OutputType([string])]
-    param()
-
-    # Check for CI environment variables
-    $ciVars = @('CI', 'GITHUB_ACTIONS', 'GITLAB_CI', 'JENKINS_HOME', 'TF_BUILD', 'BUILD_BUILDID')
-    foreach ($var in $ciVars) {
-        if (-not [string]::IsNullOrWhiteSpace([Environment]::GetEnvironmentVariable($var))) {
-            return 'ci'
-        }
-    }
-
-    # Check if running in a scheduled task or service
-    if ($Host.Name -eq 'ServerRemoteHost' -or 
-        [Environment]::GetCommandLineArgs() -contains '-NonInteractive') {
-        return 'background'
-    }
-
-    # Check if running interactively
-    if ([Environment]::UserInteractive) {
-        return 'interactive'
-    }
-
-    return 'background'
-}
-
-<#
-.SYNOPSIS
     Creates the lock file content structure.
 
 .DESCRIPTION

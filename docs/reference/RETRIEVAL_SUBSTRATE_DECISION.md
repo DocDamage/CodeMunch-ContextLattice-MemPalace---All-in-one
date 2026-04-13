@@ -7,6 +7,12 @@
 **Author:** LLMWorkflow Architecture Team  
 **Scope:** Primary vector retrieval backend and embedded/local fallback for the LLMWorkflow platform.
 
+## Related Docs
+- [MCP Governance Model](../architecture/MCP_GOVERNANCE_MODEL.md)
+- [Implementation Progress](../implementation/PROGRESS.md)
+- [Remaining Work](../implementation/REMAINING_WORK.md)
+- [v1.0 Release Criteria](../releases/V1_RELEASE_CRITERIA.md)
+
 ---
 
 ## 1. Decision Summary

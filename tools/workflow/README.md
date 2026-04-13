@@ -1,5 +1,11 @@
 # Unified LLM Workflow Launcher
 
+## Related Docs
+- [Repository README](../../README.md)
+- [Implementation Progress](../../docs/implementation/PROGRESS.md)
+- [Technical Debt Audit](../../docs/implementation/TECHNICAL_DEBT_AUDIT.md)
+- [Remaining Work](../../docs/implementation/REMAINING_WORK.md)
+
 This folder provides a one-shot setup command for any project:
 
 - Load local env files (`.env`, `.contextlattice/orchestrator.env`)

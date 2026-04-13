@@ -6,6 +6,11 @@
 
 This checklist must be completed and signed off before a release candidate can be promoted to a stable v1.0 tag. Each item has a **Check** (what to verify), **Owner** (who is accountable), **Evidence** (where to look), and **Status** (`Pending` / `Pass` / `Fail` / `N/A`).
 
+## Related Docs
+- [v1.0 Release Criteria](./V1_RELEASE_CRITERIA.md)
+- [Post-0.9.6 Strategic Execution Plan](../implementation/LLMWorkflow_Post_0.9.6_Strategic_Execution_Plan.md)
+- [Remaining Work](../implementation/REMAINING_WORK.md)
+
 ---
 
 ## How to Use
@@ -22,8 +27,8 @@ This checklist must be completed and signed off before a release candidate can b
 | # | Check | Owner | Evidence | Status |
 |---|-------|-------|----------|--------|
 | 1.1 | `VERSION` file exists and is not empty | Release Lead | `VERSION` | Pending |
-| 1.2 | `docs/RELEASE_STATE.md` exists and is current | Release Lead | `docs/RELEASE_STATE.md` | Pending |
-| 1.3 | `docs/DOCS_TRUTH_MATRIX.md` exists and lists no unresolved drift | Release Lead | `docs/DOCS_TRUTH_MATRIX.md` | Pending |
+| 1.2 | `docs/releases/RELEASE_STATE.md` exists and is current | Release Lead | `docs/releases/RELEASE_STATE.md` | Pending |
+| 1.3 | `docs/reference/DOCS_TRUTH_MATRIX.md` exists and lists no unresolved drift | Release Lead | `docs/reference/DOCS_TRUTH_MATRIX.md` | Pending |
 | 1.4 | README version badge matches `VERSION` | Docs Owner | `README.md` | Pending |
 | 1.5 | PROGRESS version and metrics match truth sources | Docs Owner | `PROGRESS.md` | Pending |
 | 1.6 | CI validation script catches future drift automatically | CI Owner | `tools/ci/validate-docs-truth.ps1` | Pending |

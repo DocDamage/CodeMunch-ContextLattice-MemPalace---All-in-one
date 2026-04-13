@@ -2,6 +2,12 @@
 
 This document describes the **Workstream 5** security baseline for the LLM Workflow platform. The baseline runs secret scanning, SBOM generation, and vulnerability scanning without requiring external security tools to be installed.
 
+## Related Docs
+- [Post-0.9.6 Strategic Execution Plan](../implementation/LLMWorkflow_Post_0.9.6_Strategic_Execution_Plan.md)
+- [Implementation Progress](../implementation/PROGRESS.md)
+- [Remaining Work](../implementation/REMAINING_WORK.md)
+- [Supply-Chain Policy](../reference/SUPPLY_CHAIN_POLICY.md)
+
 ## Table of Contents
 
 - [Overview](#overview)

@@ -34,7 +34,7 @@ Set-StrictMode -Version Latest
 $script:AgentPatterns = @{
     # State model patterns
     StateClass = '(?:class|interface)\s+(?<name>\w+)(?:State|Agent|Memory|Behavior)'
-    StateProperty = '(?:state|status|mode|phase)\s*[:=]\s*["''']?(?<value>\w+)["''']?'
+    StateProperty = "(?:state|status|mode|phase)\s*[:=]\s*[`"''']?(?<value>\w+)[`"''']?"
     StateTransition = '(?:transition|setState|updateState|changeState)\s*\([^)]*\)'
     
     # Multi-agent patterns
@@ -965,13 +965,4 @@ function Get-ReasoningPatterns {
         return ,$patterns
     }
 }
-
-# Export public functions
-Export-ModuleMember -Function @(
-    'Invoke-AgentPatternExtract',
-    'Get-AgentStateModel',
-    'Get-MultiAgentPatterns',
-    'Get-AgentMemoryPatterns',
-    'Get-ToolUsePatterns',
-    'Get-ReasoningPatterns'
-)
+# Public functions exported via module wildcard

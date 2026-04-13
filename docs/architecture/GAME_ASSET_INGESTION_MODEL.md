@@ -4,6 +4,12 @@
 
 This document defines the game asset ingestion layer for the LLM Workflow platform. It establishes how engine-specific and mixed game assets are inventoried, parsed, normalized, and governed as evidence.
 
+## Related Docs
+- [Post-0.9.6 Strategic Execution Plan](../implementation/LLMWorkflow_Post_0.9.6_Strategic_Execution_Plan.md)
+- [Implementation Progress](../implementation/PROGRESS.md)
+- [Remaining Work](../implementation/REMAINING_WORK.md)
+- [Canonical Document Index](../workflow/LLMWorkflow_Canonical_Document_Set_INDEX.md)
+
 ## Scope
 
 - Asset family taxonomy

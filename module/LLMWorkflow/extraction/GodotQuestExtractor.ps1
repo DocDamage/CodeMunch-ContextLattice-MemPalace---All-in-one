@@ -72,48 +72,48 @@ $script:ObjectiveTypes = @('kill', 'collect', 'interact', 'escort', 'reach', 'cr
 $script:QuestPatterns = @{
     # Quest Resource patterns (.tres files)
     QuestResource = '\[resource\]|\[ext_resource.*?path=".*?quest'
-    QuestId = '(?:quest_id|id)\s*=\s*["\'](?<id>[^"\']+)["\']'
-    QuestTitle = '(?:title|quest_name|name)\s*=\s*["\'](?<title>[^"\']+)["\']'
-    QuestDescription = '(?:description|desc|quest_description)\s*=\s*["\'](?<desc>[^"\']*?)["\']'
+    QuestId = "(?:quest_id|id)\s*=\s*[`"'](?<id>[^`"']+)[`"']"
+    QuestTitle = "(?:title|quest_name|name)\s*=\s*[`"'](?<title>[^`"']+)[`"']"
+    QuestDescription = "(?:description|desc|quest_description)\s*=\s*[`"'](?<desc>[^`"']*?)[`"']"
     QuestStatus = '(?:status|state|quest_status)\s*=\s*(?<status>\w+)'
-    QuestCategory = '(?:category|quest_category|type)\s*=\s*["\'](?<cat>[^"\']+)["\']'
+    QuestCategory = "(?:category|quest_category|type)\s*=\s*[`"'](?<cat>[^`"']+)[`"']"
     QuestLevel = '(?:level|required_level|min_level)\s*=\s*(?<level>\d+)'
-    QuestGiver = '(?:quest_giver|giver|source_npc|npc)\s*=\s*["\'](?<giver>[^"\']+)["\']'
-    QuestReceiver = '(?:turn_in|receiver|target_npc)\s*=\s*["\'](?<receiver>[^"\']+)["\']'
+    QuestGiver = "(?:quest_giver|giver|source_npc|npc)\s*=\s*[`"'](?<giver>[^`"']+)[`"']"
+    QuestReceiver = "(?:turn_in|receiver|target_npc)\s*=\s*[`"'](?<receiver>[^`"']+)[`"']"
     QuestIsMain = '(?:is_main_quest|main_story|is_story)\s*=\s*(?<main>true|false)'
     QuestIsRepeatable = '(?:is_repeatable|repeatable|can_repeat)\s*=\s*(?<rep>true|false)'
     QuestIsHidden = '(?:is_hidden|hidden|secret)\s*=\s*(?<hidden>true|false)'
     QuestTimeLimit = '(?:time_limit|timeout|duration)\s*=\s*(?<time>[\d.]+)'
     QuestExperience = '(?:xp|exp|experience|reward_xp)\s*=\s*(?<xp>\d+)'
-    QuestNextQuest = '(?:next_quest|leads_to|unlocks)\s*=\s*["\'](?<next>[^"\']+)["\']'
+    QuestNextQuest = "(?:next_quest|leads_to|unlocks)\s*=\s*[`"'](?<next>[^`"']+)[`"']"
     
     # Objective patterns
-    ObjectiveId = '(?:objective_id|objective_name|task_id)\s*=\s*["\'](?<id>[^"\']+)["\']'
-    ObjectiveDescription = '(?:objective_description|task_desc|objective_text)\s*=\s*["\'](?<desc>[^"\']*?)["\']'
-    ObjectiveType = '(?:objective_type|task_type)\s*=\s*["\'](?<type>\w+)["\']'
-    ObjectiveTarget = '(?:target|target_id|target_entity)\s*=\s*["\'](?<target>[^"\']+)["\']'
+    ObjectiveId = "(?:objective_id|objective_name|task_id)\s*=\s*[`"'](?<id>[^`"']+)[`"']"
+    ObjectiveDescription = "(?:objective_description|task_desc|objective_text)\s*=\s*[`"'](?<desc>[^`"']*?)[`"']"
+    ObjectiveType = "(?:objective_type|task_type)\s*=\s*[`"'](?<type>\w+)[`"']"
+    ObjectiveTarget = "(?:target|target_id|target_entity)\s*=\s*[`"'](?<target>[^`"']+)[`"']"
     ObjectiveCount = '(?:count|amount|required|target_count)\s*=\s*(?<count>\d+)'
     ObjectiveProgress = '(?:progress|current|completed_count)\s*=\s*(?<prog>\d+)'
     ObjectiveOptional = '(?:is_optional|optional)\s*=\s*(?<opt>true|false)'
     ObjectiveOrder = '(?:order|sequence|priority)\s*=\s*(?<order>\d+)'
-    ObjectiveLocation = '(?:location|area|zone|map)\s*=\s*["\'](?<loc>[^"\']+)["\']'
+    ObjectiveLocation = "(?:location|area|zone|map)\s*=\s*[`"'](?<loc>[^`"']+)[`"']"
     
     # Prerequisite patterns
-    PrerequisiteQuest = '(?:prerequisite|requires_quest|required_quest|prereq)\s*=\s*["\'](?<prereq>[^"\']+)["\']'
+    PrerequisiteQuest = "(?:prerequisite|requires_quest|required_quest|prereq)\s*=\s*[`"'](?<prereq>[^`"']+)[`"']"
     PrerequisiteLevel = '(?:prereq_level|required_level)\s*=\s*(?<level>\d+)'
-    PrerequisiteItem = '(?:requires_item|required_item)\s*=\s*["\'](?<item>[^"\']+)["\']'
-    PrerequisiteFlag = '(?:requires_flag|condition|prereq_condition)\s*=\s*["\'](?<flag>[^"\']+)["\']'
+    PrerequisiteItem = "(?:requires_item|required_item)\s*=\s*[`"'](?<item>[^`"']+)[`"']"
+    PrerequisiteFlag = "(?:requires_flag|condition|prereq_condition)\s*=\s*[`"'](?<flag>[^`"']+)[`"']"
     PrerequisiteList = '(?:prerequisites|requirements)\s*=\s*\[(?<list>[^\]]*)\]'
     
     # Reward patterns
-    RewardItemId = '(?:reward_item|item_reward|give_item)\s*=\s*["\'](?<item>[^"\']+)["\']'
+    RewardItemId = "(?:reward_item|item_reward|give_item)\s*=\s*[`"'](?<item>[^`"']+)[`"']"
     RewardItemCount = '(?:reward_count|item_count|amount)\s*=\s*(?<count>\d+)'
     RewardGold = '(?:reward_gold|gold|money|currency)\s*=\s*(?<gold>\d+)'
     RewardExperience = '(?:reward_xp|xp_reward|experience)\s*=\s*(?<xp>\d+)'
-    RewardSkill = '(?:reward_skill|unlock_skill|learn)\s*=\s*["\'](?<skill>[^"\']+)["\']'
-    RewardUnlock = '(?:unlock|unlock_quest|unlocks_area)\s*=\s*["\'](?<unlock>[^"\']+)["\']'
+    RewardSkill = "(?:reward_skill|unlock_skill|learn)\s*=\s*[`"'](?<skill>[^`"']+)[`"']"
+    RewardUnlock = "(?:unlock|unlock_quest|unlocks_area)\s*=\s*[`"'](?<unlock>[^`"']+)[`"']"
     RewardReputation = '(?:reputation|rep|standing)\s*=\s*(?<rep>-?\d+)'
-    RewardFaction = '(?:faction|reputation_faction)\s*=\s*["\'](?<fac>[^"\']+)["\']'
+    RewardFaction = "(?:faction|reputation_faction)\s*=\s*[`"'](?<fac>[^`"']+)[`"']"
     
     # shomykohai/quest-system specific
     QuestSystemResource = 'class_name\s+Quest|extends\s+Quest'
@@ -282,7 +282,7 @@ function Get-PrerequisiteList {
         $items = $PrereqString -replace '^\s*\[\s*' -replace '\s*\]\s*$'
         $items = $items -split '\s*,\s*'
         foreach ($item in $items) {
-            $cleanItem = $item -replace '^["\']' -replace '["\']$' -replace '\s+', ''
+            $cleanItem = $item -replace "^[`"']" -replace "[`"']$" -replace '\s+', ''
             if ($cleanItem) {
                 $prereqs += $cleanItem
             }
@@ -290,7 +290,7 @@ function Get-PrerequisiteList {
     }
     else {
         # Single prerequisite
-        $prereqs += $PrereqString.Trim() -replace '^["\']' -replace '["\']$'
+        $prereqs += $PrereqString.Trim() -replace "^[`"']" -replace "[`"']$"
     }
     
     return $prereqs | Where-Object { $_ }
@@ -571,7 +571,7 @@ function Get-QuestRewardsFromContent {
             }
             
             # Extract item rewards
-            $itemMatches = [regex]::Matches($Content, '(?s)reward_item.*?item_id\s*=\s*["\']([^"\']+)["\']')
+            $itemMatches = [regex]::Matches($Content, "(?s)reward_item.*?item_id\s*=\s*[`"`']([^`"`']+)[`"`']")
             foreach ($match in $itemMatches) {
                 $item = @{
                     item_id = $match.Groups[1].Value
@@ -1417,13 +1417,13 @@ function Export-QuestDefinitions {
                 }
                 
                 # Extract from export variables
-                if ($Content -match 'quest_id\s*=\s*["\']([^"\']+)["\']') {
+                if ($Content -match "quest_id\s*=\s*[`"`']([^`"`']+)[`"`']") {
                     $quest.quest_id = $matches[1]
                 }
-                if ($Content -match 'quest_name\s*=\s*["\']([^"\']+)["\']') {
+                if ($Content -match "quest_name\s*=\s*[`"`']([^`"`']+)[`"`']") {
                     $quest.title = $matches[1]
                 }
-                if ($Content -match 'description\s*=\s*["\']([^"\']*?)["\']') {
+                if ($Content -match "description\s*=\s*[`"`']([^`"`']*?)[`"`']") {
                     $quest.description = $matches[1]
                 }
                 if ($Content -match 'required_level\s*=\s*(\d+)') {
@@ -2609,26 +2609,5 @@ function Invoke-QuestExtract {
 # ============================================================================
 # Module Export
 # ============================================================================
+# Public functions exported via module wildcard
 
-Export-ModuleMember -Function @(
-    # Primary API (Canonical Document Section 25.7)
-    'Export-QuestSystem'
-    'Export-QuestDefinitions'
-    'Export-QuestObjectives'
-    'Get-QuestGraph'
-    'Export-QuestRewards'
-    'Get-QuestMetrics'
-    
-    # Helper functions
-    'Get-QuestFormat'
-    'Get-QuestObjectivesFromContent'
-    'Get-QuestRewardsFromContent'
-    'Get-QuestPrerequisitesFromContent'
-    
-    # Legacy compatibility
-    'Invoke-QuestExtract'
-    'Get-QuestData'
-    'Get-QuestObjectives'
-    'Get-QuestPrerequisites'
-    'Get-QuestRewardData'
-)

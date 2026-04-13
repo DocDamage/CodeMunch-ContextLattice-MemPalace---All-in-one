@@ -1,7 +1,7 @@
 Set-StrictMode -Version Latest
 
 # Save the module root path for later use (PSScriptRoot changes when dot-sourcing)
-$ModuleRoot = $PSScriptRoot
+$script:ModuleRoot = $PSScriptRoot
 
 # Source core infrastructure components (Phase 1 priorities)
 $CoreDirectory = Join-Path $PSScriptRoot "core"
@@ -20,6 +20,8 @@ $CoreFiles = @(
     "ConfigPath.ps1",
     "Config.ps1",
     "ConfigCLI.ps1",
+    # Type converters (canonical helper)
+    "TypeConverters.ps1",
     # Policy and execution (Priority 4: Policy + execution modes)
     "Policy.ps1",
     "ExecutionMode.ps1",
@@ -38,10 +40,8 @@ foreach ($coreFile in $CoreFiles) {
 }
 
 # Source pack framework components (Phase 2 priorities)
-$PackDirectory = Join-Path $ModuleRoot "pack"
-
+$PackDirectory = Join-Path $script:ModuleRoot "pack"
 $PackFiles = @(
-    # Pack manifest and source registry (Phase 2)
     "PackManifest.ps1",
     "SourceRegistry.ps1",
     "PackTransaction.ps1"
@@ -55,16 +55,16 @@ foreach ($packFile in $PackFiles) {
 }
 
 # Source workflow components (Phase 3 priorities)
-$WorkflowDirectory = Join-Path $ModuleRoot "workflow"
-
+$WorkflowDirectory = Join-Path $script:ModuleRoot "workflow"
 $WorkflowFiles = @(
-    # Operator workflow and guarded execution (Phase 3)
     "HealthScore.ps1",
     "Planner.ps1",
     "GitHooks.ps1",
     "Compatibility.ps1",
     "Filters.ps1",
-    "Notifications.ps1"
+    "Notifications.ps1",
+    "DurableOrchestrator.ps1",
+    "FailureTaxonomy.ps1"
 )
 
 foreach ($workflowFile in $WorkflowFiles) {
@@ -74,51 +74,104 @@ foreach ($workflowFile in $WorkflowFiles) {
     }
 }
 
+# Helper to check PS version requirement
+function Test-PSVersionRequirement {
+    param([string]$FilePath)
+    $firstLine = Get-Content -LiteralPath $FilePath -TotalCount 1
+    if ($firstLine -match '#requires\s+-Version\s+7') {
+        if ($PSVersionTable.PSVersion.Major -lt 7) {
+            return $false
+        }
+    }
+    return $true
+}
+
+# Source extraction pipeline components (Phase 4 priorities)
+$extractionExclude = @("ExternalIngestion.ps1")
+Get-ChildItem -Path (Join-Path $script:ModuleRoot "extraction") -Filter "*.ps1" -File | Where-Object {
+    $_.Name -notin $extractionExclude
+} | ForEach-Object {
+    if (Test-PSVersionRequirement -FilePath $_.FullName) {
+        . $_.FullName
+    } else {
+        Write-Verbose "Skipping PS 7-only script: $($_.Name)"
+    }
+}
+
 # Source retrieval components (Phase 5 priorities)
-$RetrievalDirectory = Join-Path $ModuleRoot "retrieval"
-
-$RetrievalFiles = @(
-    # Cross-pack arbitration and query routing (Phase 5)
-    "CrossPackArbitration.ps1"
-)
-
-foreach ($retrievalFile in $RetrievalFiles) {
-    $retrievalPath = Join-Path $RetrievalDirectory $retrievalFile
-    if (Test-Path -LiteralPath $retrievalPath) {
-        . $retrievalPath
+Get-ChildItem -Path (Join-Path $script:ModuleRoot "retrieval") -Filter "*.ps1" -File | ForEach-Object {
+    if (Test-PSVersionRequirement -FilePath $_.FullName) {
+        . $_.FullName
+    } else {
+        Write-Verbose "Skipping PS 7-only script: $($_.Name)"
     }
 }
 
 # Source governance components (Phase 6 priorities)
-$GovernanceDirectory = Join-Path $ModuleRoot "governance"
+Get-ChildItem -Path (Join-Path $script:ModuleRoot "governance") -Filter "*.ps1" -File | ForEach-Object {
+    if (Test-PSVersionRequirement -FilePath $_.FullName) {
+        . $_.FullName
+    } else {
+        Write-Verbose "Skipping PS 7-only script: $($_.Name)"
+    }
+}
 
-$GovernanceFiles = @(
-    # Human annotations and overrides (Phase 6)
-    "HumanAnnotations.ps1"
-)
+# Source telemetry components (Workstream 2)
+Get-ChildItem -Path (Join-Path $script:ModuleRoot "telemetry") -Filter "*.ps1" -File | ForEach-Object {
+    if (Test-PSVersionRequirement -FilePath $_.FullName) {
+        . $_.FullName
+    } else {
+        Write-Verbose "Skipping PS 7-only script: $($_.Name)"
+    }
+}
 
-foreach ($governanceFile in $GovernanceFiles) {
-    $governancePath = Join-Path $GovernanceDirectory $governanceFile
-    if (Test-Path -LiteralPath $governancePath) {
-        . $governancePath
+# Source policy components (Workstream 3)
+Get-ChildItem -Path (Join-Path $script:ModuleRoot "policy") -Filter "*.ps1" -File | ForEach-Object {
+    if (Test-PSVersionRequirement -FilePath $_.FullName) {
+        . $_.FullName
+    } else {
+        Write-Verbose "Skipping PS 7-only script: $($_.Name)"
+    }
+}
+
+# Source ingestion components (Workstream 4)
+Get-ChildItem -Path (Join-Path $script:ModuleRoot "ingestion") -Filter "*.ps1" -File | ForEach-Object {
+    if (Test-PSVersionRequirement -FilePath $_.FullName) {
+        . $_.FullName
+    } else {
+        Write-Verbose "Skipping PS 7-only script: $($_.Name)"
     }
 }
 
 # Source MCP components (Phase 7 priorities)
-$McpDirectory = Join-Path $ModuleRoot "mcp"
-
-$McpFiles = @(
-    # Natural Language Configuration Generation (Phase 7)
-    "NaturalLanguageConfig.ps1"
-)
-
-foreach ($mcpFile in $McpFiles) {
-    $mcpPath = Join-Path $McpDirectory $mcpFile
-    if (Test-Path -LiteralPath $mcpPath) {
-        . $mcpPath
+$mcpExclude = @("FederatedMemory.ps1", "SnapshotManager.ps1")
+Get-ChildItem -Path (Join-Path $script:ModuleRoot "mcp") -Filter "*.ps1" -File | Where-Object {
+    $_.Name -notin $mcpExclude
+} | ForEach-Object {
+    if (Test-PSVersionRequirement -FilePath $_.FullName) {
+        . $_.FullName
+    } else {
+        Write-Verbose "Skipping PS 7-only script: $($_.Name)"
     }
 }
 
+# Source snapshot components
+Get-ChildItem -Path (Join-Path $script:ModuleRoot "snapshot") -Filter "*.ps1" -File | ForEach-Object {
+    if (Test-PSVersionRequirement -FilePath $_.FullName) {
+        . $_.FullName
+    } else {
+        Write-Verbose "Skipping PS 7-only script: $($_.Name)"
+    }
+}
+
+# Source inter-pack pipeline components (Phase 7)
+Get-ChildItem -Path (Join-Path $script:ModuleRoot "interpack") -Filter "*.ps1" -File | ForEach-Object {
+    if (Test-PSVersionRequirement -FilePath $_.FullName) {
+        . $_.FullName
+    } else {
+        Write-Verbose "Skipping PS 7-only script: $($_.Name)"
+    }
+}
 function Get-UserModuleBasePath {
     [CmdletBinding()]
     [OutputType([string])]
@@ -1243,45 +1296,4 @@ Set-Alias -Name llmsync -Value Sync-LLMWorkflowAllPalaces
 Set-Alias -Name llmdashboard -Value Show-LLMWorkflowDashboard
 Set-Alias -Name llmheal -Value Invoke-LLMWorkflowHeal
 
-Export-ModuleMember `
-    -Function Install-LLMWorkflow, Uninstall-LLMWorkflow, Update-LLMWorkflow, Get-LLMWorkflowVersion, Test-LLMWorkflowSetup, Invoke-LLMWorkflowUp, Get-ProviderProfile, Resolve-ProviderProfile, Get-ProviderPreferenceOrder, Test-ProviderKey, Get-LLMWorkflowPlugins, Register-LLMWorkflowPlugin, Unregister-LLMWorkflowPlugin, Invoke-LLMWorkflowPlugins, Get-LLMWorkflowPalaces, Test-LLMWorkflowPalace, Sync-LLMWorkflowPalace, Sync-LLMWorkflowAllPalaces, Get-LLMWorkflowPluginManifest, Save-LLMWorkflowPluginManifest, New-LLMWorkflowGamePreset, Get-LLMWorkflowGameTemplates, Export-LLMWorkflowAssetManifest, Show-LLMWorkflowDashboard, Invoke-LLMWorkflowHeal, Test-LLMWorkflowIssue, Repair-LLMWorkflowIssue, Get-LLMWorkflowRepairHistory, Clear-LLMWorkflowRepairHistory, Export-LLMWorkflowRepairHistory, `
-    # Phase 1 Priority 1: Journaling + Checkpoints
-    New-RunId, Get-CurrentRunId, Set-CurrentRunId, Clear-CurrentRunId, Test-RunIdFormat, Parse-RunId, `
-    New-LogEntry, Write-StructuredLog, Get-LogPath, Read-StructuredLog, Set-LogDirectory, `
-    New-RunManifest, Complete-RunManifest, New-JournalEntry, Get-JournalState, Export-JournalReport, Add-RunArtifact, `
-    # Phase 1 Priority 2: File Locking + Atomic Writes
-    Lock-File, Unlock-File, Test-FileLock, Get-LockInfo, Remove-StaleLock, Test-StaleLock, Release-AllLocks, Get-AllLocks, `
-    Write-AtomicFile, Backup-AndWrite, Write-JsonAtomic, Read-JsonAtomic, Sync-File, Sync-Directory, Backup-File, Add-JsonLine, `
-    Read-StateFile, Write-StateFile, Update-StateFile, Test-StateVersion, Backup-StateFile, Migrate-StateFile, Get-StateFiles, Initialize-StateFile, `
-    # Phase 1 Priority 3: Effective Configuration
-    Get-DefaultConfig, Get-ConfigSchema, Test-ConfigValue, Test-SecretKey, Protect-ConfigSecrets, Get-ValidExecutionModes, Test-ExecutionMode, `
-    Get-ConfigPath, Find-ProjectRoot, Initialize-ProjectConfigDir, Initialize-CentralConfigDir, Get-ProjectConfig, Get-ProfileConfig, Get-EnvironmentConfig, Save-ProjectConfig, Save-CentralConfig, `
-    Get-EffectiveConfig, Get-ConfigValue, Test-ConfigValidation, Export-ConfigExplanation, Get-ExecutionMode, Set-ExecutionMode, Clear-ConfigCache, `
-    Get-LLMWorkflowEffectiveConfig, Invoke-LLMConfig, Register-LLMConfigAlias, `
-    # Phase 1 Priority 4: Policy + Execution Modes
-    Get-PolicyRules, Test-PolicyPermission, Assert-PolicyPermission, Test-RequiresConfirmation, Request-Confirmation, Register-PolicyAction, Get-PolicyExitCode, `
-    Get-ExecutionModePolicy, Test-ExecutionModeCapability, Switch-ExecutionMode, Get-AllowedCommands, Get-CommandSafetyLevel, Get-ExecutionModeContext, Get-CurrentExecutionMode, `
-    New-CommandContract, Test-CommandContract, Invoke-WithContract, New-ExecutionPlan, Add-PlanStep, Show-ExecutionPlan, Invoke-ExecutionPlan, `
-    # Phase 1 Priority 5: Workspace + Visibility Boundaries
-    Get-CurrentWorkspace, New-Workspace, Switch-Workspace, Get-WorkspacePacks, Test-WorkspaceContext, Get-WorkspaceList, Remove-Workspace, `
-    Test-VisibilityRule, Get-PackVisibility, Test-ExportPermission, Protect-SecretData, Test-SecretInContent, Protect-LogEntry, Assert-NotExportable, `
-    New-PackVisibilityConfig, Test-PackAccess, Get-RetrievalPriority, Test-CanAnswerFromPack, Get-PackAnswerLabel, Select-PacksForQuery, `
-    # Phase 2 Priority 1: Pack Manifest + Source Registry
-    New-PackManifest, Test-PackManifest, Save-PackManifest, Get-PackManifest, Get-PackManifestList, Set-PackLifecycleState, Get-PackInstallProfile, Export-PackSummary, `
-    New-SourceRegistryEntry, New-SourceFamilyEntry, Test-SourceRegistryEntry, Save-SourceRegistry, Get-SourceRegistry, Set-SourceState, Suspend-SourceQuarantine, `
-    Get-SourceByPriority, Get-SourceByAuthorityRole, Get-RetrievalPrioritySources, Export-SourceRegistrySummary, `
-    # Phase 2 Priority 2: Pack Transaction + Lockfile
-    New-PackTransaction, Move-PackTransactionStage, New-PackLockfile, Save-PackLockfile, Get-PackLockfile, New-PackBuildManifest, Publish-PackBuild, Undo-PackBuild, Get-PackBuildStatus, `
-    # Phase 3 Priority 1: Health Score + Monitoring
-    Get-PackHealthScore, Test-PackHealth, Get-WorkspaceHealthSummary, Export-HealthReport, `
-    # Phase 3 Priority 2: Planner + Executor Previews
-    New-ExecutionPlan, Add-PlanStep, Show-ExecutionPlan, Invoke-ExecutionPlan, Export-PlanManifest, Import-PlanManifest, Get-PlanStepTemplate, Get-PlanSummary, `
-    # Phase 3 Priority 3: Git Hooks Integration
-    Install-LLMWorkflowGitHooks, Uninstall-LLMWorkflowGitHooks, Test-GitHookConfiguration, Invoke-GitHookPreCommit, Invoke-GitHookPostCommit, Invoke-GitHookPrePush, New-GitHookScript, Write-GitHookLog, `
-    # Phase 3 Priority 4: Compatibility + Version Management
-    Test-CompatibilityMatrix, Get-CompatibilityReport, Export-CompatibilityLock, Test-VersionCompatibility, Get-VersionDrift, Assert-CompatibilityBeforeOperation, Register-KnownCompatibility, Get-KnownCompatibility, Test-CrossPackCompatibility, Parse-SemanticVersion, Test-VersionRange, ConvertFrom-JsonToHashtable, `
-    # Phase 3 Priority 5: Include/Exclude Rules + Filters
-    New-IncludeExcludeFilter, Test-PathAgainstFilter, Get-IncludedSources, Get-IncludedFiles, Export-FilterConfig, Import-FilterConfig, Get-DefaultFilters, Add-FilterPattern, Remove-FilterPattern, `
-    # Phase 3 Priority 6: Notification Hooks
-    Register-NotificationHook, Unregister-NotificationHook, Get-NotificationHooks, Send-Notification, Invoke-NotificationWebhook, Invoke-NotificationCommand, Test-NotificationHook, New-NotificationPayload `
-    -Alias llmup, llmdown, llmcheck, llmver, llmupdate, llmplugins, llmpalaces, llmsync, llmdashboard, llmheal
+Export-ModuleMember -Function * -Alias llmup, llmdown, llmcheck, llmver, llmupdate, llmplugins, llmpalaces, llmsync, llmdashboard, llmheal

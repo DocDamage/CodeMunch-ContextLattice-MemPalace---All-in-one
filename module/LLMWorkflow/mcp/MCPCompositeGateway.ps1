@@ -1003,7 +1003,7 @@ function Invoke-MCPGatewayRequest {
         }
 
         # Check rate limit
-        $rateLimitResult = Test-RateLimit -PackId $targetPack
+        $rateLimitResult = _Test-RateLimit -PackId $targetPack
         if (-not $rateLimitResult.allowed) {
             # Try fallback if available
             $fallbackPack = Get-FallbackPack -PackId $targetPack
@@ -1294,7 +1294,7 @@ function Test-MCPGatewayHealth {
         }
 
         foreach ($route in $routesToCheck) {
-            $healthResult = Test-PackHealth -Route $route -CorrelationId $CorrelationId
+            $healthResult = _Test-PackHealth -Route $route -CorrelationId $CorrelationId
 
             switch ($healthResult.status) {
                 'healthy' { $healthyCount++ }
@@ -3400,7 +3400,7 @@ function Get-FallbackPack {
 .SYNOPSIS
     Tests rate limit for a pack.
 #>
-function Test-RateLimit {
+function _Test-RateLimit {
     [CmdletBinding()]
     [OutputType([pscustomobject])]
     param(
@@ -3756,7 +3756,7 @@ function Get-CrossPackTargets {
 .DESCRIPTION
     Performs health check on a specific pack route.
 #>
-function Test-PackHealth {
+function _Test-PackHealth {
     [CmdletBinding()]
     [OutputType([pscustomobject])]
     param(

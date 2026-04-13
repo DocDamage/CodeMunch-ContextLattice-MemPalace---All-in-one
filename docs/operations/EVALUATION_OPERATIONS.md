@@ -2,6 +2,12 @@
 
 This document describes how evaluation events link to distributed traces, the dashboards operators require, and the priority instrumentation targets for the LLMWorkflow observability backbone.
 
+## Related Docs
+- [Observability Architecture](../architecture/OBSERVABILITY_ARCHITECTURE.md)
+- [Post-0.9.6 Strategic Execution Plan](../implementation/LLMWorkflow_Post_0.9.6_Strategic_Execution_Plan.md)
+- [Implementation Progress](../implementation/PROGRESS.md)
+- [Remaining Work](../implementation/REMAINING_WORK.md)
+
 ---
 
 ## Table of Contents

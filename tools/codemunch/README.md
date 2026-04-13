@@ -1,5 +1,11 @@
 # CodeMunch Workflow
 
+## Related Docs
+- [Repository README](../../README.md)
+- [Implementation Progress](../../docs/implementation/PROGRESS.md)
+- [Technical Debt Audit](../../docs/implementation/TECHNICAL_DEBT_AUDIT.md)
+- [Remaining Work](../../docs/implementation/REMAINING_WORK.md)
+
 This folder keeps a project-level wrapper around your global `codemunch-pro`
 install so new repos can adopt the same indexing flow quickly.
 

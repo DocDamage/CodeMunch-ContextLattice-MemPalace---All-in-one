@@ -601,29 +601,6 @@ function Get-PropertyValue {
     return $null
 }
 
-function Get-CurrentRunId {
-    <#
-    .SYNOPSIS
-        Gets the current run ID from environment or generates a new one.
-    
-    .OUTPUTS
-        System.String. The run ID.
-    #>
-    [CmdletBinding()]
-    [OutputType([string])]
-    param()
-    
-    # Try to get from environment first
-    if ($env:LLM_WORKFLOW_RUN_ID) {
-        return $env:LLM_WORKFLOW_RUN_ID
-    }
-    
-    # Generate a new run ID
-    $timestamp = [DateTime]::UtcNow.ToString("yyyyMMddTHHmmss")
-    $random = -join ((1..4) | ForEach-Object { '{0:x}' -f (Get-Random -Maximum 16) })
-    return "$timestamp-$random"
-}
-
 #===============================================================================
 # Core Review Functions (22 functions as specified)
 #===============================================================================

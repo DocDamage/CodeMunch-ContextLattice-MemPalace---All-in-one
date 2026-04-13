@@ -2,6 +2,12 @@
 
 This is the active canonical document set for the LLM Workflow platform.
 
+## Related Docs
+- [Post-0.9.6 Strategic Execution Plan](../implementation/LLMWorkflow_Post_0.9.6_Strategic_Execution_Plan.md)
+- [Implementation Progress](../implementation/PROGRESS.md)
+- [Technical Debt Audit](../implementation/TECHNICAL_DEBT_AUDIT.md)
+- [Remaining Work](../implementation/REMAINING_WORK.md)
+
 Use the files in this order:
 
 1. **[Part 1 — Core Architecture and Operations](../../docs/workflow/LLMWorkflow_Canonical_Document_Set_Part_1_Core_Architecture_and_Operations.md)**

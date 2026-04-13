@@ -4,6 +4,12 @@
 **Last Updated:** 2026-04-12  
 **Total Functions:** 800+ | **Modules:** 84 | **Domain Packs:** 10
 
+## Related Docs
+- [Architecture](./ARCHITECTURE.md)
+- [Post-0.9.6 Strategic Execution Plan](../implementation/LLMWorkflow_Post_0.9.6_Strategic_Execution_Plan.md)
+- [Implementation Progress](../implementation/PROGRESS.md)
+- [Remaining Work](../implementation/REMAINING_WORK.md)
+
 ---
 
 ## 1. Executive Summary

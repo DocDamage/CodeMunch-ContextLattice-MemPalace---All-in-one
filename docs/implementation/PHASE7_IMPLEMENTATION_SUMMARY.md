@@ -6,6 +6,12 @@
 **Date:** 2026-04-12  
 **Version:** 0.8.0
 
+## Related Docs
+- [Post-0.9.6 Strategic Execution Plan](./LLMWorkflow_Post_0.9.6_Strategic_Execution_Plan.md)
+- [Implementation Progress](./PROGRESS.md)
+- [Technical Debt Audit](./TECHNICAL_DEBT_AUDIT.md)
+- [Remaining Work](./REMAINING_WORK.md)
+
 ---
 
 ## Overview

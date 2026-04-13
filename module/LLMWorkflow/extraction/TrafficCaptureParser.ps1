@@ -53,7 +53,7 @@ Set-StrictMode -Version Latest
 $script:SecretPatterns = @{
     # API Keys
     ApiKey = @(
-        '(?i)(?:api[_-]?key|apikey)\s*[=:]\s*["''']?([a-zA-Z0-9_-]{16,})["''']?',
+        "(?i)(?:api[_-]?key|apikey)\s*[=:]\s*[`"']?([a-zA-Z0-9_-]{16,})[`"']?",
         '(?i)(?:x-api-key|api-key)\s*:\s*([a-zA-Z0-9_-]{16,})'
     )
     
@@ -70,7 +70,7 @@ $script:SecretPatterns = @{
     
     # OAuth tokens
     OAuthToken = @(
-        '(?i)(?:access_token|refresh_token)\s*[=:]\s*["''']?([a-zA-Z0-9_\-\.]{20,})["''']?'
+        "(?i)(?:access_token|refresh_token)\s*[=:]\s*[`"']?([a-zA-Z0-9_\-\.]{20,})[`"']?"
     )
     
     # Common header patterns
@@ -86,7 +86,7 @@ $script:SecretPatterns = @{
     # AWS credentials
     AWSKey = @(
         '(?i)AKIA[0-9A-Z]{16}',
-        '(?i)(?:aws[_-]?secret[_-]?access[_-]?key)\s*[=:]\s*["''']?([a-zA-Z0-9/+=]{40})["''']?'
+        "(?i)(?:aws[_-]?secret[_-]?access[_-]?key)\s*[=:]\s*[`"']?([a-zA-Z0-9/+=]{40})[`"']?"
     )
     
     # JWT patterns
@@ -1344,12 +1344,4 @@ function Find-CapturedSecrets {
 }
 
 # Export module functions
-Export-ModuleMember -Function @(
-    'ConvertFrom-HARFile',
-    'ConvertFrom-MitmproxyDump',
-    'Get-RequestResponsePairs',
-    'Invoke-PathTemplateInference',
-    'New-OpenAPIPathFromCapture',
-    'Find-CapturedSecrets',
-    'Protect-CapturedSecrets'
-)
+# Public functions exported via module wildcard

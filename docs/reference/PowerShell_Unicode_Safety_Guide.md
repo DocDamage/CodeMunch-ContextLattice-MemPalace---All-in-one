@@ -1,5 +1,11 @@
 # PowerShell Unicode Safety Guide for AI Agents
 
+## Related Docs
+- [Technical Debt Audit](../implementation/TECHNICAL_DEBT_AUDIT.md)
+- [Implementation Progress](../implementation/PROGRESS.md)
+- [Remaining Work](../implementation/REMAINING_WORK.md)
+- [Troubleshooting Guide](../operations/TROUBLESHOOTING.md)
+
 ## Quick Summary for Agent Code Generation
 
 **ALWAYS use ASCII-only characters in generated PowerShell code.** Unicode symbols cause parse errors on Windows due to encoding mismatches.

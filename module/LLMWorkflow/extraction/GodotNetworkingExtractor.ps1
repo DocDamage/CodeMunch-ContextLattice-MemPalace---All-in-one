@@ -121,7 +121,7 @@ $script:NetworkPatterns = @{
     # Configuration patterns
     NetworkPort = '(?:port|server_port)\s*[=:]\s*(?<port>\d+)'
     MaxPlayers = '(?:max_players|max_clients|player_limit)\s*[=:]\s*(?<value>\d+)'
-    ServerAddress = '(?:server_address|host|hostname)\s*[=:]\s*["\'](?<addr>[^"\']+)["\']'
+    ServerAddress = "(?:server_address|host|hostname)\s*[=:]\s*[`"](?<addr>[^`"]+)[`"]"
 }
 
 # ============================================================================
@@ -383,7 +383,7 @@ function Get-StateSerialization {
                 $saveStateDepth += $openBraces - $closeBraces
                 
                 # Look for state dictionary fields
-                if ($line -match '["\'](?<field>\w+)["\']\s*:\s*(?<value>.+)') {
+                if ($line -match "[`"'](?<field>\w+)[`"']\s*:\s*(?<value>.+)") {
                     $serialization.stateFields += @{
                         name = $matches['field']
                         value = $matches['value'].Trim()
@@ -1193,7 +1193,7 @@ function Get-NetworkTopology {
         }
         
         # Look for replication configuration
-        $replicationMatches = [regex]::Matches($Content, 'root_path\s*=\s*NodePath\(["\'](?<path>[^"\']+)["\']\)')
+        $replicationMatches = [regex]::Matches($Content, "root_path\s*=\s*NodePath\([`"](?<path>[^`"]+)[`"]\)")
         foreach ($match in $replicationMatches) {
             $syncRelationships += @{
                 path = $match.Groups['path'].Value
@@ -1684,12 +1684,5 @@ function Get-NetworkMetrics {
 
 # Only export if running as a module (not when dot-sourced)
 if ($MyInvocation.InvocationName -eq 'Import-Module' -or $MyInvocation.Line -match 'Import-Module') {
-    Export-ModuleMember -Function @(
-        'Export-NetworkSystem'
-        'Export-RollbackConfig'
-        'Export-NetworkMessages'
-        'Get-NetworkTopology'
-        'Export-InputPrediction'
-        'Get-NetworkMetrics'
-    )
+# Public functions exported via module wildcard
 }

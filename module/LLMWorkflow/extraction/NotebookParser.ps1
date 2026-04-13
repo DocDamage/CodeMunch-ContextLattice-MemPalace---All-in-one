@@ -230,10 +230,10 @@ function ConvertFrom-CellMetadata {
     # Execution metadata
     if ($Metadata.execution) {
         $result.execution = @{
-            iopub.status.busy = $Metadata.execution.'iopub.status.busy'
-            iopub.status.idle = $Metadata.execution.'iopub.status.idle'
-            iopub.execute_input = $Metadata.execution.'iopub.execute_input'
-            shell.execute_reply = $Metadata.execution.'shell.execute_reply'
+            'iopub.status.busy' = $Metadata.execution.'iopub.status.busy'
+            'iopub.status.idle' = $Metadata.execution.'iopub.status.idle'
+            'iopub.execute_input' = $Metadata.execution.'iopub.execute_input'
+            'shell.execute_reply' = $Metadata.execution.'shell.execute_reply'
         }
     }
     
@@ -1478,17 +1478,5 @@ function Test-NotebookIntegrity {
 # ============================================================================
 # Export Module Members
 # ============================================================================
+# Public functions exported via module wildcard
 
-Export-ModuleMember -Function @(
-    # Canonical functions (Section 25.6)
-    'Extract-NotebookCells'
-    'Extract-NotebookOutputs'
-    'Extract-NotebookMetadata'
-    'Convert-NotebookToScript'
-    # Legacy compatibility functions
-    'ConvertFrom-JupyterNotebook'
-    'Get-NotebookCode'
-    'Get-NotebookWidgetState'
-    'Get-NotebookExecutionOrder'
-    'Test-NotebookIntegrity'
-)

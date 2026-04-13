@@ -24,9 +24,9 @@ BeforeAll {
     $traceEnvelopePath = Join-Path $script:TelemetryPath "TraceEnvelope.ps1"
     $otelBridgePath = Join-Path $script:TelemetryPath "OpenTelemetryBridge.ps1"
 
-    if (Test-Path $spanFactoryPath) { . $spanFactoryPath }
-    if (Test-Path $traceEnvelopePath) { . $traceEnvelopePath }
-    if (Test-Path $otelBridgePath) { . $otelBridgePath }
+    if (Test-Path $spanFactoryPath) { try { . $spanFactoryPath } catch { if ($_.Exception.Message -notlike "*Export-ModuleMember*") { throw } } }
+    if (Test-Path $traceEnvelopePath) { try { . $traceEnvelopePath } catch { if ($_.Exception.Message -notlike "*Export-ModuleMember*") { throw } } }
+    if (Test-Path $otelBridgePath) { try { . $otelBridgePath } catch { if ($_.Exception.Message -notlike "*Export-ModuleMember*") { throw } } }
 }
 
 Describe "SpanFactory Module Tests" {

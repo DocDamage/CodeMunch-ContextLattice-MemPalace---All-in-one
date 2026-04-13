@@ -20,8 +20,8 @@ BeforeAll {
     $script:AdapterPath = Join-Path $script:ModuleRoot "PolicyAdapter.ps1"
     $script:CachePath = Join-Path $script:ModuleRoot "PolicyDecisionCache.ps1"
 
-    if (Test-Path $script:AdapterPath) { . $script:AdapterPath }
-    if (Test-Path $script:CachePath) { . $script:CachePath }
+    if (Test-Path $script:AdapterPath) { try { . $script:AdapterPath } catch { if ($_.Exception.Message -notlike "*Export-ModuleMember*") { throw } } }
+    if (Test-Path $script:CachePath) { try { . $script:CachePath } catch { if ($_.Exception.Message -notlike "*Export-ModuleMember*") { throw } } }
 }
 
 AfterAll {

@@ -72,7 +72,7 @@ $script:LanguagePatterns = @{
         FunctionDef = '^\s*(?:local\s+)?function\s+(?<name>[\w.:]+)\s*\((?<params>[^)]*)\)'
         TableDef = '^\s*(?:local\s+)?(?<name>\w+)\s*=\s*\{'
         MethodCall = '(?<obj>\w+)[:.](?<method>\w+)\s*\('
-        Require = '^\s*local\s+\w+\s*=\s*require\s*\(?["\'](?<module>[^"\']+)["\']\)?'
+        Require = "^\s*local\s+\w+\s*=\s*require\s*\(?[`"\'](?<module>[^`"\']+)[`"\']\)?"
     }
     Python = @{
         ClassDef = '^\s*class\s+(?<name>\w+)(?:\((?<parent>[^)]+)\))?\s*:'
@@ -786,12 +786,4 @@ function Get-GameLoopIntegration {
         return ,$gameLoops
     }
 }
-
-# Export public functions
-Export-ModuleMember -Function @(
-    'Invoke-ScriptRuntimeExtract',
-    'Get-ScriptLanguageBindings',
-    'Get-ScriptComponentPatterns',
-    'Get-ScriptLifecycleHooks',
-    'Get-GameLoopIntegration'
-)
+# Public functions exported via module wildcard

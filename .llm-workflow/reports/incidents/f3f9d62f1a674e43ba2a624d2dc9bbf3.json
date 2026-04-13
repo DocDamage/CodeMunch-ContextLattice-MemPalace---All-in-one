@@ -1,0 +1,57 @@
+﻿{
+    "incidentId":  "f3f9d62f1a674e43ba2a624d2dc9bbf3",
+    "bundle":  {
+                   "query":  "Status test b5597faf",
+                   "workspaceContext":  {
+
+                                        },
+                   "retrievalProfile":  "default",
+                   "answerPlan":  {
+
+                                  },
+                   "answerTrace":  {
+
+                                   },
+                   "packVersions":  {
+
+                                    },
+                   "selectedEvidence":  [
+
+                                        ],
+                   "excludedEvidence":  [
+
+                                        ],
+                   "confidenceDecision":  {
+
+                                          },
+                   "finalAnswer":  "Test answer",
+                   "linkedFeedback":  null
+               },
+    "replay":  {
+                   "replayHistory":  [
+
+                                     ],
+                   "lastReplayAt":  null,
+                   "fixed":  false
+               },
+    "metadata":  {
+                     "createdBy":  "dferr",
+                     "host":  "docdamage",
+                     "pid":  26692
+                 },
+    "schemaVersion":  1,
+    "status":  "open",
+    "analysis":  {
+                     "rootCause":  null,
+                     "category":  null,
+                     "severity":  null,
+                     "pattern":  null,
+                     "notes":  [
+
+                               ],
+                     "analyzedAt":  null,
+                     "analyzedBy":  null
+                 },
+    "runId":  "unknown",
+    "createdAt":  "2026-04-13T19:24:50.380Z"
+}

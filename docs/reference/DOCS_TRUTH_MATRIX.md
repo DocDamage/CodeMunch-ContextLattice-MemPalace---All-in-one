@@ -2,12 +2,17 @@
 
 This document maps what each top-level document claims about release state and metrics, and identifies any drift from the single source of truth.
 
+## Related Docs
+- [Release State](../releases/RELEASE_STATE.md)
+- [Implementation Progress](../implementation/PROGRESS.md)
+- [Remaining Work](../implementation/REMAINING_WORK.md)
+
 ## Single Sources of Truth
 
 | Concern | Source of Truth | Location |
 |---------|-----------------|----------|
 | Version | `VERSION` file | [`VERSION`](../VERSION) |
-| Release state | `docs/RELEASE_STATE.md` | [`RELEASE_STATE.md`](../../docs/releases/RELEASE_STATE.md) |
+| Release state | `docs/releases/RELEASE_STATE.md` | [`RELEASE_STATE.md`](../../docs/releases/RELEASE_STATE.md) |
 | Implementation progress | `PROGRESS.md` | [`PROGRESS.md`](../../docs/implementation/PROGRESS.md) |
 | Canonical architecture | `LLMWorkflow_Canonical_Document_Set_*` | Root-level canonical docs |
 
@@ -87,6 +92,6 @@ To keep numbers consistent, use the following counting rules and scripts.
 
 ## Resolution Plan
 
-1. Update `README.md` version badge to `0.9.6` and module badge to `88`.
-2. Update `PROGRESS.md` version to `0.9.6`, modules to `88`, parsers to `37`.
+1. ✅ Reconciled 2026-04-13: `VERSION`, `README.md`, `PROGRESS.md`, `CHANGELOG.md`, `RELEASE_STATE.md`, and `LLMWorkflow.psd1` all aligned to `0.9.6`.
+2. Metrics verified: 106 PowerShell modules, 10 domain packs, 31 extraction parsers, 30 golden tasks, 5 benchmark suites.
 3. Add CI validation (`tools/ci/validate-docs-truth.ps1`) to catch future drift automatically.

@@ -22,8 +22,8 @@ BeforeAll {
     $registryPath = Join-Path $script:MCPModulePath "MCPToolRegistry.ps1"
     $lifecyclePath = Join-Path $script:MCPModulePath "MCPToolLifecycle.ps1"
 
-    if (Test-Path $registryPath) { . $registryPath }
-    if (Test-Path $lifecyclePath) { . $lifecyclePath }
+    if (Test-Path $registryPath) { try { . $registryPath } catch { if ($_.Exception.Message -notlike "*Export-ModuleMember*") { throw } } }
+    if (Test-Path $lifecyclePath) { try { . $lifecyclePath } catch { if ($_.Exception.Message -notlike "*Export-ModuleMember*") { throw } } }
 }
 
 Describe "MCPToolRegistry Module Tests" {

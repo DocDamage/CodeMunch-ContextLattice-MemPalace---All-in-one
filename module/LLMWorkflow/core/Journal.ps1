@@ -77,31 +77,6 @@ function ConvertTo-Hashtable {
 
 <#
 .SYNOPSIS
-    Validates a run ID format.
-.DESCRIPTION
-    Validates that a run ID matches the expected format: yyyyMMddTHHmmssZ-xxxx
-.PARAMETER RunId
-    The run ID to validate.
-.OUTPUTS
-    System.Boolean. True if valid.
-#>
-function Test-RunIdFormat {
-    [CmdletBinding()]
-    [OutputType([bool])]
-    param(
-        [Parameter(Mandatory = $true)]
-        [string]$RunId
-    )
-    
-    if ([string]::IsNullOrWhiteSpace($RunId)) {
-        return $false
-    }
-    
-    return $RunId -match '^\d{8}T\d{6}Z-[0-9a-f]{4}$'
-}
-
-<#
-.SYNOPSIS
     Validates a step name.
 .DESCRIPTION
     Validates that a step name is valid.

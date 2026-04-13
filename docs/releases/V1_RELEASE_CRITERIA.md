@@ -6,6 +6,11 @@
 
 This document defines the explicit exit criteria for declaring LLMWorkflow v1.0 certified and release-ready. Each criterion is derived from the strategic plan and must be satisfied with yes/no evidence before the release candidate can be promoted.
 
+## Related Docs
+- [Post-0.9.6 Strategic Execution Plan](../implementation/LLMWorkflow_Post_0.9.6_Strategic_Execution_Plan.md)
+- [Remaining Work](../implementation/REMAINING_WORK.md)
+- [Release Certification Checklist](./RELEASE_CERTIFICATION_CHECKLIST.md)
+
 ---
 
 ## Overview
@@ -21,8 +26,8 @@ A v1.0 release of LLMWorkflow is certified only when **all** of the following qu
 
 ### Requirement
 - The [`VERSION`](../VERSION) file is the single source of truth for the declared version.
-- [`docs/RELEASE_STATE.md`](../../docs/releases/RELEASE_STATE.md) accurately describes the state of every major component.
-- [`docs/DOCS_TRUTH_MATRIX.md`](../../docs/reference/DOCS_TRUTH_MATRIX.md) has been reconciled and shows no unacknowledged drift.
+- [`docs/releases/RELEASE_STATE.md`](../../docs/releases/RELEASE_STATE.md) accurately describes the state of every major component.
+- [`docs/reference/DOCS_TRUTH_MATRIX.md`](../../docs/reference/DOCS_TRUTH_MATRIX.md) has been reconciled and shows no unacknowledged drift.
 - All top-level documents (`README.md`, `PROGRESS.md`, canonical docs) agree on version and metric counts.
 
 ### Pass Criteria

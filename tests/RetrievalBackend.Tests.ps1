@@ -21,7 +21,7 @@ BeforeAll {
     $script:RetrievalModulePath = Join-Path $ModuleRoot "retrieval"
 
     $adapterPath = Join-Path $script:RetrievalModulePath "RetrievalBackendAdapter.ps1"
-    if (Test-Path $adapterPath) { . $adapterPath }
+    if (Test-Path $adapterPath) { try { . $adapterPath } catch { if ($_.Exception.Message -notlike "*Export-ModuleMember*") { throw } } }
 }
 
 Describe "RetrievalBackendAdapter Module Tests" {

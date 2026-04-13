@@ -232,16 +232,6 @@ function Save-PolicyRules {
     $json | Set-Content -LiteralPath $PolicyPath -Encoding UTF8 -Force
 }
 
-function New-RunId {
-    <#
-    .SYNOPSIS
-        Generates a new run ID for tracking.
-    #>
-    $timestamp = [DateTime]::UtcNow.ToString("yyyyMMddTHHmmssZ")
-    $random = -join ((1..4) | ForEach-Object { '{0:x}' -f (Get-Random -Maximum 16) })
-    return "$timestamp-$random"
-}
-
 #===============================================================================
 # Policy Permission Functions
 #===============================================================================

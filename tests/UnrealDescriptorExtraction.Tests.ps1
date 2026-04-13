@@ -1,6 +1,6 @@
 #requires -Version 5.1
 
-$script:ExtractionRoot = Join-Path $PSScriptRoot ".." "module" "LLMWorkflow" "extraction"
+$script:ExtractionRoot = Join-Path (Join-Path $PSScriptRoot "..") "module\LLMWorkflow\extraction"
 $script:WrapperModulePath = Join-Path $env:TEMP ("ExtractionWrapper-" + [Guid]::NewGuid().ToString("N") + ".psm1")
 
 @"
@@ -54,13 +54,13 @@ Describe "Unreal Descriptor Extraction" {
 
         $result = Invoke-UnrealDescriptorParse -Content $pluginContent -DescriptorType plugin
 
-        $result.descriptorType | Should Be "plugin"
-        $result.friendlyName | Should Be "Example Plugin"
-        $result.modules.Count | Should Be 2
-        $result.modules[0].name | Should Be "ExampleRuntime"
-        $result.plugins.Count | Should Be 1
-        $result.compatibility.hasEditorModule | Should Be $true
-        $result.compatibility.likelyEngineMajor | Should Be "Unknown"
+        $result.descriptorType | Should -Be "plugin"
+        $result.friendlyName | Should -Be "Example Plugin"
+        $result.modules.Count | Should -Be 2
+        $result.modules[0].name | Should -Be "ExampleRuntime"
+        $result.plugins.Count | Should -Be 1
+        $result.compatibility.hasEditorModule | Should -Be $true
+        $result.compatibility.likelyEngineMajor | Should -Be "Unknown"
     }
 
     It "parses Unreal project descriptors and routes through the extraction pipeline" {
@@ -90,28 +90,28 @@ Describe "Unreal Descriptor Extraction" {
 }
 '@ | Set-Content -LiteralPath $projectPath -Encoding UTF8
 
-        Test-ExtractionSupported -FilePath $projectPath | Should Be $true
-        (Get-SupportedExtractionTypes -AsHashtable).ContainsKey('.uproject') | Should Be $true
+        Test-ExtractionSupported -FilePath $projectPath | Should -Be $true
+        (Get-SupportedExtractionTypes -AsHashtable).ContainsKey('.uproject') | Should -Be $true
 
         $pipelineResult = Invoke-StructuredExtraction -FilePath $projectPath -OutputFormat hashtable
 
-        $pipelineResult.success | Should Be $true
-        $pipelineResult.fileType | Should Be "unreal-project"
-        $pipelineResult.packType | Should Be "unreal-engine"
-        $pipelineResult.data.descriptorType | Should Be "project"
-        $pipelineResult.data.engineAssociation | Should Be "5.4"
-        $pipelineResult.data.plugins[0].name | Should Be "CommonUI"
-        $pipelineResult.data.compatibility.likelyEngineMajor | Should Be "5.x"
+        $pipelineResult.success | Should -Be $true
+        $pipelineResult.fileType | Should -Be "unreal-project"
+        $pipelineResult.packType | Should -Be "unreal-engine"
+        $pipelineResult.data.descriptorType | Should -Be "project"
+        $pipelineResult.data.engineAssociation | Should -Be "5.4"
+        $pipelineResult.data.plugins[0].name | Should -Be "CommonUI"
+        $pipelineResult.data.compatibility.likelyEngineMajor | Should -Be "5.x"
     }
 
     It "returns schema definitions for Unreal extraction types" {
         $pluginSchema = Get-ExtractionSchema -Type "unreal-plugin"
         $projectSchema = Get-ExtractionSchema -Type "unreal-project"
 
-        $pluginSchema | Should Not BeNullOrEmpty
-        $projectSchema | Should Not BeNullOrEmpty
-        ($pluginSchema.requiredProperties -contains "modules") | Should Be $true
-        ($projectSchema.requiredProperties -contains "plugins") | Should Be $true
+        $pluginSchema | Should -Not -BeNullOrEmpty
+        $projectSchema | Should -Not -BeNullOrEmpty
+        ($pluginSchema.requiredProperties -contains "modules") | Should -Be $true
+        ($projectSchema.requiredProperties -contains "plugins") | Should -Be $true
     }
 }
 

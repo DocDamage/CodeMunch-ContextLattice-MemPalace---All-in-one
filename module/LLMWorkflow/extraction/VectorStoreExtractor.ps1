@@ -220,7 +220,7 @@ function Get-EmbeddingConfig {
     }
     
     # Detect model name
-    if ($Content -match '(?:model|model_name)\s*[=:]\s*["''']?(?<model>[^"''',}\s]+)') {
+    if ($Content -match "(?:model|model_name)\s*[=:]\s*[`"''']?(?<model>[^`"''',}\s]+)") {
         $config.modelName = $matches['model']
     }
     
@@ -1021,13 +1021,4 @@ function Invoke-VectorStoreExtract {
         return $null
     }
 }
-
-# Export public functions
-Export-ModuleMember -Function @(
-    'Get-VectorDBOperations',
-    'Get-EmbeddingWorkflows',
-    'Get-RetrievalPatterns',
-    'Get-RAGPatterns',
-    'Test-VectorStoreConfig',
-    'Invoke-VectorStoreExtract'
-)
+# Public functions exported via module wildcard

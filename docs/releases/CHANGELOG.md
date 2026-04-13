@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file.
 
 The format is based on Keep a Changelog and this project follows Semantic Versioning.
 
+## Related Docs
+- [Release State](./RELEASE_STATE.md)
+- [v1.0 Release Criteria](./V1_RELEASE_CRITERIA.md)
+- [Release Certification Checklist](./RELEASE_CERTIFICATION_CHECKLIST.md)
+- [Remaining Work](../implementation/REMAINING_WORK.md)
+
 ## [Unreleased]
 
 ### Added - Game Asset Intake Foundation
@@ -81,11 +87,25 @@ The format is based on Keep a Changelog and this project follows Semantic Versio
 - **MCP.Tests.ps1** (~50 tests) - MCP toolkit integration tests
 - **Pack.Tests.ps1** (~85 tests) - Pack framework validation tests
 
+### Added - Post-0.9.6 Strategic Platform Hardening
+
+- **Observability backbone** - OTel bridge, trace schema, span factory (36 tests)
+- **Policy externalization** - OPA adapter, externalized bundles, decision cache (29 tests)
+- **Document/game-asset ingestion** - Docling/Tika adapters, normalizer, evidence classifier (21 tests)
+- **Security baseline** - Secret scanning, SBOM, vulnerability scanning (20 tests)
+- **Durable execution** - DurableOrchestrator, FailureTaxonomy, recovery playbooks (20 tests)
+- **MCP governance registry** - MCPToolRegistry, MCPToolLifecycle, governance model (26 tests)
+- **Retrieval substrate** - Query routing, cross-pack arbitration, confidence/evidence policies
+- **v1.0 certification framework** - Release-state reconciliation, truth matrix, CI validation
+
 ### Updated
 
-- Total modules: **87+** PowerShell modules
+- Total modules: **106** PowerShell modules
 - Total functions: **850+**
 - Total lines of code: **100,000+**
+- Domain packs: **10**
+- Extraction parsers: **37+**
+- Golden tasks: **30**
 
 ## [0.9.5] - 2026-04-12
 

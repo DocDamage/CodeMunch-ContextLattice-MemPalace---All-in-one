@@ -2,6 +2,12 @@
 
 > **Document Status:** All candidate packs documented in this Part 4 have been **IMPLEMENTED** and promoted to active packs. See [Section 29.13 Implemented Packs Reference](#2913-implemented-packs-reference) for quick links.
 
+## Related Docs
+- [Canonical Document Index](./LLMWorkflow_Canonical_Document_Set_INDEX.md)
+- [Post-0.9.6 Strategic Execution Plan](../implementation/LLMWorkflow_Post_0.9.6_Strategic_Execution_Plan.md)
+- [Implementation Progress](../implementation/PROGRESS.md)
+- [Remaining Work](../implementation/REMAINING_WORK.md)
+
 ## Implementation Status Summary
 
 The following 7 candidate packs from Part 4 have been promoted to active implementation:

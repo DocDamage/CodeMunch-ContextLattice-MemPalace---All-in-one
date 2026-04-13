@@ -2,6 +2,12 @@
 
 This document describes the observability backbone for the LLMWorkflow platform, including trace schema, correlation ID propagation, module interactions, and collector configuration.
 
+## Related Docs
+- [Post-0.9.6 Strategic Execution Plan](../implementation/LLMWorkflow_Post_0.9.6_Strategic_Execution_Plan.md)
+- [Implementation Progress](../implementation/PROGRESS.md)
+- [Remaining Work](../implementation/REMAINING_WORK.md)
+- [Evaluation Operations](../operations/EVALUATION_OPERATIONS.md)
+
 ---
 
 ## Table of Contents

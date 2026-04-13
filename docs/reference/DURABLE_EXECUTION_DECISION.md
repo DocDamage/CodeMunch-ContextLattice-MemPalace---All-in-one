@@ -5,6 +5,12 @@
 **Status:** Approved  
 **Author:** LLM Workflow Team
 
+## Related Docs
+- [Recovery Playbooks](../operations/RECOVERY_PLAYBOOKS.md)
+- [Implementation Progress](../implementation/PROGRESS.md)
+- [Remaining Work](../implementation/REMAINING_WORK.md)
+- [v1.0 Release Criteria](../releases/V1_RELEASE_CRITERIA.md)
+
 ## 1. Context
 
 LLMWorkflow executes multi-step, long-running operations such as large pack builds, federated memory synchronisation, snapshot exports, and inter-pack transfers. These workflows can run for minutes to hours and must survive:

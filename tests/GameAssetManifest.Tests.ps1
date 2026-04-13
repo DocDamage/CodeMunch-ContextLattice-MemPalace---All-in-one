@@ -1,6 +1,6 @@
 #requires -Version 5.1
 
-. (Join-Path $PSScriptRoot ".." "module" "LLMWorkflow" "LLMWorkflow.GameFunctions.ps1")
+. (Join-Path (Join-Path $PSScriptRoot "..") "module\LLMWorkflow\LLMWorkflow.GameFunctions.ps1")
 
 Describe "Game Asset Manifest" {
     It "creates engine-aware game folders" {

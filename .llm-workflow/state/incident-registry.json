@@ -1,0 +1,49 @@
+﻿{
+    "incidents":  [
+                      {
+                          "category":  null,
+                          "path":  "F:\\stuff from desktop\\CodeMunch-ContextLattice-MemPalace---All-in-one\\.llm-workflow\\reports\\incidents\\233bcab41de0479fab425d76bb9b4332.json",
+                          "createdAt":  "2026-04-13T19:24:50.814Z",
+                          "severity":  null,
+                          "query":  "UNIQUE_SEARCH_PATTERN_TEST_f2397a01",
+                          "status":  "open",
+                          "incidentId":  "233bcab41de0479fab425d76bb9b4332"
+                      },
+                      {
+                          "category":  null,
+                          "path":  "F:\\stuff from desktop\\CodeMunch-ContextLattice-MemPalace---All-in-one\\.llm-workflow\\reports\\incidents\\fb0bb2e6a6784528a60e896cc1b1d6e8.json",
+                          "createdAt":  "2026-04-13T19:27:55.812Z",
+                          "severity":  null,
+                          "query":  "Register test 16b75026",
+                          "status":  "open",
+                          "incidentId":  "fb0bb2e6a6784528a60e896cc1b1d6e8"
+                      },
+                      {
+                          "category":  null,
+                          "path":  "F:\\stuff from desktop\\CodeMunch-ContextLattice-MemPalace---All-in-one\\.llm-workflow\\reports\\incidents\\ff1bd4964d4e43ac84d3207b674f3f91.json",
+                          "createdAt":  "2026-04-13T19:27:55.899Z",
+                          "severity":  null,
+                          "query":  "Status test b1f183ea",
+                          "status":  "investigating",
+                          "incidentId":  "ff1bd4964d4e43ac84d3207b674f3f91"
+                      },
+                      {
+                          "category":  null,
+                          "path":  "F:\\stuff from desktop\\CodeMunch-ContextLattice-MemPalace---All-in-one\\.llm-workflow\\reports\\incidents\\4796b2b7b45f49dc8b5f3e1b0e457c7a.json",
+                          "createdAt":  "2026-04-13T19:27:56.061Z",
+                          "severity":  null,
+                          "query":  "Search test 306d93ca",
+                          "status":  "closed",
+                          "incidentId":  "4796b2b7b45f49dc8b5f3e1b0e457c7a"
+                      },
+                      {
+                          "incidentId":  "42aa8e185b2f4e5c88252b67e4a7b15c",
+                          "createdAt":  "2026-04-13T19:27:56.180Z",
+                          "status":  "open",
+                          "category":  null,
+                          "severity":  null,
+                          "query":  "UNIQUE_SEARCH_PATTERN_TEST_9d96959c",
+                          "path":  "F:\\stuff from desktop\\CodeMunch-ContextLattice-MemPalace---All-in-one\\.llm-workflow\\reports\\incidents\\42aa8e185b2f4e5c88252b67e4a7b15c.json"
+                      }
+                  ]
+}

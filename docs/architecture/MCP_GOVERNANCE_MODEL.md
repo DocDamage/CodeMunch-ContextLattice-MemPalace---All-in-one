@@ -7,6 +7,12 @@
 **Status:** Draft  
 **Scope:** Model Context Protocol (MCP) tool registry, capability taxonomy, metadata requirements, lifecycle rules, and governance policies for the LLMWorkflow platform.
 
+## Related Docs
+- [Post-0.9.6 Strategic Execution Plan](../implementation/LLMWorkflow_Post_0.9.6_Strategic_Execution_Plan.md)
+- [Implementation Progress](../implementation/PROGRESS.md)
+- [Remaining Work](../implementation/REMAINING_WORK.md)
+- [Retrieval Substrate Decision Memo](../reference/RETRIEVAL_SUBSTRATE_DECISION.md)
+
 ---
 
 ## 1. Overview

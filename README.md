@@ -7,11 +7,17 @@
 
 Canonical toolkit repo for the integrated workflow:
 
+## Related Docs
+- [Post-0.9.6 Strategic Execution Plan](docs/implementation/LLMWorkflow_Post_0.9.6_Strategic_Execution_Plan.md)
+- [Implementation Progress](docs/implementation/PROGRESS.md)
+- [Technical Debt Audit](docs/implementation/TECHNICAL_DEBT_AUDIT.md)
+- [Remaining Work](docs/implementation/REMAINING_WORK.md)
+
 - `CodeMunch Pro` project indexing and MCP wrapper setup
 - `ContextLattice` project bootstrap + connectivity verification
 - `MemPalace -> ContextLattice` incremental bridge
 - **10 Domain Packs** with specialized knowledge extraction
-- **87+ PowerShell Modules** for workflow automation
+- **106 PowerShell Modules** for workflow automation
 - **MCP Toolkit Servers** for Godot, Blender, and RPG Maker
 - **Inter-Pack Pipelines** for cross-domain asset workflows
 - **Golden Task Evaluations** with 30+ validation scenarios
@@ -102,7 +108,7 @@ graph TB
         A5[llmbenchmark]
     end
     
-    subgraph ModuleLayer["PowerShell Module Layer<br/>87+ Modules"]
+    subgraph ModuleLayer["PowerShell Module Layer<br/>106 Modules"]
         B1[Invoke-LLMWorkflowUp]
         B2[Test-LLMWorkflowSetup]
         B3[Resolve-ProviderProfile]

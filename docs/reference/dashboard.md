@@ -2,6 +2,12 @@
 
 Interactive Terminal UI dashboard for monitoring LLM Workflow health.
 
+## Related Docs
+- [Platform Overview](../architecture/PLATFORM_OVERVIEW.md)
+- [Implementation Progress](../implementation/PROGRESS.md)
+- [Remaining Work](../implementation/REMAINING_WORK.md)
+- [Release State](../releases/RELEASE_STATE.md)
+
 ## Overview
 
 The dashboard provides a real-time, color-coded view of your workflow health checks with:

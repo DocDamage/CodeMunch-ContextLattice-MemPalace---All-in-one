@@ -1169,9 +1169,9 @@ function Convert-OpenAPIToMarkdown {
                                 $md += ""
                                 
                                 if ($content.example) {
-                                    $md += "```json"
+                                    $md += '```json'
                                     $md += ($content.example | ConvertTo-Json -Depth 5)
-                                    $md += "```"
+                                    $md += '```'
                                     $md += ""
                                 }
                             }
@@ -1198,9 +1198,9 @@ function Convert-OpenAPIToMarkdown {
                                 foreach ($contentType in $response.content.Keys) {
                                     $content = $response.content[$contentType]
                                     if ($content.example) {
-                                        $md += "```json"
+                                        $md += '```json'
                                         $md += ($content.example | ConvertTo-Json -Depth 5)
-                                        $md += "```"
+                                        $md += '```'
                                         $md += ""
                                     }
                                 }
@@ -1996,16 +1996,5 @@ function Test-OpenAPISpecValidation {
 }
 
 # Export module functions
-Export-ModuleMember -Function @(
-    # Canonical functions (Section 25.6)
-    'Extract-OpenAPIPaths'
-    'Extract-OpenAPISchemas'
-    'Extract-OpenAPISecurity'
-    'Convert-OpenAPIToMarkdown'
-    # Legacy compatibility functions
-    'ConvertFrom-OpenAPISpec'
-    'Get-OpenAPIParameters'
-    'Merge-OpenAPISpecs'
-    'Test-OpenAPICompatibility'
-    'Test-OpenAPISpecValidation'
-)
+# Public functions exported via module wildcard
+

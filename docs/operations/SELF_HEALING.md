@@ -2,6 +2,12 @@
 
 The `llmheal` command provides automatic diagnosis and repair capabilities for common LLM Workflow issues.
 
+## Related Docs
+- [Troubleshooting Guide](./TROUBLESHOOTING.md)
+- [Recovery Playbooks](./RECOVERY_PLAYBOOKS.md)
+- [Implementation Progress](../implementation/PROGRESS.md)
+- [Remaining Work](../implementation/REMAINING_WORK.md)
+
 ## Quick Start
 
 ```powershell

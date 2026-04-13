@@ -2,6 +2,12 @@
 
 This guide helps you diagnose and resolve common issues with the CodeMunch + ContextLattice + MemPalace workflow toolkit.
 
+## Related Docs
+- [Self-Healing Guide](./SELF_HEALING.md)
+- [Docker Guide](./DOCKER.md)
+- [Implementation Progress](../implementation/PROGRESS.md)
+- [Remaining Work](../implementation/REMAINING_WORK.md)
+
 ---
 
 ## Table of Contents

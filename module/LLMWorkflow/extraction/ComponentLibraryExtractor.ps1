@@ -701,7 +701,7 @@ function Get-CompositionPatterns {
         
         # Check for slots (Vue/Svelte)
         if ($rawContent -match $script:Patterns.SlotPattern) {
-            $slotMatches = [regex]::Matches($rawContent, '<slot\s+name=["\']([^"\']+)')
+            $slotMatches = [regex]::Matches($rawContent, "<slot\s+name=[`"']([^`"']+)")
             if ($slotMatches.Count -eq 0) {
                 $slotMatches = [regex]::Matches($rawContent, 'v-slot:(\w+)')
             }
@@ -822,7 +822,7 @@ function Get-AccessibilityPatterns {
         }
         
         # Extract roles
-        $roleMatches = [regex]::Matches($rawContent, 'role={["\'']?([^}"\'']+)["\'']?}|role="([^"]*)"')
+        $roleMatches = [regex]::Matches($rawContent, "role={[`"']?([^}`"']+)[`"']?}|role=`"([^`"]*)`"")
         foreach ($match in $roleMatches) {
             $roleValue = if ($match.Groups[1].Success -and $match.Groups[1].Value) { 
                 $match.Groups[1].Value 
@@ -873,7 +873,7 @@ function Get-AccessibilityPatterns {
         
         # Check for screen reader only content
         if ($rawContent -match $script:Patterns.ScreenReaderOnly) {
-            $srMatches = [regex]::Matches($rawContent, 'className=["\''][^"\'']*(sr-only|visually-hidden|screen-reader-only)')
+            $srMatches = [regex]::Matches($rawContent, "className=[`"'][^`"']*(sr-only|visually-hidden|screen-reader-only)")
             foreach ($match in $srMatches) {
                 $lineNumber = ($rawContent.Substring(0, $match.Index) -split "`r?`n").Count
                 
@@ -913,4 +913,4 @@ function Get-AccessibilityPatterns {
 }
 
 # Export functions
-Export-ModuleMember -Function Get-ComponentDefinitions, Get-ComponentProps, Get-CompositionPatterns, Get-AccessibilityPatterns
+# Public functions exported via module wildcard

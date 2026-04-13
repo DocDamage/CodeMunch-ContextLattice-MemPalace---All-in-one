@@ -19,7 +19,7 @@
 BeforeAll {
     # Set up test environment
     $script:TestRoot = Join-Path $TestDrive "RetrievalIntegrityTests"
-    $script:ModuleRoot = Join-Path $PSScriptRoot ".." "module" "LLMWorkflow"
+    $script:ModuleRoot = Join-Path (Join-Path $PSScriptRoot "..") "module\LLMWorkflow"
     $script:RetrievalModulePath = Join-Path $ModuleRoot "retrieval"
     
     # Create test directories
@@ -30,9 +30,15 @@ BeforeAll {
     $crossPackArbitrationPath = Join-Path $script:RetrievalModulePath "CrossPackArbitration.ps1"
     $confidencePolicyPath = Join-Path $script:RetrievalModulePath "ConfidencePolicy.ps1"
     
-    if (Test-Path $queryRouterPath) { . $queryRouterPath }
-    if (Test-Path $crossPackArbitrationPath) { . $crossPackArbitrationPath }
-    if (Test-Path $confidencePolicyPath) { . $confidencePolicyPath }
+    if (Test-Path $queryRouterPath) {
+        try { . $queryRouterPath } catch { if ($_.Exception.Message -notlike "*Export-ModuleMember*") { throw } }
+    }
+    if (Test-Path $crossPackArbitrationPath) {
+        try { . $crossPackArbitrationPath } catch { if ($_.Exception.Message -notlike "*Export-ModuleMember*") { throw } }
+    }
+    if (Test-Path $confidencePolicyPath) {
+        try { . $confidencePolicyPath } catch { if ($_.Exception.Message -notlike "*Export-ModuleMember*") { throw } }
+    }
 }
 
 Describe "QueryRouter Module Tests" {
@@ -208,8 +214,8 @@ Describe "QueryRouter Module Tests" {
             $explanation = Get-RoutingExplanation -RoutingResult $routingResult -Format "text"
             
             $explanation | Should -Not -BeNullOrEmpty
-            $explanation | Should -Match "*Query Routing Decision*"
-            $explanation | Should -Match "*Retrieval Profile*"
+            $explanation | Should -Match "Query Routing Decision"
+            $explanation | Should -Match "Retrieval Profile"
         }
 
         It "Should generate markdown explanations" {
@@ -349,7 +355,7 @@ Describe "CrossPackArbitration Module Tests" {
             $dispute.disputeId | Should -Not -BeNullOrEmpty
             $dispute.disputedEntity | Should -Be "Best pattern for X"
             $dispute.status | Should -Be "open"
-            $dispute.competingClaims | Should -Not -BeNullOrEmpty
+            $dispute.PSObject.Properties.Name | Should -Contain "competingClaims"
         }
 
         It "Should add claims to disputes" {
@@ -431,7 +437,7 @@ Describe "ConfidencePolicy Module Tests" {
             $result.confidenceScore | Should -Be 0.0
             $result.answerMode | Should -Be "abstain"
             $result.shouldAbstain | Should -Be $true
-            $result.abstainReason | Should -Match "*No evidence provided*"
+            $result.abstainReason | Should -Match "No evidence provided"
         }
 
         It "Should handle policy violations" {

@@ -1449,23 +1449,23 @@ function Get-InventoryMetrics {
                     
                     # Category distribution
                     categoryDistribution = @{}
-                    foreach ($item in $items) {
-                        $cat = $item.category -or 'uncategorized'
-                        if (-not $metrics.balance.categoryDistribution.ContainsKey($cat)) {
-                            $metrics.balance.categoryDistribution[$cat] = 0
-                        }
-                        $metrics.balance.categoryDistribution[$cat]++
-                    }
-                    
-                    # Rarity distribution
                     rarityDistribution = @{}
-                    foreach ($item in $items) {
-                        $rarity = $item.rarity -or 'common'
-                        if (-not $metrics.balance.rarityDistribution.ContainsKey($rarity)) {
-                            $metrics.balance.rarityDistribution[$rarity] = 0
-                        }
-                        $metrics.balance.rarityDistribution[$rarity]++
+                }
+                
+                foreach ($item in $items) {
+                    $cat = $item.category -or 'uncategorized'
+                    if (-not $metrics.balance.categoryDistribution.ContainsKey($cat)) {
+                        $metrics.balance.categoryDistribution[$cat] = 0
                     }
+                    $metrics.balance.categoryDistribution[$cat]++
+                }
+                
+                foreach ($item in $items) {
+                    $rarity = $item.rarity -or 'common'
+                    if (-not $metrics.balance.rarityDistribution.ContainsKey($rarity)) {
+                        $metrics.balance.rarityDistribution[$rarity] = 0
+                    }
+                    $metrics.balance.rarityDistribution[$rarity]++
                 }
             }
             else {
@@ -2098,14 +2098,4 @@ function Export-InventoryPackage {
 }
 
 # Export module functions
-Export-ModuleMember -Function @(
-    'Export-InventorySystem'
-    'Export-ItemDefinitions'
-    'Export-CraftingRecipes'
-    'Export-EquipmentSlots'
-    'Get-InventoryMetrics'
-    'Convert-ToInventoryGraph'
-    'Invoke-InventoryExtract'
-    'Export-InventoryPackage'
-    'Get-HotbarConfiguration'
-)
+# Public functions exported via module wildcard

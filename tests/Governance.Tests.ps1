@@ -18,20 +18,24 @@
 BeforeAll {
     # Set up test environment
     $script:TestRoot = Join-Path $TestDrive "GovernanceTests"
-    $script:ModuleRoot = Join-Path $PSScriptRoot ".." "module" "LLMWorkflow"
+    $script:ModuleRoot = Join-Path (Join-Path $PSScriptRoot "..") "module\LLMWorkflow"
     $script:GovernanceModulePath = Join-Path $ModuleRoot "governance"
     
     # Create test directories
     New-Item -ItemType Directory -Path $script:TestRoot -Force | Out-Null
     New-Item -ItemType Directory -Path (Join-Path $script:TestRoot ".llm-workflow") -Force | Out-Null
-    New-Item -ItemType Directory -Path (Join-Path $script:TestRoot ".llm-workflow" "state") -Force | Out-Null
+    New-Item -ItemType Directory -Path (Join-Path (Join-Path $script:TestRoot ".llm-workflow") "state") -Force | Out-Null
     
     # Import modules
     $humanReviewGatesPath = Join-Path $script:GovernanceModulePath "HumanReviewGates.ps1"
     $goldenTasksPath = Join-Path $script:GovernanceModulePath "GoldenTasks.ps1"
     
-    if (Test-Path $humanReviewGatesPath) { . $humanReviewGatesPath }
-    if (Test-Path $goldenTasksPath) { . $goldenTasksPath }
+    if (Test-Path $humanReviewGatesPath) {
+        try { . $humanReviewGatesPath } catch { if ($_.Exception.Message -notlike "*Export-ModuleMember*") { throw } }
+    }
+    if (Test-Path $goldenTasksPath) {
+        try { . $goldenTasksPath } catch { if ($_.Exception.Message -notlike "*Export-ModuleMember*") { throw } }
+    }
 }
 
 Describe "HumanReviewGates Module Tests" {
@@ -189,8 +193,9 @@ Describe "HumanReviewGates Module Tests" {
         BeforeEach {
             # Create a review request for each test
             $changeSet = @{ packId = "test-pack"; owner = "alice" }
+            $conditions = @{ minApprovers = 2 }
             $script:testRequest = New-ReviewGateRequest -Operation "pack-promotion" -ChangeSet $changeSet `
-                -Requester "alice" -ProjectRoot $script:TestRoot
+                -Requester "alice" -Conditions $conditions -ProjectRoot $script:TestRoot
         }
 
         It "Should record approval decisions" {
@@ -312,13 +317,18 @@ Describe "HumanReviewGates Module Tests" {
     Context "Get-PendingReviews Function" {
         BeforeAll {
             # Clean up existing reviews
-            $statePath = Join-Path $script:TestRoot ".llm-workflow" "state" "review-gates.json"
+            $statePath = Join-Path (Join-Path (Join-Path $script:TestRoot ".llm-workflow") "state") "review-gates.json"
             if (Test-Path $statePath) {
                 Remove-Item -Path $statePath -Force
             }
         }
 
         BeforeEach {
+            $statePath = Join-Path (Join-Path (Join-Path $script:TestRoot ".llm-workflow") "state") "review-gates.json"
+            if (Test-Path $statePath) {
+                Remove-Item -Path $statePath -Force
+            }
+
             $changeSet = @{ packId = "test-pack" }
             $script:pendingRequest1 = New-ReviewGateRequest -Operation "pack-promotion" -ChangeSet $changeSet `
                 -Requester "alice" -Priority "high" -ProjectRoot $script:TestRoot
@@ -351,7 +361,7 @@ Describe "HumanReviewGates Module Tests" {
             $request = New-ReviewGateRequest -Operation "pack-promotion" -ChangeSet $changeSet `
                 -Requester "alice" -ProjectRoot $script:TestRoot
             
-            $statePath = Join-Path $script:TestRoot ".llm-workflow" "state" "review-gates.json"
+            $statePath = Join-Path (Join-Path (Join-Path $script:TestRoot ".llm-workflow") "state") "review-gates.json"
             Test-Path $statePath | Should -Be $true
             
             $content = Get-Content -Path $statePath -Raw

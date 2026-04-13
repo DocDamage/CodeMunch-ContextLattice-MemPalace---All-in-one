@@ -2,6 +2,12 @@
 
 This document provides operator playbooks for the most common failure modes encountered during durable workflow execution in the LLM Workflow platform.
 
+## Related Docs
+- [Self-Healing Guide](./SELF_HEALING.md)
+- [Durable Execution Decision Memo](../reference/DURABLE_EXECUTION_DECISION.md)
+- [Implementation Progress](../implementation/PROGRESS.md)
+- [Remaining Work](../implementation/REMAINING_WORK.md)
+
 ---
 
 ## 1. Interrupted Large Pack Build

@@ -2,6 +2,12 @@
 
 This document provides detailed architectural diagrams and explanations of the CodeMunch + ContextLattice + MemPalace integrated workflow system.
 
+## Related Docs
+- [Post-0.9.6 Strategic Execution Plan](../implementation/LLMWorkflow_Post_0.9.6_Strategic_Execution_Plan.md)
+- [Implementation Progress](../implementation/PROGRESS.md)
+- [Remaining Work](../implementation/REMAINING_WORK.md)
+- [Canonical Document Index](../workflow/LLMWorkflow_Canonical_Document_Set_INDEX.md)
+
 ## Table of Contents
 
 - [Overview](#overview)
@@ -27,7 +33,7 @@ The LLM Workflow is a unified toolkit that integrates three core components:
 
 ## Phase 1 Core Infrastructure
 
-The platform implements enterprise-grade operational infrastructure per [IMPROVEMENT_PROPOSALS.md](../IMPROVEMENT_PROPOSALS.md). This provides state integrity, operator trust, safe continuous operation, and controlled automation.
+The platform implements enterprise-grade operational infrastructure per IMPROVEMENT_PROPOSALS.md. This provides state integrity, operator trust, safe continuous operation, and controlled automation.
 
 ### Core Infrastructure Stack
 

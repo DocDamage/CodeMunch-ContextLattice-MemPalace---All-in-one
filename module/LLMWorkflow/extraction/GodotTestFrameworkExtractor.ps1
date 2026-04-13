@@ -526,7 +526,7 @@ function Extract-TestCases {
             }
             elseif ($inTestMethod -and $currentTest) {
                 # Track brace depth to detect method end
-                $braceDepth += ($line -crep '[^{]').Length - ($line -crep '[^}]').Length
+                $braceDepth += ($line -creplace '[^{]').Length - ($line -creplace '[^}]').Length
                 
                 if ($braceDepth -lt 0 -or ($trimmed -eq '}' -and $braceDepth -le 0)) {
                     # End of test method
@@ -2102,24 +2102,4 @@ function Get-TestMetrics {
 # Export Module Members
 # ============================================================================
 
-if ($null -ne $MyInvocation.MyCommand.ScriptBlock.Module) {
-    Export-ModuleMember -Function @(
-        # Canonical functions (Section 25.6)
-        'Extract-TestSuites'
-        'Extract-TestCases'
-        'Extract-TestFixtures'
-        'Extract-TestAssertions'
-        # Export functions (Section 25.6.1)
-        'Export-GdUnit4TestSuite'
-        'Export-TestCases'
-        'Get-TestCoverage'
-        'Export-TestResults'
-        'Get-TestMetrics'
-        # Legacy compatibility functions
-        'Get-GUTTestCases'
-        'Get-GUTTestSuites'
-        'Get-GUTMockingPatterns'
-        'Get-GUTAssertionsFromLine'
-        'Invoke-TestExtract'
-    )
-}
+# Public functions exported via module wildcard

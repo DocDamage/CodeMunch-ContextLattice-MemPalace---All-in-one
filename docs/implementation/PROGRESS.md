@@ -1,6 +1,11 @@
 # Implementation Progress
 
-This document tracks the implementation progress against the [IMPROVEMENT_PROPOSALS.md](IMPROVEMENT_PROPOSALS.md) canonical architecture.
+This document tracks the implementation progress against the IMPROVEMENT_PROPOSALS.md canonical architecture.
+
+## Related Docs
+- [Post-0.9.6 Strategic Execution Plan](./LLMWorkflow_Post_0.9.6_Strategic_Execution_Plan.md)
+- [Technical Debt Audit](./TECHNICAL_DEBT_AUDIT.md)
+- [Remaining Work](./REMAINING_WORK.md)
 
 ## Overall Status
 
@@ -1131,4 +1136,4 @@ All 8 phases of the LLMWorkflow platform have been implemented:
 
 ---
 
-*For full architecture specification, see [IMPROVEMENT_PROPOSALS.md](IMPROVEMENT_PROPOSALS.md)*
+*For full architecture specification, see IMPROVEMENT_PROPOSALS.md*

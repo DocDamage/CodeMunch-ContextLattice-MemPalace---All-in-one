@@ -2,6 +2,12 @@
 
 This document defines the supply-chain security policy for the **LLM Workflow** platform. It governs how Software Bill of Materials (SBOM) artifacts are produced, how vulnerability thresholds gate promotion, and how security findings block release advancement.
 
+## Related Docs
+- [Security Baseline Pipeline](../architecture/SECURITY_BASELINE.md)
+- [Release State](../releases/RELEASE_STATE.md)
+- [Implementation Progress](../implementation/PROGRESS.md)
+- [Remaining Work](../implementation/REMAINING_WORK.md)
+
 ## Table of Contents
 
 - [Policy Scope](#policy-scope)

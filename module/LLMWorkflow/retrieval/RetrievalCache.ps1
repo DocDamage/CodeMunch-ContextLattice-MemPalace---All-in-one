@@ -84,6 +84,39 @@ $script:DefaultConfig = @{
     lastModified = [DateTime]::UtcNow.ToString("yyyy-MM-ddTHH:mm:ssZ")
 }
 
+$script:TelemetryTraceLog = [System.Collections.ArrayList]::new()
+
+function Write-FunctionTelemetry {
+    param(
+        [string]$CorrelationId,
+        [string]$FunctionName,
+        [hashtable]$Attributes = @{}
+    )
+
+    $newSpanCmd = Get-Command New-Span -ErrorAction SilentlyContinue
+    $startSpanCmd = Get-Command Start-Span -ErrorAction SilentlyContinue
+    $stopSpanCmd = Get-Command Stop-Span -ErrorAction SilentlyContinue
+
+    if ($newSpanCmd -and $startSpanCmd -and $stopSpanCmd) {
+        $span = & $newSpanCmd -Name $FunctionName -CorrelationId $CorrelationId -Attributes $Attributes |
+                & $startSpanCmd |
+                & $stopSpanCmd -Status OK
+        [void]$script:TelemetryTraceLog.Add($span)
+        return $span
+    }
+
+    $entry = [pscustomobject][ordered]@{
+        timestamp     = [DateTime]::UtcNow.ToString("yyyy-MM-ddTHH:mm:ss.fffffffZ")
+        correlationId = $CorrelationId
+        function      = $FunctionName
+        attributes    = $Attributes
+    }
+
+    Write-Verbose "[$FunctionName] Telemetry: $($entry | ConvertTo-Json -Compress)"
+    [void]$script:TelemetryTraceLog.Add($entry)
+    return $entry
+}
+
 # In-memory write buffer for batching
 $script:WriteBuffer = [System.Collections.Generic.List[hashtable]]::new()
 $script:ConfigCache = $null
@@ -312,10 +345,19 @@ function Set-CachedRetrieval {
         [string]$ProjectRoot = ".",
 
         [Parameter()]
-        [switch]$SkipEviction = $false
+        [switch]$SkipEviction = $false,
+
+        [Parameter()]
+        [string]$CorrelationId = [Guid]::NewGuid().ToString()
     )
 
     process {
+        $traceAttributes = @{
+            Query = $Query
+            RetrievalProfile = $RetrievalProfile
+            IsAPILookup = $IsAPILookup.IsPresent
+        }
+        [void](Write-FunctionTelemetry -CorrelationId $CorrelationId -FunctionName 'Set-CachedRetrieval' -Attributes $traceAttributes)
         $config = Get-RetrievalCacheConfig -ProjectRoot $ProjectRoot
 
         # Determine TTL
@@ -468,10 +510,18 @@ function Get-CachedRetrieval {
         [string]$ProjectRoot = ".",
 
         [Parameter()]
-        [switch]$SkipUpdateStats = $false
+        [switch]$SkipUpdateStats = $false,
+
+        [Parameter()]
+        [string]$CorrelationId = [Guid]::NewGuid().ToString()
     )
 
     process {
+        $traceAttributes = @{
+            Query = $Query
+            RetrievalProfile = $RetrievalProfile
+        }
+        [void](Write-FunctionTelemetry -CorrelationId $CorrelationId -FunctionName 'Get-CachedRetrieval' -Attributes $traceAttributes)
         # Generate cache key
         $cacheKey = Get-RetrievalCacheKey -Query $Query `
                                           -RetrievalProfile $RetrievalProfile `
@@ -1527,7 +1577,7 @@ function Read-CacheFile {
             try {
                 # Parse JSON (PS 5.1 doesn't have -AsHashtable, so we convert PSCustomObject)
                 $parsed = $line | ConvertFrom-Json
-                $entry = Convert-PSObjectToHashtable -InputObject $parsed
+                $entry = ConvertTo-Hashtable -InputObject $parsed
                 
                 if ($entry -and $entry.ContainsKey('key')) {
                     $entries.Add($entry)
@@ -1547,55 +1597,6 @@ function Read-CacheFile {
         return @()
     }
 }
-
-<#
-.SYNOPSIS
-    Converts a PSCustomObject to a hashtable recursively.
-    Required for PowerShell 5.1 compatibility (no -AsHashtable in ConvertFrom-Json).
-#>
-function Convert-PSObjectToHashtable {
-    [CmdletBinding()]
-    [OutputType([hashtable])]
-    param(
-        [Parameter(Mandatory = $true)]
-        [object]$InputObject
-    )
-
-    process {
-        if ($null -eq $InputObject) {
-            return $null
-        }
-
-        if ($InputObject -is [hashtable]) {
-            return $InputObject
-        }
-
-        if ($InputObject -is [array]) {
-            $result = @()
-            foreach ($item in $InputObject) {
-                $result += (Convert-PSObjectToHashtable -InputObject $item)
-            }
-            return $result
-        }
-
-        if ($InputObject -is [PSCustomObject]) {
-            $hash = @{}
-            $InputObject.PSObject.Properties | ForEach-Object {
-                if ($_.Value -ne $null) {
-                    $hash[$_.Name] = Convert-PSObjectToHashtable -InputObject $_.Value
-                }
-                else {
-                    $hash[$_.Name] = $null
-                }
-            }
-            return $hash
-        }
-
-        # Primitive type
-        return $InputObject
-    }
-}
-
 <#
 .SYNOPSIS
     Writes cache entries to file atomically.

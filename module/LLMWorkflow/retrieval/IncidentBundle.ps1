@@ -91,70 +91,6 @@ $script:KnownPatterns = @{
         indicators = @('pii_exposed', 'credential_mentioned')
     }
 }
-
-<#
-.SYNOPSIS
-    Converts a PSCustomObject to a Hashtable recursively.
-
-.DESCRIPTION
-    Helper function to convert PSCustomObject (from ConvertFrom-Json) 
-    to a Hashtable for PowerShell 5.1 compatibility.
-
-.PARAMETER InputObject
-    The object to convert.
-
-.OUTPUTS
-    System.Collections.Hashtable
-#>
-function ConvertTo-HashTable {
-    [CmdletBinding()]
-    param(
-        [Parameter(Mandatory = $false)]
-        [AllowNull()]
-        [object]$InputObject
-    )
-
-    if ($null -eq $InputObject) {
-        return $null
-    }
-
-    # Skip if already a Hashtable (not OrderedDictionary)
-    if ($InputObject -is [System.Collections.Hashtable] -and 
-        -not ($InputObject -is [System.Collections.Specialized.OrderedDictionary])) {
-        return $InputObject
-    }
-
-    # Handle arrays/collections (but not Hashtable which implements IEnumerable)
-    if ($InputObject -is [System.Collections.IEnumerable] -and 
-        $InputObject -isnot [string] -and
-        $InputObject -isnot [System.Collections.Hashtable]) {
-        $array = @()
-        foreach ($item in $InputObject) {
-            $array += (ConvertTo-HashTable -InputObject $item)
-        }
-        return $array
-    }
-    # Handle PSCustomObject (from ConvertFrom-Json)
-    elseif ($InputObject -is [PSCustomObject]) {
-        $hash = @{}
-        foreach ($property in $InputObject.PSObject.Properties) {
-            $hash[$property.Name] = ConvertTo-HashTable -InputObject $property.Value
-        }
-        return $hash
-    }
-    # Handle OrderedDictionary - convert to regular hashtable
-    elseif ($InputObject -is [System.Collections.Specialized.OrderedDictionary]) {
-        $hash = @{}
-        foreach ($key in $InputObject.Keys) {
-            $hash[$key] = ConvertTo-HashTable -InputObject $InputObject[$key]
-        }
-        return $hash
-    }
-    else {
-        return $InputObject
-    }
-}
-
 <#
 .SYNOPSIS
     Gets the default incidents directory path.
@@ -1364,113 +1300,6 @@ function Export-IncidentAnalysis {
 
 <#
 .SYNOPSIS
-    Replays an incident against the current system.
-
-.DESCRIPTION
-    Replays a stored incident against the current system state to
-    determine if the issue is reproducible or has been fixed.
-
-.PARAMETER Incident
-    The incident to replay.
-
-.PARAMETER IncidentId
-    Alternative: the incident ID to load and replay.
-
-.PARAMETER UseCurrentPacks
-    If specified, uses current pack versions instead of original.
-
-.PARAMETER CompareMode
-    If specified, compares result to original answer.
-
-.OUTPUTS
-    System.Collections.Hashtable. Replay results.
-
-.EXAMPLE
-    $replay = Invoke-IncidentReplay -IncidentId "abc123..."
-#>
-function Invoke-IncidentReplay {
-    [CmdletBinding()]
-    [OutputType([hashtable])]
-    param(
-        [Parameter(Mandatory = $true, ParameterSetName = 'ByIncident')]
-        [hashtable]$Incident,
-
-        [Parameter(Mandatory = $true, ParameterSetName = 'ById')]
-        [string]$IncidentId,
-
-        [switch]$UseCurrentPacks,
-
-        [switch]$CompareMode
-    )
-
-    # Load incident if ID provided
-    if ($IncidentId) {
-        $Incident = Get-IncidentBundle -IncidentId $IncidentId
-        if (-not $Incident) {
-            throw "Incident not found: $IncidentId"
-        }
-    }
-
-    $replayId = [Guid]::NewGuid().ToString('N')
-    $startedAt = [DateTime]::UtcNow
-
-    Write-Verbose "[IncidentBundle] Starting replay $replayId for incident: $($Incident.incidentId)"
-
-    # Build replay context
-    $replayContext = [ordered]@{
-        replayId = $replayId
-        incidentId = $Incident.incidentId
-        startedAt = $startedAt.ToString("yyyy-MM-ddTHH:mm:ss.fffZ")
-        useCurrentPacks = $UseCurrentPacks.IsPresent
-        query = $Incident.bundle.query
-        retrievalProfile = $Incident.bundle.retrievalProfile
-    }
-
-    # Note: In a real implementation, this would:
-    # 1. Set up the workspace context as it was during original incident
-    # 2. Execute the query through the answer pipeline
-    # 3. Capture the new answer, trace, and evidence
-    # 4. Compare to original
-
-    # For now, return a simulated replay result
-    $replayResult = [ordered]@{
-        replayId = $replayId
-        incidentId = $Incident.incidentId
-        status = "completed"
-        startedAt = $replayContext.startedAt
-        completedAt = [DateTime]::UtcNow.ToString("yyyy-MM-ddTHH:mm:ss.fffZ")
-        query = $Incident.bundle.query
-        originalAnswer = $Incident.bundle.finalAnswer
-        replayAnswer = "[REPLAYED ANSWER WOULD GO HERE]"
-        answerChanged = $false  # Would be determined by comparison
-        evidenceChanged = $false
-        packsChanged = $false
-        issues = @()
-    }
-
-    if (-not $UseCurrentPacks) {
-        # Check if pack versions differ
-        $currentVersions = Get-CurrentPackVersions
-        foreach ($pack in $Incident.bundle.packVersions.Keys) {
-            if ($currentVersions[$pack] -ne $Incident.bundle.packVersions[$pack]) {
-                $replayResult.packsChanged = $true
-                $replayResult.issues += "Pack '$pack' version changed from $($Incident.bundle.packVersions[$pack]) to $($currentVersions[$pack])"
-            }
-        }
-    }
-
-    # Update incident replay history
-    if (-not $Incident.replay.replayHistory) {
-        $Incident.replay.replayHistory = @()
-    }
-    $Incident.replay.replayHistory += $replayResult
-    $Incident.replay.lastReplayAt = $replayResult.completedAt
-
-    return $replayResult
-}
-
-<#
-.SYNOPSIS
     Compares a replay result to the original incident.
 
 .DESCRIPTION
@@ -1730,6 +1559,9 @@ function Register-Incident {
             if ($null -eq $registry -or -not $registry.ContainsKey('incidents')) {
                 $registry = @{ incidents = @() }
             }
+            elseif ($null -ne $registry.incidents -and $registry.incidents -isnot [array]) {
+                $registry.incidents = @($registry.incidents)
+            }
         }
         catch {
             Write-Warning "[IncidentBundle] Failed to load existing registry, creating new: $_"
@@ -1840,7 +1672,10 @@ function Update-IncidentStatus {
         $json = [System.IO.File]::ReadAllText($registryPath, [System.Text.Encoding]::UTF8)
         $parsed = $json | ConvertFrom-Json
         $registry = ConvertTo-HashTable -InputObject $parsed
-        
+        if ($null -ne $registry.incidents -and $registry.incidents -isnot [array]) {
+            $registry.incidents = @($registry.incidents)
+        }
+
         $entry = $registry.incidents | Where-Object { $_.incidentId -eq $IncidentId }
         if ($entry) {
             $entry.status = $Status

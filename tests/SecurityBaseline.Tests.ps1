@@ -29,10 +29,10 @@ BeforeAll {
     $secretPath = Join-Path $script:SecurityScriptPath "Invoke-SecretScan.ps1"
     $vulnPath = Join-Path $script:SecurityScriptPath "Invoke-VulnerabilityScan.ps1"
 
-    if (Test-Path $baselinePath) { . $baselinePath }
-    if (Test-Path $sbomPath) { . $sbomPath }
-    if (Test-Path $secretPath) { . $secretPath }
-    if (Test-Path $vulnPath) { . $vulnPath }
+    if (Test-Path $baselinePath) { try { . $baselinePath } catch { if ($_.Exception.Message -notlike "*Export-ModuleMember*") { throw } } }
+    if (Test-Path $sbomPath) { try { . $sbomPath } catch { if ($_.Exception.Message -notlike "*Export-ModuleMember*") { throw } } }
+    if (Test-Path $secretPath) { try { . $secretPath } catch { if ($_.Exception.Message -notlike "*Export-ModuleMember*") { throw } } }
+    if (Test-Path $vulnPath) { try { . $vulnPath } catch { if ($_.Exception.Message -notlike "*Export-ModuleMember*") { throw } } }
 }
 
 Describe "Invoke-SecurityBaseline Orchestration" {

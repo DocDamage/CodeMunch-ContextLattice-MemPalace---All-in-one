@@ -1,5 +1,11 @@
 # Release Workflow
 
+## Related Docs
+- [Repository README](../../README.md)
+- [v1.0 Release Criteria](../../docs/releases/V1_RELEASE_CRITERIA.md)
+- [Release Certification Checklist](../../docs/releases/RELEASE_CERTIFICATION_CHECKLIST.md)
+- [Remaining Work](../../docs/implementation/REMAINING_WORK.md)
+
 ## Bump module version
 
 ```powershell

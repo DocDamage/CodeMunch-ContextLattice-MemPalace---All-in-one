@@ -3,6 +3,12 @@
 This appendage adds **new Godot source candidates** that were not already listed in the canonical Godot pack section.
 It preserves repo names and assigns each one a concrete role, extraction target set, routing fit, and evaluation purpose.
 
+## Related Docs
+- [Canonical Document Index](../workflow/LLMWorkflow_Canonical_Document_Set_INDEX.md)
+- [Post-0.9.6 Strategic Execution Plan](../implementation/LLMWorkflow_Post_0.9.6_Strategic_Execution_Plan.md)
+- [Implementation Progress](../implementation/PROGRESS.md)
+- [Remaining Work](../implementation/REMAINING_WORK.md)
+
 ---
 
 ## A.1 Adoption summary
