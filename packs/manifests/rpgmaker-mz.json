@@ -1,0 +1,240 @@
+{
+  "schemaVersion": 1,
+  "packId": "rpgmaker-mz",
+  "domain": "game-dev",
+  "version": "1.0.0-draft",
+  "taxonomyVersion": "1",
+  "status": "draft",
+  "channel": "draft",
+  "defaultCollections": [
+    "rpgmaker_core_api",
+    "rpgmaker_plugin_patterns",
+    "rpgmaker_tooling",
+    "rpgmaker_llm_workflows",
+    "rpgmaker_private_project"
+  ],
+  "description": "RPG Maker MZ plugin development, engine API lookup, battle/UI/map/audio extension patterns, plugin conflict diagnosis, and LLM-assisted tooling.",
+  "scope": {
+    "includes": [
+      "RPG Maker MZ plugin development",
+      "Engine API lookup",
+      "Battle/UI/map/audio extension patterns",
+      "Plugin conflict diagnosis",
+      "Plugin header/parameter reasoning",
+      "Data schema understanding",
+      "LLM-assisted tooling around MZ projects",
+      "Local/private project code understanding"
+    ],
+    "excludes": [
+      "Storing binaries or encrypted assets",
+      "Redistributing proprietary plugin code",
+      "Treating community conventions as engine law",
+      "Replacing project-local private pack context"
+    ]
+  },
+  "installProfiles": {
+    "core-only": {
+      "description": "Engine runtime surfaces only",
+      "sources": [
+        "js/rmmz_core.js",
+        "js/rmmz_managers.js",
+        "js/rmmz_objects.js",
+        "js/rmmz_scenes.js",
+        "js/rmmz_sprites.js",
+        "js/rmmz_windows.js",
+        "js/plugins.js"
+      ]
+    },
+    "minimal": {
+      "description": "Core + essential tooling",
+      "sources": [
+        "js/rmmz_core.js",
+        "js/rmmz_managers.js",
+        "js/rmmz_objects.js",
+        "js/rmmz_scenes.js",
+        "js/rmmz_sprites.js",
+        "js/rmmz_windows.js",
+        "js/plugins.js",
+        "nz-prism/RPG-Maker-MZ",
+        "comuns-rpgmaker/GabeMZ",
+        "moonyoulove/rpgmaker-plugin-conflict-finder",
+        "davidmcasas/RPGMakerMZ-CustomKeyboardMapping"
+      ]
+    },
+    "developer": {
+      "description": "Balanced public pack",
+      "sources": [
+        "js/rmmz_core.js",
+        "js/rmmz_managers.js",
+        "js/rmmz_objects.js",
+        "js/rmmz_scenes.js",
+        "js/rmmz_sprites.js",
+        "js/rmmz_windows.js",
+        "js/plugins.js",
+        "nz-prism/RPG-Maker-MZ",
+        "comuns-rpgmaker/GabeMZ",
+        "moonyoulove/rpgmaker-plugin-conflict-finder",
+        "davidmcasas/RPGMakerMZ-CustomKeyboardMapping",
+        "Hudell/cyclone-engine",
+        "theoallen/RMMZ",
+        "biud436/MZ",
+        "MihailJP/mihamzplugin",
+        "BenMakesGames/RPG-Maker-MZ-Plugins",
+        "LyraVultur/RPGMakerPlugins",
+        "Drakkonis-MZ/RPGMaker-MZ-plugins",
+        "uuksu/RPGMakerDecrypter",
+        "Justype/RPGMakerUtils"
+      ]
+    },
+    "full": {
+      "description": "All promoted public sources",
+      "sources": "all-promoted"
+    },
+    "private-first": {
+      "description": "Minimal public + strong local project emphasis",
+      "sources": [
+        "js/rmmz_core.js",
+        "js/rmmz_managers.js",
+        "js/rmmz_objects.js",
+        "js/rmmz_scenes.js",
+        "js/rmmz_sprites.js",
+        "js/rmmz_windows.js",
+        "js/plugins.js",
+        "rpgmaker_private_project",
+        "nz-prism/RPG-Maker-MZ",
+        "comuns-rpgmaker/GabeMZ",
+        "moonyoulove/rpgmaker-plugin-conflict-finder"
+      ]
+    }
+  },
+  "collections": {
+    "rpgmaker_core_api": {
+      "description": "Authoritative engine/runtime surfaces",
+      "defaultTrust": "High",
+      "authorityRole": "core-runtime"
+    },
+    "rpgmaker_plugin_patterns": {
+      "description": "Community plugin patterns and examples",
+      "defaultTrust": "Medium",
+      "authorityRole": "exemplar-pattern"
+    },
+    "rpgmaker_tooling": {
+      "description": "Conflict finders, translators, decrypters, and workflow tools",
+      "defaultTrust": "Medium",
+      "authorityRole": "tooling-analyzer"
+    },
+    "rpgmaker_llm_workflows": {
+      "description": "LLM-specific project tooling and translation workflows",
+      "defaultTrust": "Medium",
+      "authorityRole": "llm-workflow"
+    },
+    "rpgmaker_private_project": {
+      "description": "User-authored plugins, notes, and project-specific patterns",
+      "defaultTrust": "High",
+      "authorityRole": "private-project"
+    }
+  },
+  "extractionConfig": {
+    "modulePath": "module/LLMWorkflow/extraction",
+    "pipelineModule": "ExtractionPipeline.ps1",
+    "parserModules": {
+      "rpgmakerPlugin": "RPGMakerPluginParser.ps1"
+    },
+    "fileExtensions": {
+      ".js": {
+        "parser": "RPGMakerPluginParser.ps1",
+        "function": "Invoke-RPGMakerPluginParse",
+        "extractionType": "rpgmakerPlugin",
+        "contentCheck": {
+          "pattern": "@target|@plugindesc|@param|@command",
+          "description": "RPG Maker plugin header pattern"
+        }
+      }
+    }
+  },
+  "extractionTargets": {
+    "plugin_headers": {
+      "description": "Plugin header extraction with @target, @base, @orderAfter, @orderBefore, etc.",
+      "required": true,
+      "parserFunction": "Get-PluginMetadata"
+    },
+    "plugin_commands": {
+      "description": "Plugin command extraction",
+      "required": true,
+      "parserFunction": "Get-PluginCommands"
+    },
+    "plugin_params": {
+      "description": "Plugin parameter schemas",
+      "required": true,
+      "parserFunction": "Get-PluginParameters"
+    },
+    "notetag_catalog": {
+      "description": "Notetag extraction",
+      "required": true,
+      "parserFunction": "Get-PluginNotetags"
+    },
+    "method_touches": {
+      "description": "Method-touch extraction for conflict analysis",
+      "required": true,
+      "parserFunction": "Get-PluginMethodTouches"
+    },
+    "conflict_signatures": {
+      "description": "Conflict-signature extraction",
+      "required": true,
+      "parserFunction": "Get-PluginConflicts"
+    },
+    "compatibility_rules": {
+      "description": "Compatibility extraction",
+      "required": true,
+      "parserFunction": "Test-PluginConflict"
+    },
+    "tool_patterns": {
+      "description": "Tool pattern extraction",
+      "required": true,
+      "parserFunction": "Get-PluginToolPatterns"
+    }
+  },
+  "retrievalProfiles": {
+    "api-lookup": {
+      "description": "Engine API reference questions",
+      "preferredCollections": ["rpgmaker_core_api"]
+    },
+    "plugin-pattern": {
+      "description": "Plugin development patterns",
+      "preferredCollections": ["rpgmaker_plugin_patterns", "rpgmaker_core_api"]
+    },
+    "conflict-diagnosis": {
+      "description": "Plugin conflict analysis",
+      "preferredCollections": ["rpgmaker_tooling", "rpgmaker_private_project"],
+      "requiredEvidence": ["conflict_signatures", "method_touches"]
+    },
+    "codegen": {
+      "description": "Plugin code generation",
+      "preferredCollections": ["rpgmaker_plugin_patterns", "rpgmaker_core_api"]
+    },
+    "private-project-first": {
+      "description": "Project-local questions",
+      "preferredCollections": ["rpgmaker_private_project", "rpgmaker_core_api"]
+    },
+    "tooling-workflow": {
+      "description": "Tool and workflow questions",
+      "preferredCollections": ["rpgmaker_tooling", "rpgmaker_llm_workflows"]
+    }
+  },
+  "owners": {
+    "owners": ["Doc"],
+    "reviewers": ["pack-maintainer-1"],
+    "defaultPromotionPolicy": "owner-or-reviewer-approval",
+    "escalationContact": "Doc"
+  },
+  "evalSuites": [
+    "api-lookup",
+    "codegen",
+    "conflict-analysis",
+    "domain-correctness-negative",
+    "retrieval-provenance"
+  ],
+  "createdUtc": "2026-04-12T17:45:00Z",
+  "updatedUtc": "2026-04-12T17:45:00Z",
+  "createdByRunId": "20260412T174500Z-pack1"
+}

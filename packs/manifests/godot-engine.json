@@ -1,0 +1,304 @@
+{
+  "schemaVersion": 1,
+  "packId": "godot-engine",
+  "domain": "game-dev",
+  "version": "1.0.0-draft",
+  "taxonomyVersion": "1",
+  "status": "draft",
+  "channel": "draft",
+  "defaultCollections": [
+    "godot_core_api",
+    "godot_plugin_patterns",
+    "godot_language_bindings",
+    "godot_tooling",
+    "godot_visual_systems",
+    "godot_deployment",
+    "godot_private_project"
+  ],
+  "description": "Godot Engine game development (2D, 3D, XR), GDScript patterns, language bindings, visual systems, and deployment pipelines.",
+  "scope": {
+    "includes": [
+      "Godot Engine game development (2D, 3D, XR)",
+      "GDScript and Godot scene/resource management",
+      "Plugin/addon development and usage patterns",
+      "Language binding workflows (Rust via gdext, C++ via godot-cpp)",
+      "Shader, terrain, physics, and visual system integration",
+      "Steam integration and game deployment pipelines",
+      "CI/CD for automated Godot exports",
+      "AI-assisted Godot development via MCP integration",
+      "Local/private game project code understanding"
+    ],
+    "excludes": [
+      "Storing game binaries, assets, or exported builds",
+      "Redistributing proprietary game assets or code",
+      "Treating community addons as engine law",
+      "Replacing project-local private pack context"
+    ]
+  },
+  "installProfiles": {
+    "core-only": {
+      "description": "Engine API reference and documentation only",
+      "sources": [
+        "godotengine/godot",
+        "godotengine/godot-docs",
+        "godotengine/godot-demo-projects"
+      ]
+    },
+    "minimal": {
+      "description": "Core + MCP + CI/CD + Steam",
+      "sources": [
+        "godotengine/godot",
+        "godotengine/godot-docs",
+        "godotengine/godot-demo-projects",
+        "Coding-Solo/godot-mcp",
+        "abarichello/godot-ci",
+        "GodotSteam/GodotSteam",
+        "godotengine/godot-vscode-plugin"
+      ]
+    },
+    "developer": {
+      "description": "Balanced public pack with language bindings and visual systems",
+      "sources": [
+        "godotengine/godot",
+        "godotengine/godot-docs",
+        "godotengine/godot-demo-projects",
+        "Coding-Solo/godot-mcp",
+        "abarichello/godot-ci",
+        "GodotSteam/GodotSteam",
+        "godotengine/godot-vscode-plugin",
+        "godot-rust/gdext",
+        "godotengine/godot-cpp",
+        "godot-jolt/godot-jolt",
+        "2Retr0/GodotOceanWaves",
+        "Zylann/godot_voxel",
+        "Zylann/godot_heightmap_plugin",
+        "bukkbeek/GodotPixelRenderer",
+        "KenneyNL/Starter-Kit-3D-Platformer",
+        "godotengine/awesome-godot"
+      ]
+    },
+    "full": {
+      "description": "All promoted public sources",
+      "sources": "all-promoted"
+    },
+    "private-first": {
+      "description": "Minimal public + strong local project emphasis",
+      "sources": [
+        "godotengine/godot",
+        "godotengine/godot-docs",
+        "godotengine/godot-demo-projects",
+        "godot_private_project",
+        "Coding-Solo/godot-mcp",
+        "abarichello/godot-ci",
+        "GodotSteam/GodotSteam"
+      ]
+    }
+  },
+  "collections": {
+    "godot_core_api": {
+      "description": "Authoritative engine/runtime surfaces: GDScript API, node types, scene tree, rendering, physics, input, audio",
+      "defaultTrust": "High",
+      "authorityRole": "core-engine"
+    },
+    "godot_plugin_patterns": {
+      "description": "Community plugins, addons, templates, and game demos",
+      "defaultTrust": "Medium",
+      "authorityRole": "exemplar-pattern"
+    },
+    "godot_language_bindings": {
+      "description": "Language binding APIs and patterns for Rust, C++, Python",
+      "defaultTrust": "Medium-High",
+      "authorityRole": "language-binding"
+    },
+    "godot_tooling": {
+      "description": "MCP integration, editor plugins, CI/CD tooling, VS Code integration",
+      "defaultTrust": "Medium",
+      "authorityRole": "mcp-integration"
+    },
+    "godot_visual_systems": {
+      "description": "Shaders, terrain systems (voxel, heightmap), ocean/water rendering, pixel renderers, physics engines",
+      "defaultTrust": "Medium",
+      "authorityRole": "visual-system"
+    },
+    "godot_deployment": {
+      "description": "Steam integration, CI/CD export pipelines, platform-specific deployment workflows",
+      "defaultTrust": "Medium-High",
+      "authorityRole": "deployment-tooling"
+    },
+    "godot_private_project": {
+      "description": "User-authored game scripts, scenes, shaders, and project-specific patterns",
+      "defaultTrust": "High",
+      "authorityRole": "private-project"
+    }
+  },
+  "extractionConfig": {
+    "modulePath": "module/LLMWorkflow/extraction",
+    "pipelineModule": "ExtractionPipeline.ps1",
+    "parserModules": {
+      "gdscript": "GDScriptParser.ps1",
+      "godotScene": "GodotSceneParser.ps1",
+      "shader": "ShaderParameterParser.ps1"
+    },
+    "fileExtensions": {
+      ".gd": {
+        "parser": "GDScriptParser.ps1",
+        "function": "Invoke-GDScriptParse",
+        "extractionType": "gdscript"
+      },
+      ".tscn": {
+        "parser": "GodotSceneParser.ps1",
+        "function": "Invoke-GodotSceneParse",
+        "extractionType": "godotScene"
+      },
+      ".tres": {
+        "parser": "GodotSceneParser.ps1",
+        "function": "Invoke-GodotResourceParse",
+        "extractionType": "godotResource"
+      },
+      ".gdshader": {
+        "parser": "ShaderParser.ps1",
+        "function": "ConvertFrom-GodotShader",
+        "extractionType": "shader"
+      },
+      ".shader": {
+        "parser": "ShaderParser.ps1",
+        "function": "ConvertFrom-GodotShader",
+        "extractionType": "shader"
+      },
+      ".gdextension": {
+        "parser": "GDScriptParser.ps1",
+        "function": "Get-GDExtensionManifest",
+        "extractionType": "gdextension"
+      },
+      "plugin.cfg": {
+        "parser": "GDScriptParser.ps1",
+        "function": "Get-GDScriptAddonMetadata",
+        "extractionType": "addonManifest"
+      },
+      "project.godot": {
+        "parser": "GDScriptParser.ps1",
+        "function": "Get-GDScriptProjectConfig",
+        "extractionType": "projectConfig"
+      }
+    }
+  },
+  "extractionTargets": {
+    "gdscript_classes": {
+      "description": "GDScript class/method extraction",
+      "required": true,
+      "parserFunction": "Invoke-GDScriptParse"
+    },
+    "scene_tree": {
+      "description": "Scene tree structure extraction (.tscn files)",
+      "required": true,
+      "parserFunction": "Invoke-GodotSceneParse"
+    },
+    "resources": {
+      "description": "Resource definition extraction (.tres files)",
+      "required": true,
+      "parserFunction": "Invoke-GodotResourceParse"
+    },
+    "signals": {
+      "description": "Signal connection extraction",
+      "required": true,
+      "parserFunction": "Get-GDScriptSignals"
+    },
+    "exports": {
+      "description": "Export property extraction (@export)",
+      "required": true,
+      "parserFunction": "Get-GDScriptProperties"
+    },
+    "shader_params": {
+      "description": "Shader parameter extraction",
+      "required": true,
+      "parserFunction": "Invoke-GDShaderParse"
+    },
+    "gdextension": {
+      "description": "GDExtension interface extraction",
+      "required": true,
+      "parserFunction": "Get-GDExtensionManifest"
+    },
+    "node_hierarchy": {
+      "description": "Node inheritance hierarchy extraction",
+      "required": true,
+      "parserFunction": "Get-GDScriptClassInfo"
+    },
+    "addon_manifests": {
+      "description": "Addon/plugin manifest extraction (plugin.cfg)",
+      "required": true,
+      "parserFunction": "Get-GDScriptAddonMetadata"
+    },
+    "project_config": {
+      "description": "project.godot configuration extraction",
+      "required": true,
+      "parserFunction": "Get-GDScriptProjectConfig"
+    },
+    "input_map": {
+      "description": "Input action mapping extraction",
+      "required": true,
+      "parserFunction": "Get-GDScriptInputActions"
+    },
+    "autoloads": {
+      "description": "Autoload/singleton extraction",
+      "required": true,
+      "parserFunction": "Get-GDScriptAutoloads"
+    }
+  },
+  "retrievalProfiles": {
+    "api-lookup": {
+      "description": "Engine API reference questions",
+      "preferredCollections": ["godot_core_api"]
+    },
+    "plugin-pattern": {
+      "description": "Addon development patterns",
+      "preferredCollections": ["godot_plugin_patterns", "godot_core_api"]
+    },
+    "language-binding": {
+      "description": "Rust/C++/Python binding questions",
+      "preferredCollections": ["godot_language_bindings"]
+    },
+    "mcp-integration": {
+      "description": "AI-assisted development and MCP",
+      "preferredCollections": ["godot_tooling"]
+    },
+    "visual-system": {
+      "description": "Shader, terrain, visual effect questions",
+      "preferredCollections": ["godot_visual_systems"]
+    },
+    "deployment": {
+      "description": "Steam integration and CI/CD deployment",
+      "preferredCollections": ["godot_deployment"]
+    },
+    "private-project-first": {
+      "description": "Project-local questions",
+      "preferredCollections": ["godot_private_project", "godot_core_api"]
+    }
+  },
+  "owners": {
+    "owners": ["Doc"],
+    "reviewers": ["pack-maintainer-1"],
+    "defaultPromotionPolicy": "owner-or-reviewer-approval",
+    "escalationContact": "Doc"
+  },
+  "evalSuites": [
+    "api-lookup",
+    "codegen",
+    "architecture",
+    "deployment",
+    "domain-correctness-negative",
+    "retrieval-provenance"
+  ],
+  "versionBoundaries": {
+    "godot3": {
+      "deprecatedPatterns": ["onready", "export"],
+      "modernPatterns": ["@onready", "@export"]
+    },
+    "godot4": {
+      "typedGdscript": true,
+      "gdextensionEra": true
+    }
+  },
+  "createdUtc": "2026-04-12T17:45:00Z",
+  "updatedUtc": "2026-04-12T17:45:00Z",
+  "createdByRunId": "20260412T174500Z-pack2"
+}

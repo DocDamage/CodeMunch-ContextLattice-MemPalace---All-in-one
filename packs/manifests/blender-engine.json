@@ -1,0 +1,234 @@
+{
+  "schemaVersion": 1,
+  "packId": "blender-engine",
+  "domain": "3d-graphics",
+  "version": "1.0.0-draft",
+  "taxonomyVersion": "1",
+  "status": "draft",
+  "channel": "draft",
+  "defaultCollections": [
+    "blender_core_api",
+    "blender_addons",
+    "blender_tooling",
+    "blender_visual_systems",
+    "blender_synthetic_data",
+    "blender_private_project"
+  ],
+  "description": "Blender 3D modeling, Python scripting, Geometry Nodes, synthetic data generation, and AI-assisted 3D development.",
+  "scope": {
+    "includes": [
+      "3D modeling, texturing, rigging, and animation workflows in Blender",
+      "Python scripting and addon development for Blender",
+      "Geometry Nodes and procedural generation logic",
+      "Synthetic data generation (via BlenderProc)",
+      "AI-assisted 3D development via MCP integration",
+      "GPT-driven Blender control (BlenderGPT)",
+      "GIS and geospatial modeling (BlenderGIS)",
+      "MMD and specialized format conversions",
+      "Export pipelines for game engines (especially Godot)"
+    ],
+    "excludes": [
+      "Storing high-poly meshes, raw textures, or binary .blend files",
+      "Redistributing proprietary addons or assets",
+      "Treating community addons as Blender core behavior"
+    ]
+  },
+  "installProfiles": {
+    "core-only": {
+      "description": "Blender API/docs and official references only",
+      "sources": [
+        "blender-official-api",
+        "blender-official-docs"
+      ]
+    },
+    "minimal": {
+      "description": "Core + MCP/GPT/tooling + one strong procedural source",
+      "sources": [
+        "blender-official-api",
+        "blender-official-docs",
+        "ahujasid/blender-mcp",
+        "gd3kr/BlenderGPT",
+        "DLR-RM/BlenderProc"
+      ]
+    },
+    "developer": {
+      "description": "Balanced public pack with GIS, synthetic data, and export tooling",
+      "sources": [
+        "blender-official-api",
+        "blender-official-docs",
+        "ahujasid/blender-mcp",
+        "gd3kr/BlenderGPT",
+        "DLR-RM/BlenderProc",
+        "domlysz/BlenderGIS",
+        "EpicGamesExt/BlenderTools",
+        "sugiany/blender_mmd_tools",
+        "agmmnn/awesome-blender"
+      ]
+    },
+    "full": {
+      "description": "All promoted public sources",
+      "sources": "all-promoted"
+    },
+    "private-first": {
+      "description": "Minimal public + strong local project emphasis",
+      "sources": [
+        "blender-official-api",
+        "blender-official-docs",
+        "blender_private_project",
+        "ahujasid/blender-mcp",
+        "DLR-RM/BlenderProc",
+        "domlysz/BlenderGIS"
+      ]
+    }
+  },
+  "collections": {
+    "blender_core_api": {
+      "description": "Authoritative Blender Python API (bpy), operators, datablocks, and UI definitions",
+      "defaultTrust": "High",
+      "authorityRole": "core-blender"
+    },
+    "blender_addons": {
+      "description": "Community addons (MMD tools, GIS, etc.) and specialized script patterns",
+      "defaultTrust": "Medium",
+      "authorityRole": "exemplar-pattern"
+    },
+    "blender_tooling": {
+      "description": "MCP integration, BlenderGPT logic, and synthetic data pipelines",
+      "defaultTrust": "Medium-High",
+      "authorityRole": "mcp-integration"
+    },
+    "blender_visual_systems": {
+      "description": "Geometry Nodes patterns, material node trees, and shader logic",
+      "defaultTrust": "Medium",
+      "authorityRole": "visual-system"
+    },
+    "blender_synthetic_data": {
+      "description": "Photorealistic rendering pipelines and procedural data generation",
+      "defaultTrust": "Medium-High",
+      "authorityRole": "synth-proc"
+    },
+    "blender_private_project": {
+      "description": "User-authored scripts, custom geometry nodes, and local workflow patterns",
+      "defaultTrust": "High",
+      "authorityRole": "private-project"
+    }
+  },
+  "extractionConfig": {
+    "modulePath": "module/LLMWorkflow/extraction",
+    "pipelineModule": "ExtractionPipeline.ps1",
+    "parserModules": {
+      "blenderPython": "BlenderPythonParser.ps1",
+      "geometryNodes": "GeometryNodesParser.ps1",
+      "shader": "ShaderParser.ps1"
+    },
+    "fileExtensions": {
+      ".py": {
+        "parser": "BlenderPythonParser.ps1",
+        "function": "Invoke-BlenderPythonParse",
+        "extractionType": "blenderPython",
+        "contentCheck": {
+          "pattern": "import bpy|from bpy|bl_info",
+          "description": "Blender Python pattern"
+        }
+      }
+    }
+  },
+  "extractionTargets": {
+    "bpy_ops": {
+      "description": "bpy.ops (Operator) call patterns",
+      "required": true,
+      "parserFunction": "Get-BlenderOperatorCalls"
+    },
+    "python_scripts": {
+      "description": "Blender Python script logic (.py)",
+      "required": true,
+      "parserFunction": "Invoke-BlenderPythonParse"
+    },
+    "geometry_nodes": {
+      "description": "Geometry Node tree structure",
+      "required": true,
+      "parserFunction": "Invoke-GeometryNodesParse"
+    },
+    "shader_nodes": {
+      "description": "Shader Node tree structure",
+      "required": true,
+      "parserFunction": "Invoke-BlenderShaderParse"
+    },
+    "addon_manifests": {
+      "description": "Addon manifest metadata",
+      "required": true,
+      "parserFunction": "Get-BlenderAddonInfo"
+    },
+    "synthetic_data_params": {
+      "description": "Synthetic data generation parameters",
+      "required": true,
+      "parserFunction": "Get-BlenderSyntheticDataParams"
+    },
+    "gis_logic": {
+      "description": "GIS coordinate and mapping logic",
+      "required": true,
+      "parserFunction": "Get-BlenderGISLogic"
+    }
+  },
+  "retrievalProfiles": {
+    "api-lookup": {
+      "description": "Blender API questions",
+      "preferredCollections": ["blender_core_api"]
+    },
+    "addon-scripting": {
+      "description": "Addon and workflow scripting",
+      "preferredCollections": ["blender_addons"]
+    },
+    "mcp-agent": {
+      "description": "MCP/GPT/agent-assisted control",
+      "preferredCollections": ["blender_tooling"]
+    },
+    "visual-system": {
+      "description": "Geometry Nodes, materials, shaders",
+      "preferredCollections": ["blender_visual_systems"]
+    },
+    "synthetic-data": {
+      "description": "Synthetic data and procedural rendering",
+      "preferredCollections": ["blender_synthetic_data"]
+    },
+    "private-project-first": {
+      "description": "Project-local questions",
+      "preferredCollections": ["blender_private_project", "blender_core_api"]
+    }
+  },
+  "owners": {
+    "owners": ["Doc"],
+    "reviewers": ["pack-maintainer-1"],
+    "defaultPromotionPolicy": "owner-or-reviewer-approval",
+    "escalationContact": "Doc"
+  },
+  "evalSuites": [
+    "api-lookup",
+    "addon-development",
+    "geometry-nodes",
+    "synthetic-data",
+    "domain-correctness-negative",
+    "retrieval-provenance"
+  ],
+  "versionBoundaries": {
+    "blender3x": {
+      "note": "Blender 3.x API patterns"
+    },
+    "blender4x": {
+      "note": "Blender 4.x API patterns",
+      "geometryNodesChanges": true
+    }
+  },
+  "interPackPipelines": {
+    "blender-to-godot": {
+      "description": "Blender to Godot scene/asset pipeline",
+      "transportTool": "godotengine/godot-blender-exporter",
+      "sourcePack": "blender-engine",
+      "targetPack": "godot-engine",
+      "provenanceRequired": true
+    }
+  },
+  "createdUtc": "2026-04-12T17:45:00Z",
+  "updatedUtc": "2026-04-12T17:45:00Z",
+  "createdByRunId": "20260412T174500Z-pack3"
+}

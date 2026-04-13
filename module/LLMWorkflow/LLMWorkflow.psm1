@@ -1,5 +1,8 @@
 Set-StrictMode -Version Latest
 
+# Save the module root path for later use (PSScriptRoot changes when dot-sourcing)
+$ModuleRoot = $PSScriptRoot
+
 # Source core infrastructure components (Phase 1 priorities)
 $CoreDirectory = Join-Path $PSScriptRoot "core"
 
@@ -31,6 +34,88 @@ foreach ($coreFile in $CoreFiles) {
     $corePath = Join-Path $CoreDirectory $coreFile
     if (Test-Path -LiteralPath $corePath) {
         . $corePath
+    }
+}
+
+# Source pack framework components (Phase 2 priorities)
+$PackDirectory = Join-Path $ModuleRoot "pack"
+
+$PackFiles = @(
+    # Pack manifest and source registry (Phase 2)
+    "PackManifest.ps1",
+    "SourceRegistry.ps1",
+    "PackTransaction.ps1"
+)
+
+foreach ($packFile in $PackFiles) {
+    $packPath = Join-Path $PackDirectory $packFile
+    if (Test-Path -LiteralPath $packPath) {
+        . $packPath
+    }
+}
+
+# Source workflow components (Phase 3 priorities)
+$WorkflowDirectory = Join-Path $ModuleRoot "workflow"
+
+$WorkflowFiles = @(
+    # Operator workflow and guarded execution (Phase 3)
+    "HealthScore.ps1",
+    "Planner.ps1",
+    "GitHooks.ps1",
+    "Compatibility.ps1",
+    "Filters.ps1",
+    "Notifications.ps1"
+)
+
+foreach ($workflowFile in $WorkflowFiles) {
+    $workflowPath = Join-Path $WorkflowDirectory $workflowFile
+    if (Test-Path -LiteralPath $workflowPath) {
+        . $workflowPath
+    }
+}
+
+# Source retrieval components (Phase 5 priorities)
+$RetrievalDirectory = Join-Path $ModuleRoot "retrieval"
+
+$RetrievalFiles = @(
+    # Cross-pack arbitration and query routing (Phase 5)
+    "CrossPackArbitration.ps1"
+)
+
+foreach ($retrievalFile in $RetrievalFiles) {
+    $retrievalPath = Join-Path $RetrievalDirectory $retrievalFile
+    if (Test-Path -LiteralPath $retrievalPath) {
+        . $retrievalPath
+    }
+}
+
+# Source governance components (Phase 6 priorities)
+$GovernanceDirectory = Join-Path $ModuleRoot "governance"
+
+$GovernanceFiles = @(
+    # Human annotations and overrides (Phase 6)
+    "HumanAnnotations.ps1"
+)
+
+foreach ($governanceFile in $GovernanceFiles) {
+    $governancePath = Join-Path $GovernanceDirectory $governanceFile
+    if (Test-Path -LiteralPath $governancePath) {
+        . $governancePath
+    }
+}
+
+# Source MCP components (Phase 7 priorities)
+$McpDirectory = Join-Path $ModuleRoot "mcp"
+
+$McpFiles = @(
+    # Natural Language Configuration Generation (Phase 7)
+    "NaturalLanguageConfig.ps1"
+)
+
+foreach ($mcpFile in $McpFiles) {
+    $mcpPath = Join-Path $McpDirectory $mcpFile
+    if (Test-Path -LiteralPath $mcpPath) {
+        . $mcpPath
     }
 }
 
@@ -1180,5 +1265,23 @@ Export-ModuleMember `
     # Phase 1 Priority 5: Workspace + Visibility Boundaries
     Get-CurrentWorkspace, New-Workspace, Switch-Workspace, Get-WorkspacePacks, Test-WorkspaceContext, Get-WorkspaceList, Remove-Workspace, `
     Test-VisibilityRule, Get-PackVisibility, Test-ExportPermission, Protect-SecretData, Test-SecretInContent, Protect-LogEntry, Assert-NotExportable, `
-    New-PackVisibilityConfig, Test-PackAccess, Get-RetrievalPriority, Test-CanAnswerFromPack, Get-PackAnswerLabel, Select-PacksForQuery `
+    New-PackVisibilityConfig, Test-PackAccess, Get-RetrievalPriority, Test-CanAnswerFromPack, Get-PackAnswerLabel, Select-PacksForQuery, `
+    # Phase 2 Priority 1: Pack Manifest + Source Registry
+    New-PackManifest, Test-PackManifest, Save-PackManifest, Get-PackManifest, Get-PackManifestList, Set-PackLifecycleState, Get-PackInstallProfile, Export-PackSummary, `
+    New-SourceRegistryEntry, New-SourceFamilyEntry, Test-SourceRegistryEntry, Save-SourceRegistry, Get-SourceRegistry, Set-SourceState, Suspend-SourceQuarantine, `
+    Get-SourceByPriority, Get-SourceByAuthorityRole, Get-RetrievalPrioritySources, Export-SourceRegistrySummary, `
+    # Phase 2 Priority 2: Pack Transaction + Lockfile
+    New-PackTransaction, Move-PackTransactionStage, New-PackLockfile, Save-PackLockfile, Get-PackLockfile, New-PackBuildManifest, Publish-PackBuild, Undo-PackBuild, Get-PackBuildStatus, `
+    # Phase 3 Priority 1: Health Score + Monitoring
+    Get-PackHealthScore, Test-PackHealth, Get-WorkspaceHealthSummary, Export-HealthReport, `
+    # Phase 3 Priority 2: Planner + Executor Previews
+    New-ExecutionPlan, Add-PlanStep, Show-ExecutionPlan, Invoke-ExecutionPlan, Export-PlanManifest, Import-PlanManifest, Get-PlanStepTemplate, Get-PlanSummary, `
+    # Phase 3 Priority 3: Git Hooks Integration
+    Install-LLMWorkflowGitHooks, Uninstall-LLMWorkflowGitHooks, Test-GitHookConfiguration, Invoke-GitHookPreCommit, Invoke-GitHookPostCommit, Invoke-GitHookPrePush, New-GitHookScript, Write-GitHookLog, `
+    # Phase 3 Priority 4: Compatibility + Version Management
+    Test-CompatibilityMatrix, Get-CompatibilityReport, Export-CompatibilityLock, Test-VersionCompatibility, Get-VersionDrift, Assert-CompatibilityBeforeOperation, Register-KnownCompatibility, Get-KnownCompatibility, Test-CrossPackCompatibility, Parse-SemanticVersion, Test-VersionRange, ConvertFrom-JsonToHashtable, `
+    # Phase 3 Priority 5: Include/Exclude Rules + Filters
+    New-IncludeExcludeFilter, Test-PathAgainstFilter, Get-IncludedSources, Get-IncludedFiles, Export-FilterConfig, Import-FilterConfig, Get-DefaultFilters, Add-FilterPattern, Remove-FilterPattern, `
+    # Phase 3 Priority 6: Notification Hooks
+    Register-NotificationHook, Unregister-NotificationHook, Get-NotificationHooks, Send-Notification, Invoke-NotificationWebhook, Invoke-NotificationCommand, Test-NotificationHook, New-NotificationPayload `
     -Alias llmup, llmdown, llmcheck, llmver, llmupdate, llmplugins, llmpalaces, llmsync, llmdashboard, llmheal

@@ -1,0 +1,355 @@
+{
+  "mcpToolkitManifest": {
+    "version": "1.0.0",
+    "server": {
+      "name": "blender-engine-mcp",
+      "version": "1.0.0",
+      "description": "MCP toolkit for Blender integration. Provides tools for 3D asset creation, mesh editing, modifiers, and exporting to various formats including Godot scenes.",
+      "author": "LLM Workflow Platform",
+      "license": "MIT"
+    },
+    "environment": {
+      "required": [
+        {
+          "name": "BLENDER_PATH",
+          "description": "Path to the Blender executable",
+          "example": "/usr/bin/blender or C:\\Program Files\\Blender Foundation\\Blender 4.0\\blender.exe"
+        }
+      ],
+      "optional": [
+        {
+          "name": "BLENDER_SCRIPTS_PATH",
+          "description": "Path to custom Blender scripts directory",
+          "default": ""
+        },
+        {
+          "name": "BLENDER_EXPORT_PATH",
+          "description": "Default export directory for generated assets",
+          "default": "./exports"
+        },
+        {
+          "name": "BLENDER_PYTHON_PATH",
+          "description": "Path to Python interpreter for Blender's bpy module (for background mode)",
+          "default": ""
+        }
+      ]
+    },
+    "tools": [
+      {
+        "name": "blender_version",
+        "description": "Get the installed Blender version and build information",
+        "executionMode": "readonly",
+        "inputSchema": {
+          "type": "object",
+          "properties": {},
+          "required": [],
+          "additionalProperties": false
+        },
+        "returns": {
+          "type": "object",
+          "properties": {
+            "version": { "type": "string", "description": "Blender version (e.g., 4.0.2)" },
+            "buildDate": { "type": "string" },
+            "buildHash": { "type": "string" },
+            "branch": { "type": "string" },
+            "pythonVersion": { "type": "string", "description": "Bundled Python version" }
+          }
+        }
+      },
+      {
+        "name": "blender_operator_execute",
+        "description": "Execute a Blender bpy operator with specified parameters",
+        "executionMode": "mutating",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "operator": {
+              "type": "string",
+              "description": "Full operator ID (e.g., 'mesh.primitive_cube_add', 'export_scene.gltf')"
+            },
+            "parameters": {
+              "type": "object",
+              "description": "Operator-specific parameters",
+              "additionalProperties": true
+            },
+            "context": {
+              "type": "object",
+              "description": "Optional context overrides (mode, active_object, etc.)",
+              "properties": {
+                "mode": { "type": "string", "enum": ["OBJECT", "EDIT", "SCULPT", "VERTEX_PAINT", "WEIGHT_PAINT", "TEXTURE_PAINT"] }
+              }
+            }
+          },
+          "required": ["operator"],
+          "additionalProperties": false
+        },
+        "returns": {
+          "type": "object",
+          "properties": {
+            "success": { "type": "boolean" },
+            "operator": { "type": "string" },
+            "result": { "type": "object", "description": "Operator return value if any" },
+            "message": { "type": "string" }
+          }
+        }
+      },
+      {
+        "name": "blender_export_glb",
+        "description": "Export the current scene or selected objects to GLB/GLTF format",
+        "executionMode": "mutating",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "outputPath": {
+              "type": "string",
+              "description": "Output file path for the .glb or .gltf file"
+            },
+            "selectionOnly": {
+              "type": "boolean",
+              "description": "Export only selected objects",
+              "default": false
+            },
+            "format": {
+              "type": "string",
+              "description": "Export format variant",
+              "default": "GLB",
+              "enum": ["GLB", "GLTF_SEPARATE", "GLTF_EMBEDDED"]
+            },
+            "exportMaterials": {
+              "type": "boolean",
+              "description": "Export materials",
+              "default": true
+            },
+            "exportAnimations": {
+              "type": "boolean",
+              "description": "Export animations",
+              "default": true
+            },
+            "exportExtras": {
+              "type": "boolean",
+              "description": "Export custom properties as extras",
+              "default": true
+            },
+            "compression": {
+              "type": "string",
+              "description": "Compression method",
+              "default": "NONE",
+              "enum": ["NONE", "DRACO"]
+            }
+          },
+          "required": ["outputPath"],
+          "additionalProperties": false
+        },
+        "returns": {
+          "type": "object",
+          "properties": {
+            "success": { "type": "boolean" },
+            "outputPath": { "type": "string" },
+            "fileSize": { "type": "integer", "description": "Size in bytes" },
+            "exportedObjects": { "type": "array", "items": { "type": "string" } }
+          }
+        }
+      },
+      {
+        "name": "blender_export_godot",
+        "description": "Export scene to Godot-compatible format (ESCN/GLB with Godot extensions)",
+        "executionMode": "mutating",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "outputPath": {
+              "type": "string",
+              "description": "Output directory or file path"
+            },
+            "format": {
+              "type": "string",
+              "description": "Export format for Godot",
+              "default": "GLB",
+              "enum": ["GLB", "ESCN", "FBX"]
+            },
+            "selectionOnly": {
+              "type": "boolean",
+              "description": "Export only selected objects",
+              "default": false
+            },
+            "includeCollision": {
+              "type": "boolean",
+              "description": "Include collision mesh data",
+              "default": true
+            },
+            "exportNavigation": {
+              "type": "boolean",
+              "description": "Export navigation mesh data",
+              "default": false
+            },
+            "separateMaterials": {
+              "type": "boolean",
+              "description": "Export materials as separate .tres files",
+              "default": false
+            }
+          },
+          "required": ["outputPath"],
+          "additionalProperties": false
+        },
+        "returns": {
+          "type": "object",
+          "properties": {
+            "success": { "type": "boolean" },
+            "outputPath": { "type": "string" },
+            "generatedFiles": { "type": "array", "items": { "type": "string" } },
+            "materialsExported": { "type": "array", "items": { "type": "string" } }
+          }
+        }
+      },
+      {
+        "name": "blender_create_mesh",
+        "description": "Create a new mesh object with optional primitive type",
+        "executionMode": "mutating",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "name": {
+              "type": "string",
+              "description": "Name for the new mesh object"
+            },
+            "primitive": {
+              "type": "string",
+              "description": "Primitive type to create",
+              "default": "cube",
+              "enum": ["cube", "cylinder", "sphere", "cone", "torus", "plane", "monkey", "ico_sphere", "uv_sphere"]
+            },
+            "size": {
+              "type": "number",
+              "description": "Size/scale of the primitive",
+              "default": 1.0
+            },
+            "location": {
+              "type": "array",
+              "description": "3D location [x, y, z]",
+              "items": { "type": "number" },
+              "minItems": 3,
+              "maxItems": 3,
+              "default": [0, 0, 0]
+            },
+            "rotation": {
+              "type": "array",
+              "description": "Rotation in radians [x, y, z]",
+              "items": { "type": "number" },
+              "minItems": 3,
+              "maxItems": 3,
+              "default": [0, 0, 0]
+            },
+            "segments": {
+              "type": "integer",
+              "description": "Number of segments (for cylinder, sphere, etc.)",
+              "minimum": 3,
+              "default": 32
+            },
+            "rings": {
+              "type": "integer",
+              "description": "Number of rings (for spheres)",
+              "minimum": 1,
+              "default": 16
+            }
+          },
+          "required": ["name"],
+          "additionalProperties": false
+        },
+        "returns": {
+          "type": "object",
+          "properties": {
+            "success": { "type": "boolean" },
+            "objectName": { "type": "string" },
+            "meshName": { "type": "string" },
+            "vertexCount": { "type": "integer" },
+            "faceCount": { "type": "integer" }
+          }
+        }
+      },
+      {
+        "name": "blender_apply_modifier",
+        "description": "Apply a modifier to a mesh object",
+        "executionMode": "mutating",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "objectName": {
+              "type": "string",
+              "description": "Name of the object to modify"
+            },
+            "modifierType": {
+              "type": "string",
+              "description": "Type of modifier to apply",
+              "enum": ["SUBSURF", "MIRROR", "ARRAY", "SOLIDIFY", "BEVEL", "BOOLEAN", "DECIMATE", "EDGE_SPLIT", "DISPLACE", "SKIN", "WIREFRAME", "TRIANGULATE"]
+            },
+            "parameters": {
+              "type": "object",
+              "description": "Modifier-specific parameters",
+              "additionalProperties": true
+            },
+            "apply": {
+              "type": "boolean",
+              "description": "Apply the modifier permanently (vs just adding to stack)",
+              "default": true
+            }
+          },
+          "required": ["objectName", "modifierType"],
+          "additionalProperties": false
+        },
+        "returns": {
+          "type": "object",
+          "properties": {
+            "success": { "type": "boolean" },
+            "objectName": { "type": "string" },
+            "modifierType": { "type": "string" },
+            "applied": { "type": "boolean" },
+            "vertexCount": { "type": "integer" },
+            "faceCount": { "type": "integer" }
+          }
+        }
+      },
+      {
+        "name": "blender_get_scene_info",
+        "description": "Get information about the current Blender scene",
+        "executionMode": "readonly",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "includeGeometry": {
+              "type": "boolean",
+              "description": "Include detailed geometry stats",
+              "default": false
+            }
+          },
+          "required": [],
+          "additionalProperties": false
+        },
+        "returns": {
+          "type": "object",
+          "properties": {
+            "sceneName": { "type": "string" },
+            "objectCount": { "type": "integer" },
+            "objects": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "name": { "type": "string" },
+                  "type": { "type": "string", "enum": ["MESH", "CAMERA", "LIGHT", "EMPTY", "ARMATURE", "CURVE", "TEXT", "OTHER"] },
+                  "visible": { "type": "boolean" },
+                  "selected": { "type": "boolean" },
+                  "vertexCount": { "type": "integer" },
+                  "materialCount": { "type": "integer" }
+                }
+              }
+            },
+            "materials": { "type": "array", "items": { "type": "string" } },
+            "cameras": { "type": "array", "items": { "type": "string" } },
+            "lights": { "type": "array", "items": { "type": "string" } },
+            "collections": { "type": "array", "items": { "type": "string" } }
+          }
+        }
+      }
+    ]
+  }
+}

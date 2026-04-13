@@ -1,0 +1,365 @@
+{
+  "mcpToolkitManifest": {
+    "version": "1.0.0",
+    "server": {
+      "name": "godot-engine-mcp",
+      "version": "1.0.0",
+      "description": "MCP toolkit for Godot Engine integration. Provides tools for project management, scene editing, and debugging within the Godot editor environment.",
+      "author": "LLM Workflow Platform",
+      "license": "MIT"
+    },
+    "environment": {
+      "required": [
+        {
+          "name": "GODOT_PATH",
+          "description": "Path to the Godot executable",
+          "example": "/usr/bin/godot or C:\\Program Files\\Godot\\Godot.exe"
+        }
+      ],
+      "optional": [
+        {
+          "name": "GODOT_PROJECTS_PATH",
+          "description": "Default path to search for Godot projects",
+          "default": "~/godot-projects"
+        },
+        {
+          "name": "GODOT_EXPORT_PATH",
+          "description": "Default export directory for builds and mesh libraries",
+          "default": "./exports"
+        }
+      ]
+    },
+    "tools": [
+      {
+        "name": "godot_version",
+        "description": "Get the installed Godot engine version information",
+        "executionMode": "readonly",
+        "inputSchema": {
+          "type": "object",
+          "properties": {},
+          "required": [],
+          "additionalProperties": false
+        },
+        "returns": {
+          "type": "object",
+          "properties": {
+            "version": { "type": "string", "description": "Godot version string" },
+            "build": { "type": "string", "description": "Build identifier" },
+            "features": { "type": "array", "items": { "type": "string" }, "description": "Enabled engine features" }
+          }
+        }
+      },
+      {
+        "name": "godot_project_list",
+        "description": "List all available Godot projects in the projects directory",
+        "executionMode": "readonly",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "path": {
+              "type": "string",
+              "description": "Optional custom path to search for projects. Uses GODOT_PROJECTS_PATH if not specified."
+            }
+          },
+          "required": [],
+          "additionalProperties": false
+        },
+        "returns": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "name": { "type": "string" },
+              "path": { "type": "string" },
+              "version": { "type": "string" },
+              "lastModified": { "type": "string", "format": "date-time" }
+            }
+          }
+        }
+      },
+      {
+        "name": "godot_project_info",
+        "description": "Get detailed information about a specific Godot project",
+        "executionMode": "readonly",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "projectPath": {
+              "type": "string",
+              "description": "Path to the Godot project directory or project.godot file"
+            }
+          },
+          "required": ["projectPath"],
+          "additionalProperties": false
+        },
+        "returns": {
+          "type": "object",
+          "properties": {
+            "name": { "type": "string" },
+            "description": { "type": "string" },
+            "version": { "type": "string" },
+            "scenes": { "type": "array", "items": { "type": "string" } },
+            "scripts": { "type": "array", "items": { "type": "string" } },
+            "settings": { "type": "object" }
+          }
+        }
+      },
+      {
+        "name": "godot_launch_editor",
+        "description": "Launch the Godot editor with an optional project",
+        "executionMode": "mutating",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "projectPath": {
+              "type": "string",
+              "description": "Optional path to the project to open in the editor"
+            },
+            "scene": {
+              "type": "string",
+              "description": "Optional specific scene to open on launch"
+            }
+          },
+          "required": [],
+          "additionalProperties": false
+        },
+        "returns": {
+          "type": "object",
+          "properties": {
+            "success": { "type": "boolean" },
+            "pid": { "type": "integer", "description": "Process ID of the launched editor" },
+            "message": { "type": "string" }
+          }
+        }
+      },
+      {
+        "name": "godot_run_project",
+        "description": "Run a Godot project in play mode",
+        "executionMode": "mutating",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "projectPath": {
+              "type": "string",
+              "description": "Path to the Godot project to run"
+            },
+            "scene": {
+              "type": "string",
+              "description": "Optional specific scene to run (defaults to main scene)"
+            },
+            "debug": {
+              "type": "boolean",
+              "description": "Run with debug output enabled",
+              "default": true
+            }
+          },
+          "required": ["projectPath"],
+          "additionalProperties": false
+        },
+        "returns": {
+          "type": "object",
+          "properties": {
+            "success": { "type": "boolean" },
+            "pid": { "type": "integer" },
+            "sessionId": { "type": "string", "description": "Unique session ID for debug log tracking" }
+          }
+        }
+      },
+      {
+        "name": "godot_create_scene",
+        "description": "Create a new scene file in the project",
+        "executionMode": "mutating",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "projectPath": {
+              "type": "string",
+              "description": "Path to the Godot project"
+            },
+            "sceneName": {
+              "type": "string",
+              "description": "Name for the new scene file (without .tscn extension)"
+            },
+            "rootNodeType": {
+              "type": "string",
+              "description": "Type of the root node",
+              "default": "Node2D",
+              "enum": ["Node", "Node2D", "Node3D", "Control", "Area2D", "Area3D", "CharacterBody2D", "CharacterBody3D", "RigidBody2D", "RigidBody3D"]
+            },
+            "directory": {
+              "type": "string",
+              "description": "Subdirectory within the project to create the scene",
+              "default": ""
+            }
+          },
+          "required": ["projectPath", "sceneName"],
+          "additionalProperties": false
+        },
+        "returns": {
+          "type": "object",
+          "properties": {
+            "success": { "type": "boolean" },
+            "scenePath": { "type": "string" },
+            "rootNodeType": { "type": "string" }
+          }
+        }
+      },
+      {
+        "name": "godot_add_node",
+        "description": "Add a node to an existing scene",
+        "executionMode": "mutating",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "scenePath": {
+              "type": "string",
+              "description": "Path to the .tscn scene file"
+            },
+            "nodeType": {
+              "type": "string",
+              "description": "GDScript class name of the node to add"
+            },
+            "nodeName": {
+              "type": "string",
+              "description": "Unique name for the new node"
+            },
+            "parentPath": {
+              "type": "string",
+              "description": "Node path of the parent (e.g., '.', 'Player', 'World/Entities')",
+              "default": "."
+            },
+            "properties": {
+              "type": "object",
+              "description": "Initial property values to set on the node",
+              "additionalProperties": true
+            }
+          },
+          "required": ["scenePath", "nodeType", "nodeName"],
+          "additionalProperties": false
+        },
+        "returns": {
+          "type": "object",
+          "properties": {
+            "success": { "type": "boolean" },
+            "nodePath": { "type": "string" },
+            "scenePath": { "type": "string" }
+          }
+        }
+      },
+      {
+        "name": "godot_save_scene",
+        "description": "Save the current scene or a specific scene",
+        "executionMode": "mutating",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "scenePath": {
+              "type": "string",
+              "description": "Path to the scene file to save"
+            },
+            "newPath": {
+              "type": "string",
+              "description": "Optional new path to save as (for Save As functionality)"
+            }
+          },
+          "required": ["scenePath"],
+          "additionalProperties": false
+        },
+        "returns": {
+          "type": "object",
+          "properties": {
+            "success": { "type": "boolean" },
+            "savedPath": { "type": "string" },
+            "timestamp": { "type": "string", "format": "date-time" }
+          }
+        }
+      },
+      {
+        "name": "godot_get_debug_output",
+        "description": "Get debug logs and output from a running or completed session",
+        "executionMode": "readonly",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "sessionId": {
+              "type": "string",
+              "description": "Session ID from godot_run_project or running instance"
+            },
+            "lines": {
+              "type": "integer",
+              "description": "Maximum number of log lines to retrieve",
+              "default": 100,
+              "minimum": 1,
+              "maximum": 10000
+            },
+            "level": {
+              "type": "string",
+              "description": "Minimum log level to include",
+              "default": "info",
+              "enum": ["verbose", "debug", "info", "warning", "error", "critical"]
+            }
+          },
+          "required": ["sessionId"],
+          "additionalProperties": false
+        },
+        "returns": {
+          "type": "object",
+          "properties": {
+            "sessionId": { "type": "string" },
+            "lines": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "timestamp": { "type": "string" },
+                  "level": { "type": "string", "enum": ["verbose", "debug", "info", "warning", "error", "critical"] },
+                  "message": { "type": "string" },
+                  "source": { "type": "string" }
+                }
+              }
+            },
+            "isRunning": { "type": "boolean" }
+          }
+        }
+      },
+      {
+        "name": "godot_export_mesh_library",
+        "description": "Export selected 3D meshes to a Godot MeshLibrary resource for GridMap usage",
+        "executionMode": "mutating",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "projectPath": {
+              "type": "string",
+              "description": "Path to the Godot project"
+            },
+            "sourceScene": {
+              "type": "string",
+              "description": "Path to the source scene containing the meshes to export"
+            },
+            "outputPath": {
+              "type": "string",
+              "description": "Output path for the .meshlib file (relative to project root)"
+            },
+            "meshNames": {
+              "type": "array",
+              "items": { "type": "string" },
+              "description": "Optional specific mesh names to export (exports all if not specified)"
+            }
+          },
+          "required": ["projectPath", "sourceScene", "outputPath"],
+          "additionalProperties": false
+        },
+        "returns": {
+          "type": "object",
+          "properties": {
+            "success": { "type": "boolean" },
+            "outputPath": { "type": "string" },
+            "meshCount": { "type": "integer" },
+            "exportedMeshes": { "type": "array", "items": { "type": "string" } }
+          }
+        }
+      }
+    ]
+  }
+}

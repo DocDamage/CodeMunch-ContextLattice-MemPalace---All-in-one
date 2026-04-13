@@ -1,0 +1,196 @@
+{
+  "schemaVersion": 1,
+  "packId": "blender-engine",
+  "sources": {
+    "blender-official-api": {
+      "sourceId": "blender-official-api",
+      "repoUrl": "https://docs.blender.org/api/current/",
+      "selectedRef": "4.2",
+      "parseMode": "api-documentation",
+      "trustTier": "High",
+      "authorityRole": "core-blender",
+      "priority": "P0",
+      "license": "Proprietary",
+      "collections": ["blender_core_api"],
+      "extractionTargets": ["operators", "datablocks", "types", "panels", "properties", "node-shader-APIs"],
+      "refreshCadence": "blender-version-change",
+      "state": "active",
+      "riskNotes": {
+        "note": "Core Blender truth",
+        "mustOutrank": "Must outrank addon examples on foundational questions"
+      },
+      "lastReviewedUtc": "2026-04-12T17:45:00Z",
+      "createdUtc": "2026-04-12T17:45:00Z",
+      "updatedUtc": "2026-04-12T17:45:00Z"
+    },
+    "blender-official-docs": {
+      "sourceId": "blender-official-docs",
+      "repoUrl": "https://docs.blender.org/",
+      "selectedRef": "4.2",
+      "parseMode": "documentation",
+      "trustTier": "High",
+      "authorityRole": "core-blender",
+      "priority": "P0",
+      "license": "Proprietary",
+      "collections": ["blender_core_api"],
+      "extractionTargets": ["tutorials", "best-practices", "API-reference"],
+      "refreshCadence": "blender-version-change",
+      "state": "active",
+      "lastReviewedUtc": "2026-04-12T17:45:00Z",
+      "createdUtc": "2026-04-12T17:45:00Z",
+      "updatedUtc": "2026-04-12T17:45:00Z"
+    },
+    "ahujasid/blender-mcp": {
+      "sourceId": "ahujasid/blender-mcp",
+      "repoUrl": "https://github.com/ahujasid/blender-mcp",
+      "selectedRef": "main",
+      "parseMode": "mcp-tooling",
+      "trustTier": "Medium-High",
+      "authorityRole": "mcp-integration",
+      "priority": "P1",
+      "license": "MIT",
+      "collections": ["blender_tooling"],
+      "extractionTargets": ["MCP-tool-definitions", "operator-wrappers", "scene-control-API"],
+      "refreshCadence": "30-day",
+      "state": "active",
+      "riskNotes": {
+        "note": "MCP server for Blender: programmatic tool access",
+        "scope": "Keep scoped to MCP/tooling queries",
+        "doNotUseAs": "Blender API authority"
+      },
+      "lastReviewedUtc": "2026-04-12T17:45:00Z",
+      "createdUtc": "2026-04-12T17:45:00Z",
+      "updatedUtc": "2026-04-12T17:45:00Z"
+    },
+    "gd3kr/BlenderGPT": {
+      "sourceId": "gd3kr/BlenderGPT",
+      "repoUrl": "https://github.com/gd3kr/BlenderGPT",
+      "selectedRef": "main",
+      "parseMode": "ai-agent",
+      "trustTier": "Medium-High",
+      "authorityRole": "ai-agent-control",
+      "priority": "P1",
+      "license": "MIT",
+      "collections": ["blender_tooling"],
+      "extractionTargets": ["operator-translation", "prompt-to-action", "bpy-usage"],
+      "refreshCadence": "30-day",
+      "state": "active",
+      "riskNotes": {
+        "note": "GPT-4 control logic for Blender operators",
+        "doNotUseAs": "canonical Blender operator behavior"
+      },
+      "lastReviewedUtc": "2026-04-12T17:45:00Z",
+      "createdUtc": "2026-04-12T17:45:00Z",
+      "updatedUtc": "2026-04-12T17:45:00Z"
+    },
+    "DLR-RM/BlenderProc": {
+      "sourceId": "DLR-RM/BlenderProc",
+      "repoUrl": "https://github.com/DLR-RM/BlenderProc",
+      "selectedRef": "main",
+      "parseMode": "synthetic-pipeline",
+      "trustTier": "Medium-High",
+      "authorityRole": "synth-proc",
+      "priority": "P2",
+      "license": "MIT",
+      "collections": ["blender_synthetic_data"],
+      "extractionTargets": ["render-configs", "scene-generation", "camera-sampling", "dataset-output"],
+      "refreshCadence": "45-day",
+      "state": "active",
+      "riskNotes": {
+        "note": "Photorealistic pipeline for synthetic data generation",
+        "scope": "Should dominate synthetic-data queries only"
+      },
+      "lastReviewedUtc": "2026-04-12T17:45:00Z",
+      "createdUtc": "2026-04-12T17:45:00Z",
+      "updatedUtc": "2026-04-12T17:45:00Z"
+    },
+    "domlysz/BlenderGIS": {
+      "sourceId": "domlysz/BlenderGIS",
+      "repoUrl": "https://github.com/domlysz/BlenderGIS",
+      "selectedRef": "master",
+      "parseMode": "gis-addon",
+      "trustTier": "Medium-High",
+      "authorityRole": "gis-context",
+      "priority": "P2",
+      "license": "MIT",
+      "collections": ["blender_addons"],
+      "extractionTargets": ["GIS-import-export", "projection-handling", "terrain-mapping"],
+      "refreshCadence": "45-day",
+      "state": "active",
+      "riskNotes": {
+        "note": "Geospatial bridge for Blender modeling",
+        "scope": "Should dominate GIS questions only"
+      },
+      "lastReviewedUtc": "2026-04-12T17:45:00Z",
+      "createdUtc": "2026-04-12T17:45:00Z",
+      "updatedUtc": "2026-04-12T17:45:00Z"
+    },
+    "EpicGamesExt/BlenderTools": {
+      "sourceId": "EpicGamesExt/BlenderTools",
+      "repoUrl": "https://github.com/EpicGamesExt/BlenderTools",
+      "selectedRef": "main",
+      "parseMode": "pipeline-tool",
+      "trustTier": "Medium",
+      "authorityRole": "pipeline-tool",
+      "priority": "P3",
+      "license": "MIT",
+      "collections": ["blender_addons"],
+      "extractionTargets": ["export-logic", "naming-conventions", "engine-pipeline-rules"],
+      "refreshCadence": "manual",
+      "state": "active",
+      "riskNotes": {
+        "note": "Game dev pipeline (Unreal focus but good patterns)",
+        "pipelineOnly": true,
+        "doNotUseAs": "stock Blender behavior"
+      },
+      "lastReviewedUtc": "2026-04-12T17:45:00Z",
+      "createdUtc": "2026-04-12T17:45:00Z",
+      "updatedUtc": "2026-04-12T17:45:00Z"
+    },
+    "agmmnn/awesome-blender": {
+      "sourceId": "agmmnn/awesome-blender",
+      "repoUrl": "https://github.com/agmmnn/awesome-blender",
+      "selectedRef": "master",
+      "parseMode": "curated-index",
+      "trustTier": "Medium",
+      "authorityRole": "curated-index",
+      "priority": "P3",
+      "collections": ["blender_addons"],
+      "extractionTargets": ["categorized-metadata", "repo-discovery"],
+      "refreshCadence": "30-day-scan",
+      "state": "active",
+      "riskNotes": {
+        "note": "Master registry for addon discovery",
+        "discoveryLayer": true,
+        "doNotUseAs": "Blender-law authority"
+      },
+      "lastReviewedUtc": "2026-04-12T17:45:00Z",
+      "createdUtc": "2026-04-12T17:45:00Z",
+      "updatedUtc": "2026-04-12T17:45:00Z"
+    },
+    "sugiany/blender_mmd_tools": {
+      "sourceId": "sugiany/blender_mmd_tools",
+      "repoUrl": "https://github.com/sugiany/blender_mmd_tools",
+      "selectedRef": "master",
+      "parseMode": "format-converter",
+      "trustTier": "Medium",
+      "authorityRole": "format-converter",
+      "priority": "P3",
+      "license": "MIT",
+      "collections": ["blender_addons"],
+      "extractionTargets": ["MMD-import-export", "rig-animation-mapping", "format-rules"],
+      "refreshCadence": "manual",
+      "state": "active",
+      "riskNotes": {
+        "note": "MikuMikuDance format interop patterns",
+        "specialized": true,
+        "keepScoped": "Keep scoped to conversion/interop queries"
+      },
+      "lastReviewedUtc": "2026-04-12T17:45:00Z",
+      "createdUtc": "2026-04-12T17:45:00Z",
+      "updatedUtc": "2026-04-12T17:45:00Z"
+    }
+  },
+  "sourceFamilies": {},
+  "updatedUtc": "2026-04-12T17:45:00Z"
+}

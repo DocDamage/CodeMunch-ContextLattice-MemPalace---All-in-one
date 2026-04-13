@@ -1,0 +1,308 @@
+{
+  "mcpToolkitManifest": {
+    "version": "1.0.0",
+    "server": {
+      "name": "rpgmaker-mz-mcp",
+      "version": "1.0.0",
+      "description": "MCP toolkit for RPG Maker MZ integration. Provides tools for plugin management, validation, and generation of plugin skeletons for the RPG Maker MZ game engine.",
+      "author": "LLM Workflow Platform",
+      "license": "MIT"
+    },
+    "environment": {
+      "required": [],
+      "optional": [
+        {
+          "name": "RMMZ_PROJECT_PATH",
+          "description": "Path to the active RPG Maker MZ project directory",
+          "default": ""
+        },
+        {
+          "name": "RMMZ_PLUGINS_PATH",
+          "description": "Path to the js/plugins directory (auto-detected from project if not set)",
+          "default": ""
+        },
+        {
+          "name": "RMMZ_EDITOR_PATH",
+          "description": "Path to RPG Maker MZ editor executable",
+          "default": ""
+        }
+      ]
+    },
+    "tools": [
+      {
+        "name": "rmmz_plugin_list",
+        "description": "List all installed plugins in the RPG Maker MZ project",
+        "executionMode": "readonly",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "projectPath": {
+              "type": "string",
+              "description": "Path to the RPG Maker MZ project (uses RMMZ_PROJECT_PATH if not specified)"
+            },
+            "includeCore": {
+              "type": "boolean",
+              "description": "Include core system plugins in the list",
+              "default": false
+            },
+            "enabledOnly": {
+              "type": "boolean",
+              "description": "Only return enabled plugins",
+              "default": false
+            }
+          },
+          "required": [],
+          "additionalProperties": false
+        },
+        "returns": {
+          "type": "object",
+          "properties": {
+            "projectPath": { "type": "string" },
+            "totalCount": { "type": "integer" },
+            "plugins": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "name": { "type": "string" },
+                  "status": { "type": "string", "enum": ["enabled", "disabled", "missing", "error"] },
+                  "version": { "type": "string" },
+                  "author": { "type": "string" },
+                  "description": { "type": "string" },
+                  "parameters": { "type": "array", "items": { "type": "string" } },
+                  "isCore": { "type": "boolean" },
+                  "filePath": { "type": "string" }
+                }
+              }
+            }
+          }
+        }
+      },
+      {
+        "name": "rmmz_plugin_info",
+        "description": "Get detailed information about a specific plugin",
+        "executionMode": "readonly",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "projectPath": {
+              "type": "string",
+              "description": "Path to the RPG Maker MZ project"
+            },
+            "pluginName": {
+              "type": "string",
+              "description": "Name of the plugin (without .js extension)"
+            },
+            "includeSource": {
+              "type": "boolean",
+              "description": "Include source code in the response",
+              "default": false
+            }
+          },
+          "required": ["pluginName"],
+          "additionalProperties": false
+        },
+        "returns": {
+          "type": "object",
+          "properties": {
+            "name": { "type": "string" },
+            "fileName": { "type": "string" },
+            "filePath": { "type": "string" },
+            "exists": { "type": "boolean" },
+            "metadata": {
+              "type": "object",
+              "properties": {
+                "title": { "type": "string" },
+                "author": { "type": "string" },
+                "version": { "type": "string" },
+                "description": { "type": "string" },
+                "help": { "type": "string" },
+                "url": { "type": "string" }
+              }
+            },
+            "parameters": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "name": { "type": "string" },
+                  "type": { "type": "string", "enum": ["string", "number", "boolean", "select", "combo", "file", "note"] },
+                  "default": {},
+                  "description": { "type": "string" },
+                  "options": { "type": "array", "items": { "type": "string" } }
+                }
+              }
+            },
+            "dependencies": { "type": "array", "items": { "type": "string" } },
+            "aliases": { "type": "array", "items": { "type": "string" } },
+            "fileSize": { "type": "integer" },
+            "lineCount": { "type": "integer" },
+            "source": { "type": "string" }
+          }
+        }
+      },
+      {
+        "name": "rmmz_validate_plugin",
+        "description": "Validate a plugin file for syntax errors and RPG Maker MZ compatibility",
+        "executionMode": "readonly",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "pluginPath": {
+              "type": "string",
+              "description": "Path to the plugin .js file"
+            },
+            "pluginName": {
+              "type": "string",
+              "description": "Plugin name to validate from project (alternative to pluginPath)"
+            },
+            "projectPath": {
+              "type": "string",
+              "description": "Project path (required if using pluginName)"
+            },
+            "strict": {
+              "type": "boolean",
+              "description": "Enable strict validation mode",
+              "default": false
+            }
+          },
+          "anyOf": [
+            { "required": ["pluginPath"] },
+            { "required": ["pluginName", "projectPath"] }
+          ],
+          "additionalProperties": false
+        },
+        "returns": {
+          "type": "object",
+          "properties": {
+            "valid": { "type": "boolean" },
+            "pluginName": { "type": "string" },
+            "checks": {
+              "type": "object",
+              "properties": {
+                "syntax": { "type": "boolean" },
+                "metadata": { "type": "boolean" },
+                "dependencies": { "type": "boolean" },
+                "compatibility": { "type": "boolean" }
+              }
+            },
+            "errors": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "line": { "type": "integer" },
+                  "column": { "type": "integer" },
+                  "severity": { "type": "string", "enum": ["error", "warning", "info"] },
+                  "message": { "type": "string" },
+                  "code": { "type": "string" }
+                }
+              }
+            },
+            "warnings": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "line": { "type": "integer" },
+                  "severity": { "type": "string", "enum": ["warning", "info"] },
+                  "message": { "type": "string" },
+                  "suggestion": { "type": "string" }
+                }
+              }
+            },
+            "metrics": {
+              "type": "object",
+              "properties": {
+                "lineCount": { "type": "integer" },
+                "complexity": { "type": "integer" },
+                "aliasCount": { "type": "integer" },
+                "parameterCount": { "type": "integer" }
+              }
+            }
+          }
+        }
+      },
+      {
+        "name": "rmmz_generate_plugin_skeleton",
+        "description": "Generate a new plugin skeleton/template with RPG Maker MZ compatible structure",
+        "executionMode": "mutating",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "pluginName": {
+              "type": "string",
+              "description": "Name for the new plugin (PascalCase recommended)"
+            },
+            "projectPath": {
+              "type": "string",
+              "description": "Path to save the plugin (uses RMMZ_PLUGINS_PATH if not specified)"
+            },
+            "outputPath": {
+              "type": "string",
+              "description": "Direct file output path (alternative to projectPath)"
+            },
+            "metadata": {
+              "type": "object",
+              "description": "Plugin metadata",
+              "properties": {
+                "title": { "type": "string", "description": "Display title for the plugin" },
+                "author": { "type": "string", "description": "Plugin author name" },
+                "version": { "type": "string", "default": "1.0.0" },
+                "description": { "type": "string", "description": "Short description of plugin functionality" },
+                "help": { "type": "string", "description": "Detailed help text" },
+                "url": { "type": "string", "description": "Plugin website or documentation URL" }
+              }
+            },
+            "parameters": {
+              "type": "array",
+              "description": "Plugin configuration parameters",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "name": { "type": "string" },
+                  "type": { "type": "string", "enum": ["string", "number", "boolean", "select", "combo", "file", "note"] },
+                  "default": {},
+                  "description": { "type": "string" },
+                  "options": { "type": "array", "items": { "type": "string" } }
+                },
+                "required": ["name", "type"]
+              }
+            },
+            "includes": {
+              "type": "object",
+              "description": "Optional code sections to include",
+              "properties": {
+                "aliases": { "type": "boolean", "default": true, "description": "Include alias pattern boilerplate" },
+                "parameters": { "type": "boolean", "default": true, "description": "Include parameter handling code" },
+                "commands": { "type": "boolean", "default": false, "description": "Include plugin command handler" },
+                "dataManager": { "type": "boolean", "default": false, "description": "Include DataManager hooks" },
+                "gameSystem": { "type": "boolean", "default": false, "description": "Include Game_System modifications" },
+                "sceneBase": { "type": "boolean", "default": false, "description": "Include Scene_Base hooks" }
+              }
+            },
+            "template": {
+              "type": "string",
+              "description": "Template style to use",
+              "default": "standard",
+              "enum": ["minimal", "standard", "advanced", "typescript"]
+            }
+          },
+          "required": ["pluginName"],
+          "additionalProperties": false
+        },
+        "returns": {
+          "type": "object",
+          "properties": {
+            "success": { "type": "boolean" },
+            "pluginName": { "type": "string" },
+            "filePath": { "type": "string" },
+            "fileSize": { "type": "integer" },
+            "lineCount": { "type": "integer" },
+            "generatedCode": { "type": "string", "description": "Preview of the generated plugin code" }
+          }
+        }
+      }
+    ]
+  }
+}

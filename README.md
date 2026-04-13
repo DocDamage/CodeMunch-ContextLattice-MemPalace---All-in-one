@@ -252,7 +252,16 @@ For detailed architecture documentation, see [docs/ARCHITECTURE.md](docs/ARCHITE
 
 ## Core Infrastructure
 
-The LLM Workflow platform now includes enterprise-grade operational infrastructure (Phase 1):
+The LLM Workflow platform includes enterprise-grade operational infrastructure across three phases:
+
+| Phase | Focus | Status | Key Components |
+|-------|-------|--------|----------------|
+| Phase 1 | Reliability & Control | ✅ Complete | Journaling, Locks, Config, Policy, Workspaces |
+| Phase 2 | Pack Framework | ✅ Complete | Manifests, Source Registry, Lockfiles |
+| Phase 3 | Operator Workflow | ✅ Complete | Health Scores, Planner, Git Hooks, Compatibility |
+| Phase 4 | Structured Extraction | ✅ Complete | GDScript, Scene, Plugin, Blender Parsers |
+| Phase 5 | Retrieval & Answer Integrity | ✅ Complete | Query Router, Confidence Policy, Cache |
+| Phase 6 | Human Trust & Governance | ✅ Complete | Golden Tasks, Replay Harness, SLOs |
 
 ### Journaling & Checkpoints
 Every operation is tracked with run manifests and checkpoint entries:
@@ -328,6 +337,432 @@ $sources = Get-RetrievalPriority -Query $query -Workspace $workspace
 | `mutating` | State changes | sync, index, ingest, build |
 | `destructive` | Data loss risk | restore, prune, delete |
 | `networked` | External calls | remote sync, provider calls |
+
+### Pack Framework (Phase 2)
+Domain-specific knowledge packs with lifecycle management:
+
+```powershell
+# Create pack manifest
+$manifest = New-PackManifest -PackId "rpgmaker-mz" -Domain "game-dev"
+
+# Transition lifecycle state
+Set-PackLifecycleState -Manifest $manifest -NewStatus "promoted" -Reason "Validated"
+
+# Generate lockfile
+$lockfile = New-PackLockfile -PackId "rpgmaker-mz" -Sources $sources
+Save-PackLockfile -Lockfile $lockfile
+```
+
+**Supported Packs:**
+- **RPG Maker MZ** - Plugin development, conflict diagnosis
+- **Godot Engine** - 2D/3D game dev, GDScript, visual systems
+- **Blender Engine** - 3D modeling, synthetic data, MCP integration
+
+### Operator Workflow (Phase 3)
+
+#### Health Scores
+Monitor pack and workspace health:
+```powershell
+# Get pack health score (0-100)
+Get-PackHealthScore -PackId "rpgmaker-mz" -Explain
+
+# Workspace health summary
+Get-WorkspaceHealthSummary -IncludeDetails
+
+# Export health report with trending
+Export-HealthReport -CompareWithPrevious
+```
+
+#### Planner/Executor Previews
+Dry-run operations before execution:
+```powershell
+# Create execution plan
+$plan = New-ExecutionPlan -Operation "sync" -Targets @("rpgmaker-mz")
+Add-PlanStep -Plan $plan -Description "Lock pack" -SafetyLevel Mutating
+
+# Preview (dry-run)
+Show-ExecutionPlan -Plan $plan
+
+# Execute with rollback support
+Invoke-ExecutionPlan -Plan $plan -WhatIf  # Dry-run
+Invoke-ExecutionPlan -Plan $plan -Resume   # Resume interrupted
+```
+
+#### Git Hooks
+Automated quality gates:
+```powershell
+# Install hooks
+Install-LLMWorkflowGitHooks -Hooks @("pre-commit", "pre-push") -BackupExisting
+
+# Pre-commit: Secret scanning + health check
+# Pre-push: Full validation + compatibility check
+```
+
+#### Compatibility Enforcement
+Semantic versioning and drift detection:
+```powershell
+# Check compatibility matrix
+Test-CompatibilityMatrix -PackId "rpgmaker-mz" -Strict
+
+# Detect version drift
+Get-VersionDrift -PackId "rpgmaker-mz"
+
+# Export compatibility lock
+Export-CompatibilityLock -PackId "rpgmaker-mz"
+```
+
+#### Include/Exclude Rules
+Pattern-based filtering:
+```powershell
+# Create filter with glob patterns
+$filter = Get-DefaultFilters -PackType "rpgmaker-mz"
+Get-IncludedFiles -Filter $filter -Path "./js/plugins"
+```
+
+#### Notification Hooks
+Event-driven notifications:
+```powershell
+# Register webhook
+Register-NotificationHook -Name "slack" -HookType webhook -TargetUrl "..."
+
+# Send notification
+Send-Notification -EventType "pack.build.completed" -Severity info
+```
+
+### Structured Extraction Pipeline (Phase 4)
+
+Parse and extract structured metadata from domain-specific files:
+
+```powershell
+# Extract from GDScript file
+$result = Invoke-StructuredExtraction -FilePath "player.gd"
+$result.data.classInfo.className   # "Player"
+$result.data.signals               # Signal definitions
+$result.data.properties            # @export properties
+
+# Extract from Godot scene
+$result = Invoke-StructuredExtraction -FilePath "main.tscn"
+$result.data.nodes                 # Node hierarchy
+$result.data.connections           # Signal connections
+
+# Extract from RPG Maker plugin
+$result = Invoke-StructuredExtraction -FilePath "MyPlugin.js"
+$result.data.pluginName            # Plugin name
+$result.data.parameters            # @param definitions
+$result.data.commands              # @command definitions
+
+# Extract from Blender addon
+$result = Invoke-StructuredExtraction -FilePath "my_addon.py"
+$result.data.addonInfo             # bl_info metadata
+$result.data.operators             # Operator classes
+$result.data.panels                # Panel classes
+```
+
+**Supported File Types:**
+| Extension | Domain | Extracts |
+|-----------|--------|----------|
+| `.gd` | Godot | Classes, signals, methods, @export, @onready |
+| `.tscn` | Godot | Node hierarchy, signal connections, resources |
+| `.tres` | Godot | Resource definitions, properties |
+| `.gdshader` | Godot | Uniforms, functions, render modes |
+| `.js` | RPG Maker | Plugin headers, @param, @command, conflicts |
+| `.py` | Blender | Operators, panels, bpy.props, node groups |
+
+**Batch Extraction:**
+```powershell
+# Process multiple files
+$files = Get-ChildItem -Path "./plugins" -Filter "*.js"
+$results = Invoke-BatchExtraction -FilePaths $files.FullName
+
+# Generate report
+Export-ExtractionReport -OutputPath "./extraction-report.json"
+```
+
+### Retrieval & Answer Integrity (Phase 5)
+
+Query routing, answer planning, and evidence-based answer synthesis:
+
+#### Query Router
+Route queries to appropriate packs based on intent:
+```powershell
+# Route query with automatic pack selection
+$result = Invoke-QueryRouting -Query "How do I use signals?" -RetrievalProfile "godot-expert"
+$result.PackOrder        # Prioritized pack list
+$result.PrimaryPack      # Best matching pack
+$result.RoutingReason    # Why this route was chosen
+
+# Get query intent
+Get-QueryIntent -Query "Plugin conflict with Yanfly"  # Returns: "conflict-diagnosis"
+```
+
+**Retrieval Profiles:**
+| Profile | Use Case |
+|---------|----------|
+| `api-lookup` | API reference questions |
+| `plugin-pattern` | Plugin development patterns |
+| `conflict-diagnosis` | Diagnosing plugin conflicts |
+| `codegen` | Code generation tasks |
+| `private-project-first` | Prioritize private project content |
+| `tooling-workflow` | Tooling and workflow questions |
+| `reverse-format` | Reverse engineering questions |
+
+#### Answer Planning & Tracing
+Create answer plans before synthesis, traces after:
+```powershell
+# Create answer plan
+$plan = New-AnswerPlan -Query "How to use X?" `
+                       -RetrievalProfile "rpgmaker-expert" `
+                       -RequiredEvidenceTypes @("code-example", "api-reference")
+
+# Add evidence requirements
+Add-PlanEvidence -Plan $plan -EvidenceType "code-example" -Required $true -MinimumRelevance 0.8
+
+# After synthesis, create trace
+$trace = New-AnswerTrace -Plan $plan -AnswerMode "caveat" -ConfidenceDecision $decision
+Add-TraceEvidence -Trace $trace -EvidenceId "ev-001" -SourcePack "rpgmaker-mz-core"
+Export-AnswerTrace -Trace $trace  # For audit
+```
+
+**Answer Modes:**
+- `direct` - High confidence, answer directly
+- `caveat` - Medium confidence, include warnings
+- `dispute` - Multiple conflicting sources, surface dispute
+- `abstain` - Low confidence, decline to answer
+- `escalate` - Needs human review
+
+#### Confidence & Abstain Policy
+Calculate confidence and decide when to abstain:
+```powershell
+# Evaluate confidence (4 factors: relevance, authority, consistency, coverage)
+$confidence = Test-AnswerConfidence -Evidence $evidence -AnswerPlan $plan
+$confidence.Score                    # 0.0 to 1.0
+$confidence.Components               # Breakdown by factor
+
+# Get answer mode from confidence
+$mode = Get-AnswerMode -ConfidenceScore $confidence.Score -EvidenceIssues $issues
+# Returns: direct, caveat, dispute, abstain, escalate
+
+# Should we abstain?
+if (Test-ShouldAbstain -ConfidenceScore 0.45 -Policy $policy) {
+    $decision = Get-AbstainDecision -Reason "Low confidence" -Alternatives @{...}
+}
+```
+
+#### Cross-Pack Arbitration
+Handle queries spanning multiple domain packs:
+```powershell
+# Arbitrate across packs
+$result = Invoke-CrossPackArbitration -Query "Compare Godot and RPG Maker" -Packs $packs
+$result.IsCrossPack       # True if multiple packs involved
+$result.RequiresLabeling  # Whether to label sources
+
+# Create dispute set for conflicting claims
+$dispute = New-DisputeSet -DisputedEntity "Best plugin pattern" -Status "open"
+Add-DisputeClaim -DisputeSet $dispute -ClaimSource "godot-engine" -ClaimContent "Use signals" -TrustLevel "High"
+Add-DisputeClaim -DisputeSet $dispute -ClaimSource "rpgmaker-mz" -ClaimContent "Use event bus" -TrustLevel "High"
+```
+
+#### Evidence Policy
+Validate evidence quality and authority:
+```powershell
+# Validate evidence against policy
+$validation = Test-EvidencePolicy -Evidence $evidence -Policy $policy
+$validation.IsValid
+$validation.Violations
+
+# Check for translation-only evidence (can't carry high confidence)
+if (Test-TranslationOnlyEvidence -Evidence $evidence) {
+    Write-Warning "Evidence is translation-only"
+}
+
+# Sort by source authority
+$sorted = Sort-BySourceAuthority -Evidence $evidence  # Foundational first
+```
+
+**Evidence Classification:** foundational > authoritative > exemplar > community > translation
+
+#### Caveat Registry
+Known caveats and falsehoods to avoid:
+```powershell
+# Register a caveat
+Register-Caveat -CaveatId "godot-3-vs-4-onready" -Category "version-boundary" `
+                -Subject "@onready syntax" -Message "Note: @onready is Godot 4 only"
+
+# Find applicable caveats for answer
+$caveats = Find-ApplicableCaveats -Query $query -Evidence $evidence
+$answer = Add-AnswerCaveats -Answer $answer -Caveats $caveats
+
+# Test for known falsehoods
+if (Test-KnownFalsehoods -AnswerText $answer) {
+    Write-Warning "Answer contains known falsehood"
+}
+```
+
+#### Retrieval Cache
+Cache retrieval results with smart invalidation:
+```powershell
+# Cache a retrieval result
+Set-CachedRetrieval -Query "How do I use signals?" `
+                    -RetrievalProfile "godot-expert" `
+                    -Result $result `
+                    -PackVersions @{ "godot-engine" = "v2.1.0" }
+
+# Retrieve from cache (checks pack versions for validity)
+$cached = Get-CachedRetrieval -Query "How do I use signals?" -RetrievalProfile "godot-expert"
+
+# Invalidate on pack update
+Invoke-PackCacheInvalidation -PackId "godot-engine" -NewVersion "v2.2.0"
+
+# Maintenance
+Invoke-CacheMaintenance -MaxAgeHours 24
+```
+
+#### Answer Incident Bundles
+Track and investigate bad answers:
+```powershell
+# Create incident bundle for bad answer
+$bundle = New-AnswerIncidentBundle -Query "How do I use X?" `
+                                   -FinalAnswer $answer `
+                                   -AnswerPlan $plan `
+                                   -AnswerTrace $trace
+
+# Add feedback
+Add-IncidentFeedback -Incident $bundle -FeedbackType "thumbs-down" -FeedbackText "Wrong answer"
+
+# Root cause analysis
+$analysis = Get-IncidentRootCause -Incident $bundle
+$analysis.Category    # bad-retrieval, wrong-authority-level, etc.
+$analysis.Pattern     # hallucination, outdated-information, etc.
+
+# Export for investigation
+Export-IncidentBundle -Incident $bundle -OutputPath "./incident.json"
+```
+
+### Human Trust & Governance (Phase 6)
+
+Golden tasks, replay harness, and pack SLOs for quality assurance:
+
+#### Golden Tasks
+Evaluate system with predefined real-world tasks:
+```powershell
+# Run a golden task
+$result = Invoke-GoldenTaskEval -Task $task -RecordResults
+$result.Passed
+$result.ValidationResults
+
+# Run all tasks for a pack
+$results = Invoke-PackGoldenTasks -PackId "rpgmaker-mz" -Parallel
+
+# Get predefined tasks
+$tasks = Get-PredefinedGoldenTasks -PackId "godot-engine"
+```
+
+**Predefined Golden Tasks (10 total):**
+- **RPG Maker MZ**: Plugin skeleton, conflict diagnosis, notetag extraction, patch analysis
+- **Godot Engine**: GDScript class, signal connection, autoload setup
+- **Blender Engine**: Operator registration, geometry nodes, addon manifest
+
+#### Replay Harness
+Before/after comparison for upgrades:
+```powershell
+# Replay golden task with new config
+$replay = Invoke-GoldenTaskReplay -TaskId "gt-rpgmaker-001" `
+                                  -BaselineConfig $oldConfig `
+                                  -NewConfig $newConfig
+
+# Compare results
+$comparison = Compare-ReplayResults -BaselineResult $replay.Baseline `
+                                    -NewResult $replay.NewResult
+$comparison.RegressionDetected
+$comparison.Differences
+
+# Test for regression
+if (Test-Regression -Baseline $before -Current $after) {
+    Write-Error "Regression detected!"
+}
+
+# Batch replay
+$batch = Invoke-BatchReplay -Targets $tasks -Config $newConfig -Parallel
+```
+
+#### Pack SLOs
+Service level objectives for pack quality:
+```powershell
+# Define SLO for pack
+$slo = New-PackSLO -PackId "rpgmaker-mz" -Targets @{
+    p95RetrievalLatencyMs = 1200
+    answerGroundingRate = 0.95
+    parserFailureRate = 0.02
+    goldenTaskPassRate = 0.90
+}
+
+# Record telemetry
+Record-Telemetry -PackId "rpgmaker-mz" -MetricName "retrievalLatencyMs" -Value 850
+
+# Check SLO status
+$status = Get-PackSLOStatus -PackId "rpgmaker-mz" -TimeRange "24h"
+$status.IsCompliant
+$status.Violations
+
+# Get violations
+$violations = Get-SLOViolations -PackId "rpgmaker-mz" -Severity "critical"
+```
+
+**SLO Targets:**
+| Metric | Target |
+|--------|--------|
+| p95RetrievalLatencyMs | 1200ms |
+| answerGroundingRate | 95% |
+| parserFailureRate | 2% |
+| provenanceCoverage | 99% |
+| goldenTaskPassRate | 90% |
+
+#### Human Annotations
+Human corrections and overrides:
+```powershell
+# Create annotation
+$annotation = New-HumanAnnotation -EntityId "plugin-123" `
+                                  -AnnotationType "correction" `
+                                  -Content "Fixed incorrect info about X" `
+                                  -Author "user"
+
+# Create project override
+$override = New-ProjectOverride -ProjectId "my-game" `
+                                -EntityId "source-456" `
+                                -OverrideData @{ paramType = "number" } `
+                                -Reason "Our project uses numbers"
+
+# Get effective annotations (with overrides applied)
+$annotations = Get-EffectiveAnnotations -EntityId "plugin-123" -Context @{ projectId = "my-game" }
+```
+
+**Annotation Types:** correction, deprecation, confidence, compatibility, relevance, caveat, override
+
+#### Human Review Gates
+Require approval for sensitive operations:
+```powershell
+# Check if review required
+if (Test-HumanReviewRequired -Operation "pack-promote" -ChangeSet $changes) {
+    # Create review request
+    $request = New-ReviewGateRequest -Operation "pack-promote" `
+                                     -ChangeSet $changes `
+                                     -Requester "user" `
+                                     -Reviewers @("admin", "owner")
+    
+    # Submit decision
+    Submit-ReviewDecision -RequestId $request.RequestId `
+                          -Reviewer "admin" `
+                          -Decision "approved" `
+                          -Comments "Looks good"
+}
+
+# Check review triggers
+Test-LargeSourceDelta -ChangeSet $changes -ThresholdPercent 30
+Test-MajorVersionJump -OldVersion "1.0.0" -NewVersion "2.0.0"
+Test-TrustTierChange -ChangeSet $changes
+```
+
+**Review Triggers:** Large source deltas, major version jumps, trust tier changes, visibility boundary changes, eval regressions
 
 ## Repository layout
 
