@@ -1,0 +1,251 @@
+{
+  "schemaVersion": 1,
+  "packId": "notebook-data-workflow",
+  "domain": "data-science",
+  "version": "1.0.0-draft",
+  "taxonomyVersion": "1",
+  "status": "draft",
+  "channel": "draft",
+  "defaultCollections": [
+    "notebook_extensions",
+    "dataframe_patterns",
+    "viz_patterns",
+    "data_transforms"
+  ],
+  "description": "Notebook productivity, spreadsheet-like data manipulation, and AI-assisted notebook workflows including Jupyter, pandas, and visualization patterns.",
+  "scope": {
+    "includes": [
+      "Jupyter notebook parsing and analysis",
+      "Pandas DataFrame operations and patterns",
+      "Data transformation and cleaning workflows",
+      "Visualization patterns (matplotlib, seaborn, plotly)",
+      "Mito spreadsheet interface patterns",
+      "AI-assisted notebook workflows",
+      "Cell execution order and dependency tracking",
+      "Widget state extraction and reconstruction"
+    ],
+    "excludes": [
+      "Storing raw data files or datasets",
+      "Redistributing proprietary notebooks",
+      "Replacing interactive notebook environments",
+      "Executing arbitrary notebook code"
+    ]
+  },
+  "installProfiles": {
+    "core-only": {
+      "description": "Core notebook parsing and pandas patterns only",
+      "sources": [
+        "mito-ds/mito",
+        "pandas-dev/pandas",
+        "jupyter/notebook"
+      ]
+    },
+    "minimal": {
+      "description": "Core + essential data manipulation libraries",
+      "sources": [
+        "mito-ds/mito",
+        "pandas-dev/pandas",
+        "jupyter/notebook",
+        "numpy/numpy",
+        "matplotlib/matplotlib"
+      ]
+    },
+    "developer": {
+      "description": "Balanced pack with visualization and advanced patterns",
+      "sources": [
+        "mito-ds/mito",
+        "pandas-dev/pandas",
+        "jupyter/notebook",
+        "numpy/numpy",
+        "matplotlib/matplotlib",
+        "mwaskom/seaborn",
+        "plotly/plotly.py",
+        "microsoft/SandDance",
+        "jupyter-widgets/ipywidgets"
+      ]
+    },
+    "full": {
+      "description": "All promoted public sources",
+      "sources": "all-promoted"
+    },
+    "private-first": {
+      "description": "Minimal public + strong local notebook emphasis",
+      "sources": [
+        "mito-ds/mito",
+        "pandas-dev/pandas",
+        "jupyter/notebook",
+        "notebook_private_project"
+      ]
+    }
+  },
+  "collections": {
+    "notebook_extensions": {
+      "description": "Jupyter extensions, widget systems, and notebook tooling",
+      "defaultTrust": "Medium-High",
+      "authorityRole": "notebook-tooling"
+    },
+    "dataframe_patterns": {
+      "description": "Pandas DataFrame operations, transformations, and best practices",
+      "defaultTrust": "High",
+      "authorityRole": "dataframe-manipulation"
+    },
+    "viz_patterns": {
+      "description": "Visualization patterns for matplotlib, seaborn, plotly, and interactive charts",
+      "defaultTrust": "Medium",
+      "authorityRole": "viz-library"
+    },
+    "data_transforms": {
+      "description": "Data cleaning, transformation, and pipeline patterns",
+      "defaultTrust": "Medium",
+      "authorityRole": "data-pipeline"
+    },
+    "notebook_private_project": {
+      "description": "User-authored notebooks, custom transformations, and local workflow patterns",
+      "defaultTrust": "High",
+      "authorityRole": "private-project"
+    }
+  },
+  "extractionConfig": {
+    "modulePath": "module/LLMWorkflow/extraction",
+    "pipelineModule": "ExtractionPipeline.ps1",
+    "parserModules": {
+      "jupyterNotebook": "NotebookParser.ps1",
+      "dataframePattern": "DataFramePatternExtractor.ps1"
+    },
+    "fileExtensions": {
+      ".ipynb": {
+        "parser": "NotebookParser.ps1",
+        "function": "ConvertFrom-JupyterNotebook",
+        "extractionType": "jupyterNotebook"
+      },
+      ".py": {
+        "parser": "DataFramePatternExtractor.ps1",
+        "function": "Get-DataFrameOperations",
+        "extractionType": "dataframePattern",
+        "contentCheck": {
+          "pattern": "import pandas|from pandas|import numpy|from numpy",
+          "description": "Data science Python pattern"
+        }
+      }
+    }
+  },
+  "extractionTargets": {
+    "notebook_cells": {
+      "description": "Jupyter notebook cell extraction",
+      "required": true,
+      "parserFunction": "ConvertFrom-JupyterNotebook"
+    },
+    "code_cells": {
+      "description": "Code cell content extraction",
+      "required": true,
+      "parserFunction": "Get-NotebookCode"
+    },
+    "markdown_cells": {
+      "description": "Markdown cell extraction",
+      "required": true,
+      "parserFunction": "Get-NotebookCells"
+    },
+    "cell_outputs": {
+      "description": "Cell output extraction including visualizations",
+      "required": true,
+      "parserFunction": "Get-NotebookOutputs"
+    },
+    "widget_state": {
+      "description": "Jupyter widget state extraction",
+      "required": true,
+      "parserFunction": "Get-NotebookWidgetState"
+    },
+    "execution_order": {
+      "description": "Cell execution order tracking",
+      "required": true,
+      "parserFunction": "Get-NotebookExecutionOrder"
+    },
+    "dataframe_ops": {
+      "description": "Pandas DataFrame operations extraction",
+      "required": true,
+      "parserFunction": "Get-DataFrameOperations"
+    },
+    "transform_patterns": {
+      "description": "Data transformation pattern identification",
+      "required": true,
+      "parserFunction": "Get-DataTransformPatterns"
+    },
+    "visualization_code": {
+      "description": "Visualization code extraction",
+      "required": true,
+      "parserFunction": "Get-VisualizationCode"
+    },
+    "data_lineage": {
+      "description": "Data lineage mapping",
+      "required": true,
+      "parserFunction": "New-DataLineageMap"
+    },
+    "data_quality": {
+      "description": "Data quality pattern validation",
+      "required": true,
+      "parserFunction": "Test-DataQualityPattern"
+    }
+  },
+  "retrievalProfiles": {
+    "notebook-analysis": {
+      "description": "Notebook structure and cell analysis",
+      "preferredCollections": ["notebook_extensions"]
+    },
+    "dataframe-pattern": {
+      "description": "DataFrame operation patterns",
+      "preferredCollections": ["dataframe_patterns"]
+    },
+    "viz-pattern": {
+      "description": "Visualization patterns and best practices",
+      "preferredCollections": ["viz_patterns"]
+    },
+    "data-transformation": {
+      "description": "Data cleaning and transformation workflows",
+      "preferredCollections": ["data_transforms"]
+    },
+    "mito-specific": {
+      "description": "Mito spreadsheet-specific patterns",
+      "preferredCollections": ["dataframe_patterns", "notebook_extensions"]
+    },
+    "private-project-first": {
+      "description": "Project-local notebook questions",
+      "preferredCollections": ["notebook_private_project", "dataframe_patterns"]
+    }
+  },
+  "owners": {
+    "owners": ["Doc"],
+    "reviewers": ["pack-maintainer-1"],
+    "defaultPromotionPolicy": "owner-or-reviewer-approval",
+    "escalationContact": "Doc"
+  },
+  "evalSuites": [
+    "notebook-parse",
+    "dataframe-ops",
+    "viz-patterns",
+    "data-transformation",
+    "domain-correctness-negative",
+    "retrieval-provenance"
+  ],
+  "versionBoundaries": {
+    "pandas1x": {
+      "deprecatedPatterns": ["df.append", "pd.SparseArray"],
+      "modernPatterns": ["pd.concat", "pd.arrays.SparseArray"]
+    },
+    "pandas2x": {
+      "pyarrowBackend": true,
+      "copyOnWrite": true
+    }
+  },
+  "interPackPipelines": {
+    "notebook-to-python": {
+      "description": "Extract notebook code to Python module",
+      "transportTool": "NotebookParser.ps1",
+      "sourcePack": "notebook-data-workflow",
+      "targetPack": "godot-engine",
+      "provenanceRequired": true
+    }
+  },
+  "createdUtc": "2026-04-12T20:56:00Z",
+  "updatedUtc": "2026-04-12T20:56:00Z",
+  "createdByRunId": "20260412T205600Z-pack-notebook"
+}

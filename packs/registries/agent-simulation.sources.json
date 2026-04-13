@@ -1,0 +1,230 @@
+{
+  "schemaVersion": 1,
+  "packId": "agent-simulation",
+  "sources": {
+    "a16z-infra/ai-town": {
+      "sourceId": "a16z-infra/ai-town",
+      "repoUrl": "https://github.com/a16z-infra/ai-town",
+      "selectedRef": "main",
+      "parseMode": "agent-simulation",
+      "trustTier": "High",
+      "authorityRole": "agent-simulation",
+      "priority": "P0",
+      "license": "MIT",
+      "collections": ["agent_patterns", "multi_agent_systems", "vector_memory"],
+      "extractionTargets": ["agent-states", "multi-agent-orchestration", "memory-system", "social-simulation"],
+      "refreshCadence": "30-day",
+      "state": "active",
+      "riskNotes": {
+        "note": "Primary reference implementation for agent simulation and social agent orchestration",
+        "mustOutrank": "Must outrank secondary sources on agent simulation patterns"
+      },
+      "lastReviewedUtc": "2026-04-12T20:56:00Z",
+      "createdUtc": "2026-04-12T20:56:00Z",
+      "updatedUtc": "2026-04-12T20:56:00Z"
+    },
+    "langchain-ai/langchain": {
+      "sourceId": "langchain-ai/langchain",
+      "repoUrl": "https://github.com/langchain-ai/langchain",
+      "selectedRef": "master",
+      "parseMode": "orchestration-framework",
+      "trustTier": "High",
+      "authorityRole": "orchestration-pattern",
+      "priority": "P1",
+      "license": "MIT",
+      "collections": ["orchestration", "agent_patterns"],
+      "extractionTargets": ["chains", "agents", "tools", "retrievers", "memory"],
+      "refreshCadence": "14-day",
+      "state": "active",
+      "riskNotes": {
+        "note": "Primary LangChain Python framework - agent and chain orchestration patterns",
+        "fastMoving": "Rapid development; pin version references",
+        "doNotConfuse": "Python-specific patterns vs JavaScript implementations"
+      },
+      "lastReviewedUtc": "2026-04-12T20:56:00Z",
+      "createdUtc": "2026-04-12T20:56:00Z",
+      "updatedUtc": "2026-04-12T20:56:00Z"
+    },
+    "langchain-ai/langchainjs": {
+      "sourceId": "langchain-ai/langchainjs",
+      "repoUrl": "https://github.com/langchain-ai/langchainjs",
+      "selectedRef": "main",
+      "parseMode": "orchestration-framework",
+      "trustTier": "High",
+      "authorityRole": "orchestration-pattern",
+      "priority": "P1",
+      "license": "MIT",
+      "collections": ["orchestration", "agent_patterns"],
+      "extractionTargets": ["chains", "agents", "tools", "retrievers", "memory"],
+      "refreshCadence": "14-day",
+      "state": "active",
+      "riskNotes": {
+        "note": "LangChain JavaScript/TypeScript framework - agent and chain orchestration patterns",
+        "doNotConfuse": "JavaScript-specific patterns vs Python implementations"
+      },
+      "lastReviewedUtc": "2026-04-12T20:56:00Z",
+      "createdUtc": "2026-04-12T20:56:00Z",
+      "updatedUtc": "2026-04-12T20:56:00Z"
+    },
+    "chromadb/chroma": {
+      "sourceId": "chromadb/chroma",
+      "repoUrl": "https://github.com/chroma-core/chroma",
+      "selectedRef": "main",
+      "parseMode": "vector-database",
+      "trustTier": "High",
+      "authorityRole": "memory-system",
+      "priority": "P2",
+      "license": "Apache-2.0",
+      "collections": ["vector_memory"],
+      "extractionTargets": ["embedding-functions", "retrieval", "vector-operations", "persistence"],
+      "refreshCadence": "30-day",
+      "state": "active",
+      "riskNotes": {
+        "note": "Open-source embedding database for agent memory and RAG",
+        "scope": "Vector DB operations and retrieval patterns"
+      },
+      "lastReviewedUtc": "2026-04-12T20:56:00Z",
+      "createdUtc": "2026-04-12T20:56:00Z",
+      "updatedUtc": "2026-04-12T20:56:00Z"
+    },
+    "microsoft/semantic-kernel": {
+      "sourceId": "microsoft/semantic-kernel",
+      "repoUrl": "https://github.com/microsoft/semantic-kernel",
+      "selectedRef": "main",
+      "parseMode": "orchestration-framework",
+      "trustTier": "High",
+      "authorityRole": "orchestration-pattern",
+      "priority": "P2",
+      "license": "MIT",
+      "collections": ["orchestration", "agent_patterns"],
+      "extractionTargets": ["kernels", "plugins", "planners", "memory", "connectors"],
+      "refreshCadence": "30-day",
+      "state": "active",
+      "riskNotes": {
+        "note": "Microsoft's SDK for integrating LLMs with applications",
+        "multiLanguage": "Supports C#, Python, Java"
+      },
+      "lastReviewedUtc": "2026-04-12T20:56:00Z",
+      "createdUtc": "2026-04-12T20:56:00Z",
+      "updatedUtc": "2026-04-12T20:56:00Z"
+    },
+    "langchain-ai/langgraph": {
+      "sourceId": "langchain-ai/langgraph",
+      "repoUrl": "https://github.com/langchain-ai/langgraph",
+      "selectedRef": "main",
+      "parseMode": "orchestration-framework",
+      "trustTier": "High",
+      "authorityRole": "orchestration-pattern",
+      "priority": "P2",
+      "license": "MIT",
+      "collections": ["orchestration", "multi_agent_systems"],
+      "extractionTargets": ["graphs", "nodes", "edges", "state-management", "multi-agent"],
+      "refreshCadence": "14-day",
+      "state": "active",
+      "riskNotes": {
+        "note": "LangGraph for building stateful, multi-agent applications",
+        "useCase": "Complex agent workflows with cycles and state persistence"
+      },
+      "lastReviewedUtc": "2026-04-12T20:56:00Z",
+      "createdUtc": "2026-04-12T20:56:00Z",
+      "updatedUtc": "2026-04-12T20:56:00Z"
+    },
+    "huggingface/transformers": {
+      "sourceId": "huggingface/transformers",
+      "repoUrl": "https://github.com/huggingface/transformers",
+      "selectedRef": "main",
+      "parseMode": "ml-framework",
+      "trustTier": "High",
+      "authorityRole": "orchestration-pattern",
+      "priority": "P2",
+      "license": "Apache-2.0",
+      "collections": ["orchestration"],
+      "extractionTargets": ["agents", "pipelines", "tokenizers", "models"],
+      "refreshCadence": "30-day",
+      "state": "active",
+      "riskNotes": {
+        "note": "Transformers library with agent capabilities",
+        "scope": "Agent-specific transformers implementations"
+      },
+      "lastReviewedUtc": "2026-04-12T20:56:00Z",
+      "createdUtc": "2026-04-12T20:56:00Z",
+      "updatedUtc": "2026-04-12T20:56:00Z"
+    },
+    "openai/openai-python": {
+      "sourceId": "openai/openai-python",
+      "repoUrl": "https://github.com/openai/openai-python",
+      "selectedRef": "main",
+      "parseMode": "llm-sdk",
+      "trustTier": "High",
+      "authorityRole": "orchestration-pattern",
+      "priority": "P2",
+      "license": "MIT",
+      "collections": ["agent_patterns"],
+      "extractionTargets": ["assistants", "function-calling", "streaming", "embeddings"],
+      "refreshCadence": "30-day",
+      "state": "active",
+      "riskNotes": {
+        "note": "Official OpenAI Python SDK - assistants API and function calling",
+        "scope": "API patterns and integration examples"
+      },
+      "lastReviewedUtc": "2026-04-12T20:56:00Z",
+      "createdUtc": "2026-04-12T20:56:00Z",
+      "updatedUtc": "2026-04-12T20:56:00Z"
+    },
+    "pinecone-io/pinecone-python-client": {
+      "sourceId": "pinecone-io/pinecone-python-client",
+      "repoUrl": "https://github.com/pinecone-io/pinecone-python-client",
+      "selectedRef": "main",
+      "parseMode": "vector-database",
+      "trustTier": "Medium-High",
+      "authorityRole": "memory-system",
+      "priority": "P3",
+      "license": "MIT",
+      "collections": ["vector_memory"],
+      "extractionTargets": ["index-operations", "query", "metadata-filtering"],
+      "refreshCadence": "45-day",
+      "state": "active",
+      "riskNotes": {
+        "note": "Pinecone vector database client",
+        "commercial": "Managed service; client patterns only"
+      },
+      "lastReviewedUtc": "2026-04-12T20:56:00Z",
+      "createdUtc": "2026-04-12T20:56:00Z",
+      "updatedUtc": "2026-04-12T20:56:00Z"
+    },
+    "weaviate/weaviate": {
+      "sourceId": "weaviate/weaviate",
+      "repoUrl": "https://github.com/weaviate/weaviate",
+      "selectedRef": "main",
+      "parseMode": "vector-database",
+      "trustTier": "Medium-High",
+      "authorityRole": "memory-system",
+      "priority": "P3",
+      "license": "BSD-3-Clause",
+      "collections": ["vector_memory"],
+      "extractionTargets": ["graphql-queries", "vector-search", "hybrid-search", "modules"],
+      "refreshCadence": "45-day",
+      "state": "active",
+      "riskNotes": {
+        "note": "Weaviate vector search engine",
+        "scope": "Vector DB patterns and GraphQL integration"
+      },
+      "lastReviewedUtc": "2026-04-12T20:56:00Z",
+      "createdUtc": "2026-04-12T20:56:00Z",
+      "updatedUtc": "2026-04-12T20:56:00Z"
+    }
+  },
+  "sourceFamilies": {
+    "langchain": {
+      "familyId": "langchain",
+      "sources": ["langchain-ai/langchain", "langchain-ai/langchainjs", "langchain-ai/langgraph"],
+      "preferredFor": "orchestration"
+    },
+    "vector-databases": {
+      "familyId": "vector-databases",
+      "sources": ["chromadb/chroma", "pinecone-io/pinecone-python-client", "weaviate/weaviate"],
+      "preferredFor": "vector_memory"
+    }
+  },
+  "updatedUtc": "2026-04-12T20:56:00Z"
+}

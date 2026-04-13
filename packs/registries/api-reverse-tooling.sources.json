@@ -1,0 +1,256 @@
+{
+  "schemaVersion": 1,
+  "packId": "api-reverse-tooling",
+  "sources": {
+    "alufers/mitmproxy2swagger": {
+      "sourceId": "alufers/mitmproxy2swagger",
+      "repoUrl": "https://github.com/alufers/mitmproxy2swagger",
+      "selectedRef": "main",
+      "parseMode": "traffic-to-openapi",
+      "trustTier": "High",
+      "authorityRole": "reverse-format",
+      "priority": "P0",
+      "license": "MIT",
+      "collections": ["openapi_specs", "traffic_analysis"],
+      "extractionTargets": ["har-to-openapi", "mitmproxy-to-openapi", "path-inference", "schema-generation"],
+      "refreshCadence": "30-day",
+      "state": "active",
+      "riskNotes": {
+        "note": "Primary tool for converting mitmproxy captures to OpenAPI specs",
+        "mustOutrank": "Should be primary reference for traffic-to-spec conversion",
+        "securityConsiderations": "Handles captured traffic that may contain secrets"
+      },
+      "lastReviewedUtc": "2026-04-12T20:56:00Z",
+      "createdUtc": "2026-04-12T20:56:00Z",
+      "updatedUtc": "2026-04-12T20:56:00Z"
+    },
+    "mitmproxy/mitmproxy": {
+      "sourceId": "mitmproxy/mitmproxy",
+      "repoUrl": "https://github.com/mitmproxy/mitmproxy",
+      "selectedRef": "main",
+      "parseMode": "traffic-capture",
+      "trustTier": "High",
+      "authorityRole": "traffic-capture",
+      "priority": "P1",
+      "license": "MIT",
+      "collections": ["api_capture"],
+      "extractionTargets": ["flow-format", "http-capture", "websocket-capture", "ssl-intercept"],
+      "refreshCadence": "30-day",
+      "state": "active",
+      "riskNotes": {
+        "note": "Core HTTP/HTTPS proxy for traffic interception",
+        "doNotUseAs": "API design authority or spec truth source",
+        "securityConsiderations": "Intercepts TLS traffic; requires certificate trust"
+      },
+      "lastReviewedUtc": "2026-04-12T20:56:00Z",
+      "createdUtc": "2026-04-12T20:56:00Z",
+      "updatedUtc": "2026-04-12T20:56:00Z"
+    },
+    "OpenAPITools/openapi-generator": {
+      "sourceId": "OpenAPITools/openapi-generator",
+      "repoUrl": "https://github.com/OpenAPITools/openapi-generator",
+      "selectedRef": "master",
+      "parseMode": "openapi-tooling",
+      "trustTier": "High",
+      "authorityRole": "reverse-format",
+      "priority": "P1",
+      "license": "Apache-2.0",
+      "collections": ["openapi_specs"],
+      "extractionTargets": ["codegen", "spec-validation", "spec-conversion", "client-generation"],
+      "refreshCadence": "30-day",
+      "state": "active",
+      "riskNotes": {
+        "note": "Official OpenAPI generator with extensive language support",
+        "doNotUseAs": "API behavior authority beyond spec definition"
+      },
+      "lastReviewedUtc": "2026-04-12T20:56:00Z",
+      "createdUtc": "2026-04-12T20:56:00Z",
+      "updatedUtc": "2026-04-12T20:56:00Z"
+    },
+    "swagger-api/swagger-codegen": {
+      "sourceId": "swagger-api/swagger-codegen",
+      "repoUrl": "https://github.com/swagger-api/swagger-codegen",
+      "selectedRef": "master",
+      "parseMode": "openapi-tooling",
+      "trustTier": "Medium-High",
+      "authorityRole": "reverse-format",
+      "priority": "P2",
+      "license": "Apache-2.0",
+      "collections": ["openapi_specs"],
+      "extractionTargets": ["swagger-codegen", "spec-conversion", "client-generation"],
+      "refreshCadence": "45-day",
+      "state": "active",
+      "riskNotes": {
+        "note": "Original Swagger codegen (legacy but widely used)",
+        "deprecationWarning": "Some generators migrated to OpenAPITools",
+        "doNotUseAs": "OpenAPI 3.0 authority (legacy Swagger 2.0 focus)"
+      },
+      "lastReviewedUtc": "2026-04-12T20:56:00Z",
+      "createdUtc": "2026-04-12T20:56:00Z",
+      "updatedUtc": "2026-04-12T20:56:00Z"
+    },
+    "Kong/insomnia": {
+      "sourceId": "Kong/insomnia",
+      "repoUrl": "https://github.com/Kong/insomnia",
+      "selectedRef": "develop",
+      "parseMode": "api-client",
+      "trustTier": "Medium",
+      "authorityRole": "tooling-analyzer",
+      "priority": "P2",
+      "license": "Apache-2.0",
+      "collections": ["traffic_analysis"],
+      "extractionTargets": ["request-collections", "environment-config", "spec-import-export"],
+      "refreshCadence": "30-day",
+      "state": "active",
+      "riskNotes": {
+        "note": "Open-source API client with spec generation capabilities",
+        "doNotUseAs": "API authority or runtime behavior reference"
+      },
+      "lastReviewedUtc": "2026-04-12T20:56:00Z",
+      "createdUtc": "2026-04-12T20:56:00Z",
+      "updatedUtc": "2026-04-12T20:56:00Z"
+    },
+    "postmanlabs/postman-collection": {
+      "sourceId": "postmanlabs/postman-collection",
+      "repoUrl": "https://github.com/postmanlabs/postman-collection",
+      "selectedRef": "develop",
+      "parseMode": "api-collection",
+      "trustTier": "Medium",
+      "authorityRole": "tooling-analyzer",
+      "priority": "P2",
+      "license": "Apache-2.0",
+      "collections": ["traffic_analysis"],
+      "extractionTargets": ["collection-format", "request-definitions", "environment-variables"],
+      "refreshCadence": "45-day",
+      "state": "active",
+      "riskNotes": {
+        "note": "Postman Collection SDK and format specification",
+        "doNotUseAs": "OpenAPI authority (different format with different semantics)"
+      },
+      "lastReviewedUtc": "2026-04-12T20:56:00Z",
+      "createdUtc": "2026-04-12T20:56:00Z",
+      "updatedUtc": "2026-04-12T20:56:00Z"
+    },
+    "httpie/httpie": {
+      "sourceId": "httpie/httpie",
+      "repoUrl": "https://github.com/httpie/httpie",
+      "selectedRef": "master",
+      "parseMode": "http-client",
+      "trustTier": "Medium",
+      "authorityRole": "traffic-capture",
+      "priority": "P3",
+      "license": "BSD-3-Clause",
+      "collections": ["api_capture"],
+      "extractionTargets": ["http-request-format", "response-formatting"],
+      "refreshCadence": "45-day",
+      "state": "active",
+      "riskNotes": {
+        "note": "User-friendly HTTP client with output formatting",
+        "doNotUseAs": "API specification or design authority"
+      },
+      "lastReviewedUtc": "2026-04-12T20:56:00Z",
+      "createdUtc": "2026-04-12T20:56:00Z",
+      "updatedUtc": "2026-04-12T20:56:00Z"
+    },
+    "HTTPArchive/httpbin": {
+      "sourceId": "HTTPArchive/httpbin",
+      "repoUrl": "https://github.com/HTTPArchive/httpbin",
+      "selectedRef": "main",
+      "parseMode": "test-api",
+      "trustTier": "Medium",
+      "authorityRole": "test-endpoint",
+      "priority": "P3",
+      "license": "ISC",
+      "collections": ["traffic_analysis"],
+      "extractionTargets": ["http-test-patterns", "response-formats"],
+      "refreshCadence": "manual",
+      "state": "active",
+      "riskNotes": {
+        "note": "HTTP Request & Response Service for testing",
+        "doNotUseAs": "Production API pattern or security reference",
+        "useFor": "Testing capture tools and client behavior only"
+      },
+      "lastReviewedUtc": "2026-04-12T20:56:00Z",
+      "createdUtc": "2026-04-12T20:56:00Z",
+      "updatedUtc": "2026-04-12T20:56:00Z"
+    },
+    "APIs-guru/openapi-directory": {
+      "sourceId": "APIs-guru/openapi-directory",
+      "repoUrl": "https://github.com/APIs-guru/openapi-directory",
+      "selectedRef": "main",
+      "parseMode": "spec-collection",
+      "trustTier": "Medium",
+      "authorityRole": "exemplar-pattern",
+      "priority": "P2",
+      "license": "CC-BY-SA-4.0",
+      "collections": ["openapi_specs"],
+      "extractionTargets": ["public-api-specs", "spec-examples", "design-patterns"],
+      "refreshCadence": "30-day",
+      "state": "active",
+      "riskNotes": {
+        "note": "Directory of real-world OpenAPI definitions from popular APIs",
+        "authorityDowngrade": "Example patterns, not authoritative API specs",
+        "staleWarning": "Specs may not reflect current API versions"
+      },
+      "lastReviewedUtc": "2026-04-12T20:56:00Z",
+      "createdUtc": "2026-04-12T20:56:00Z",
+      "updatedUtc": "2026-04-12T20:56:00Z"
+    },
+    "OAI/OpenAPI-Specification": {
+      "sourceId": "OAI/OpenAPI-Specification",
+      "repoUrl": "https://github.com/OAI/OpenAPI-Specification",
+      "selectedRef": "main",
+      "parseMode": "specification",
+      "trustTier": "High",
+      "authorityRole": "reverse-format",
+      "priority": "P0",
+      "license": "Apache-2.0",
+      "collections": ["openapi_specs"],
+      "extractionTargets": ["spec-version-schemas", "version-differences", "official-examples"],
+      "refreshCadence": "spec-release",
+      "state": "active",
+      "riskNotes": {
+        "note": "Official OpenAPI Specification repository",
+        "mustOutrank": "Must outrank all other sources on OpenAPI specification questions"
+      },
+      "lastReviewedUtc": "2026-04-12T20:56:00Z",
+      "createdUtc": "2026-04-12T20:56:00Z",
+      "updatedUtc": "2026-04-12T20:56:00Z"
+    },
+    "api_private_project": {
+      "sourceId": "api_private_project",
+      "repoUrl": "local://api-reverse-tooling/private",
+      "selectedRef": "current",
+      "parseMode": "private-capture",
+      "trustTier": "High",
+      "authorityRole": "private-project",
+      "priority": "P0",
+      "license": "Private",
+      "collections": ["api_capture"],
+      "extractionTargets": ["captured-traffic", "private-endpoints", "internal-schemas"],
+      "refreshCadence": "on-capture",
+      "state": "active",
+      "riskNotes": {
+        "note": "User-captured API traffic and private specifications",
+        "securityWarning": "May contain sensitive credentials; secret scanning required",
+        "dataHandling": "Local processing only; do not expose secrets in output"
+      },
+      "lastReviewedUtc": "2026-04-12T20:56:00Z",
+      "createdUtc": "2026-04-12T20:56:00Z",
+      "updatedUtc": "2026-04-12T20:56:00Z"
+    }
+  },
+  "sourceFamilies": {
+    "openapi-generator-forks": {
+      "familyId": "openapi-generator-forks",
+      "canonicalSource": "OpenAPITools/openapi-generator",
+      "familyType": "fork",
+      "members": [
+        "swagger-api/swagger-codegen",
+        "OpenAPITools/openapi-generator"
+      ],
+      "notes": "OpenAPITools forked from swagger-codegen; both maintained with different focuses"
+    }
+  },
+  "updatedUtc": "2026-04-12T20:56:00Z"
+}

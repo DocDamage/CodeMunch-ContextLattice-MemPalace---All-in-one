@@ -1,0 +1,194 @@
+{
+  "schemaVersion": 1,
+  "packId": "notebook-data-workflow",
+  "sources": {
+    "mito-ds/mito": {
+      "sourceId": "mito-ds/mito",
+      "repoUrl": "https://github.com/mito-ds/mito",
+      "selectedRef": "main",
+      "parseMode": "mito-source",
+      "trustTier": "High",
+      "authorityRole": "notebook-tooling",
+      "priority": "P0",
+      "license": "AGPL-3.0",
+      "collections": ["notebook_extensions", "dataframe_patterns"],
+      "extractionTargets": ["mito-components", "spreadsheet-patterns", "code-generation", "ai-features"],
+      "refreshCadence": "30-day",
+      "state": "active",
+      "riskNotes": {
+        "note": "Primary source for AI-assisted notebook workflows",
+        "mustOutrank": "Must outrank generic pandas examples on Mito-specific questions",
+        "license": "AGPL-3.0 - review compliance for your use case"
+      },
+      "lastReviewedUtc": "2026-04-12T20:56:00Z",
+      "createdUtc": "2026-04-12T20:56:00Z",
+      "updatedUtc": "2026-04-12T20:56:00Z"
+    },
+    "jupyter/notebook": {
+      "sourceId": "jupyter/notebook",
+      "repoUrl": "https://github.com/jupyter/notebook",
+      "selectedRef": "main",
+      "parseMode": "jupyter-source",
+      "trustTier": "High",
+      "authorityRole": "notebook-tooling",
+      "priority": "P0",
+      "license": "BSD-3-Clause",
+      "collections": ["notebook_extensions"],
+      "extractionTargets": ["notebook-format", "cell-types", "widget-system", "extension-API"],
+      "refreshCadence": "jupyter-release",
+      "state": "active",
+      "riskNotes": {
+        "note": "Core Jupyter notebook implementation",
+        "mustOutrank": "Must outrank community extensions on notebook format questions"
+      },
+      "lastReviewedUtc": "2026-04-12T20:56:00Z",
+      "createdUtc": "2026-04-12T20:56:00Z",
+      "updatedUtc": "2026-04-12T20:56:00Z"
+    },
+    "pandas-dev/pandas": {
+      "sourceId": "pandas-dev/pandas",
+      "repoUrl": "https://github.com/pandas-dev/pandas",
+      "selectedRef": "main",
+      "parseMode": "pandas-source",
+      "trustTier": "High",
+      "authorityRole": "dataframe-manipulation",
+      "priority": "P0",
+      "license": "BSD-3-Clause",
+      "collections": ["dataframe_patterns"],
+      "extractionTargets": ["DataFrame-API", "Series-API", "groupby", "merge-join", "time-series", "io-tools"],
+      "refreshCadence": "pandas-release",
+      "state": "active",
+      "riskNotes": {
+        "note": "Core pandas DataFrame library",
+        "mustOutrank": "Must outrank tutorials on API questions"
+      },
+      "lastReviewedUtc": "2026-04-12T20:56:00Z",
+      "createdUtc": "2026-04-12T20:56:00Z",
+      "updatedUtc": "2026-04-12T20:56:00Z"
+    },
+    "numpy/numpy": {
+      "sourceId": "numpy/numpy",
+      "repoUrl": "https://github.com/numpy/numpy",
+      "selectedRef": "main",
+      "parseMode": "numpy-source",
+      "trustTier": "High",
+      "authorityRole": "dataframe-manipulation",
+      "priority": "P1",
+      "license": "BSD-3-Clause",
+      "collections": ["dataframe_patterns"],
+      "extractionTargets": ["ndarray", "array-operations", "broadcasting", "ufuncs", "linear-algebra"],
+      "refreshCadence": "numpy-release",
+      "state": "active",
+      "riskNotes": {
+        "note": "Core NumPy array library - foundation for pandas"
+      },
+      "lastReviewedUtc": "2026-04-12T20:56:00Z",
+      "createdUtc": "2026-04-12T20:56:00Z",
+      "updatedUtc": "2026-04-12T20:56:00Z"
+    },
+    "matplotlib/matplotlib": {
+      "sourceId": "matplotlib/matplotlib",
+      "repoUrl": "https://github.com/matplotlib/matplotlib",
+      "selectedRef": "main",
+      "parseMode": "viz-library",
+      "trustTier": "High",
+      "authorityRole": "viz-library",
+      "priority": "P1",
+      "license": "PSF-based",
+      "collections": ["viz_patterns"],
+      "extractionTargets": ["pyplot", "figure-api", "axes-api", "backends", "styles"],
+      "refreshCadence": "matplotlib-release",
+      "state": "active",
+      "riskNotes": {
+        "note": "Core Python visualization library"
+      },
+      "lastReviewedUtc": "2026-04-12T20:56:00Z",
+      "createdUtc": "2026-04-12T20:56:00Z",
+      "updatedUtc": "2026-04-12T20:56:00Z"
+    },
+    "mwaskom/seaborn": {
+      "sourceId": "mwaskom/seaborn",
+      "repoUrl": "https://github.com/mwaskom/seaborn",
+      "selectedRef": "master",
+      "parseMode": "viz-library",
+      "trustTier": "Medium-High",
+      "authorityRole": "viz-library",
+      "priority": "P2",
+      "license": "BSD-3-Clause",
+      "collections": ["viz_patterns"],
+      "extractionTargets": ["statistical-plots", "categorical-plots", "distribution-plots", "regression-plots"],
+      "refreshCadence": "seaborn-release",
+      "state": "active",
+      "riskNotes": {
+        "note": "Statistical visualization library built on matplotlib"
+      },
+      "lastReviewedUtc": "2026-04-12T20:56:00Z",
+      "createdUtc": "2026-04-12T20:56:00Z",
+      "updatedUtc": "2026-04-12T20:56:00Z"
+    },
+    "plotly/plotly.py": {
+      "sourceId": "plotly/plotly.py",
+      "repoUrl": "https://github.com/plotly/plotly.py",
+      "selectedRef": "master",
+      "parseMode": "viz-library",
+      "trustTier": "Medium-High",
+      "authorityRole": "viz-library",
+      "priority": "P2",
+      "license": "MIT",
+      "collections": ["viz_patterns"],
+      "extractionTargets": ["interactive-charts", "dash-integration", "figure-widget", "plotly-express"],
+      "refreshCadence": "plotly-release",
+      "state": "active",
+      "riskNotes": {
+        "note": "Interactive visualization library",
+        "scope": "Keep scoped to interactive viz questions"
+      },
+      "lastReviewedUtc": "2026-04-12T20:56:00Z",
+      "createdUtc": "2026-04-12T20:56:00Z",
+      "updatedUtc": "2026-04-12T20:56:00Z"
+    },
+    "jupyter-widgets/ipywidgets": {
+      "sourceId": "jupyter-widgets/ipywidgets",
+      "repoUrl": "https://github.com/jupyter-widgets/ipywidgets",
+      "selectedRef": "main",
+      "parseMode": "widget-library",
+      "trustTier": "Medium-High",
+      "authorityRole": "notebook-tooling",
+      "priority": "P2",
+      "license": "BSD-3-Clause",
+      "collections": ["notebook_extensions"],
+      "extractionTargets": ["widget-types", "widget-state", "interact", "custom-widgets"],
+      "refreshCadence": "ipywidgets-release",
+      "state": "active",
+      "riskNotes": {
+        "note": "Interactive widgets for Jupyter notebooks"
+      },
+      "lastReviewedUtc": "2026-04-12T20:56:00Z",
+      "createdUtc": "2026-04-12T20:56:00Z",
+      "updatedUtc": "2026-04-12T20:56:00Z"
+    },
+    "microsoft/SandDance": {
+      "sourceId": "microsoft/SandDance",
+      "repoUrl": "https://github.com/microsoft/SandDance",
+      "selectedRef": "master",
+      "parseMode": "viz-library",
+      "trustTier": "Medium",
+      "authorityRole": "viz-library",
+      "priority": "P3",
+      "license": "MIT",
+      "collections": ["viz_patterns"],
+      "extractionTargets": ["3d-visualization", "data-exploration", "jupyter-extension"],
+      "refreshCadence": "manual",
+      "state": "active",
+      "riskNotes": {
+        "note": "3D data visualization for Jupyter",
+        "scope": "Keep scoped to 3D viz questions only"
+      },
+      "lastReviewedUtc": "2026-04-12T20:56:00Z",
+      "createdUtc": "2026-04-12T20:56:00Z",
+      "updatedUtc": "2026-04-12T20:56:00Z"
+    }
+  },
+  "sourceFamilies": {},
+  "updatedUtc": "2026-04-12T20:56:00Z"
+}

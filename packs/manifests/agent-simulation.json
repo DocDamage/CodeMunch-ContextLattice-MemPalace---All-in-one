@@ -1,0 +1,234 @@
+{
+  "schemaVersion": 1,
+  "packId": "agent-simulation",
+  "domain": "ai-agents",
+  "version": "1.0.0-draft",
+  "taxonomyVersion": "1",
+  "status": "draft",
+  "channel": "draft",
+  "defaultCollections": [
+    "agent_patterns",
+    "multi_agent_systems",
+    "vector_memory",
+    "orchestration"
+  ],
+  "description": "Agent simulation patterns, multi-agent orchestration, vector memory systems, and LLM-app architecture patterns derived from a16z-infra/ai-town and ecosystem sources.",
+  "scope": {
+    "includes": [
+      "Agent state models and behavior definitions",
+      "Multi-agent orchestration and communication patterns",
+      "Vector memory and retrieval-augmented generation (RAG)",
+      "Tool use and function calling patterns",
+      "Reasoning patterns (Chain-of-Thought, ReAct, etc.)",
+      "Social agent simulation architectures",
+      "LangChain and LLM framework patterns",
+      "Vector database integration patterns",
+      "Agent lifecycle management and observability"
+    ],
+    "excludes": [
+      "General machine learning model training",
+      "Non-agent AI applications (pure CV, NLP pipelines)",
+      "Proprietary agent implementations not based on open patterns",
+      "Game engine specific AI (use godot-engine or rpgmaker-mz packs)"
+    ]
+  },
+  "installProfiles": {
+    "core-only": {
+      "description": "Core agent patterns and state models only",
+      "sources": [
+        "a16z-infra/ai-town"
+      ]
+    },
+    "minimal": {
+      "description": "Core + LangChain patterns + basic vector store",
+      "sources": [
+        "a16z-infra/ai-town",
+        "langchain-ai/langchain",
+        "langchain-ai/langchainjs",
+        "chromadb/chroma"
+      ]
+    },
+    "developer": {
+      "description": "Balanced pack with multi-agent and orchestration patterns",
+      "sources": [
+        "a16z-infra/ai-town",
+        "langchain-ai/langchain",
+        "langchain-ai/langchainjs",
+        "chromadb/chroma",
+        "microsoft/semantic-kernel",
+        "langchain-ai/langgraph",
+        "huggingface/transformers"
+      ]
+    },
+    "full": {
+      "description": "All promoted public sources",
+      "sources": "all-promoted"
+    },
+    "research": {
+      "description": "Academic and research-oriented agent implementations",
+      "sources": [
+        "a16z-infra/ai-town",
+        "langchain-ai/langchain",
+        "microsoft/semantic-kernel",
+        "langchain-ai/langgraph",
+        "huggingface/transformers",
+        "openai/openai-python"
+      ]
+    }
+  },
+  "collections": {
+    "agent_patterns": {
+      "description": "Core agent patterns: state models, behavior trees, decision making, tool use",
+      "defaultTrust": "High",
+      "authorityRole": "agent-simulation"
+    },
+    "multi_agent_systems": {
+      "description": "Multi-agent orchestration, communication protocols, social simulation",
+      "defaultTrust": "High",
+      "authorityRole": "agent-simulation"
+    },
+    "vector_memory": {
+      "description": "Vector database operations, embedding workflows, retrieval patterns",
+      "defaultTrust": "High",
+      "authorityRole": "memory-system"
+    },
+    "orchestration": {
+      "description": "Agent orchestration frameworks, LangChain, LangGraph, Semantic Kernel patterns",
+      "defaultTrust": "Medium-High",
+      "authorityRole": "orchestration-pattern"
+    }
+  },
+  "extractionConfig": {
+    "modulePath": "module/LLMWorkflow/extraction",
+    "pipelineModule": "ExtractionPipeline.ps1",
+    "parserModules": {
+      "agentPattern": "AgentPatternExtractor.ps1",
+      "vectorStore": "VectorStoreExtractor.ps1"
+    },
+    "fileExtensions": {
+      ".py": {
+        "parser": "AgentPatternExtractor.ps1",
+        "function": "Invoke-AgentPatternExtract",
+        "extractionType": "agentPattern"
+      },
+      ".ts": {
+        "parser": "AgentPatternExtractor.ps1",
+        "function": "Invoke-AgentPatternExtract",
+        "extractionType": "agentPattern"
+      },
+      ".js": {
+        "parser": "AgentPatternExtractor.ps1",
+        "function": "Invoke-AgentPatternExtract",
+        "extractionType": "agentPattern"
+      },
+      ".json": {
+        "parser": "VectorStoreExtractor.ps1",
+        "function": "Test-VectorStoreConfig",
+        "extractionType": "vectorConfig"
+      },
+      ".yaml": {
+        "parser": "VectorStoreExtractor.ps1",
+        "function": "Test-VectorStoreConfig",
+        "extractionType": "vectorConfig"
+      },
+      ".yml": {
+        "parser": "VectorStoreExtractor.ps1",
+        "function": "Test-VectorStoreConfig",
+        "extractionType": "vectorConfig"
+      }
+    }
+  },
+  "extractionTargets": {
+    "agent_state_models": {
+      "description": "Agent state definition extraction",
+      "required": true,
+      "parserFunction": "Get-AgentStateModel"
+    },
+    "multi_agent_patterns": {
+      "description": "Multi-agent orchestration pattern extraction",
+      "required": true,
+      "parserFunction": "Get-MultiAgentPatterns"
+    },
+    "memory_patterns": {
+      "description": "Agent memory and retrieval pattern extraction",
+      "required": true,
+      "parserFunction": "Get-AgentMemoryPatterns"
+    },
+    "tool_use_patterns": {
+      "description": "Tool use and function calling pattern extraction",
+      "required": true,
+      "parserFunction": "Get-ToolUsePatterns"
+    },
+    "reasoning_patterns": {
+      "description": "Reasoning pattern extraction (CoT, ReAct, etc.)",
+      "required": true,
+      "parserFunction": "Get-ReasoningPatterns"
+    },
+    "vector_db_operations": {
+      "description": "Vector database operation extraction",
+      "required": true,
+      "parserFunction": "Get-VectorDBOperations"
+    },
+    "embedding_workflows": {
+      "description": "Embedding workflow extraction",
+      "required": true,
+      "parserFunction": "Get-EmbeddingWorkflows"
+    },
+    "retrieval_patterns": {
+      "description": "Retrieval pattern extraction",
+      "required": true,
+      "parserFunction": "Get-RetrievalPatterns"
+    },
+    "rag_patterns": {
+      "description": "RAG implementation pattern extraction",
+      "required": true,
+      "parserFunction": "Get-RAGPatterns"
+    }
+  },
+  "retrievalProfiles": {
+    "agent-pattern": {
+      "description": "Agent state and behavior pattern questions",
+      "preferredCollections": ["agent_patterns"]
+    },
+    "multi-agent": {
+      "description": "Multi-agent orchestration questions",
+      "preferredCollections": ["multi_agent_systems", "orchestration"]
+    },
+    "memory-system": {
+      "description": "Vector memory and retrieval questions",
+      "preferredCollections": ["vector_memory"]
+    },
+    "orchestration": {
+      "description": "LangChain, LangGraph, orchestration framework questions",
+      "preferredCollections": ["orchestration", "agent_patterns"]
+    },
+    "rag": {
+      "description": "RAG implementation and optimization questions",
+      "preferredCollections": ["vector_memory", "agent_patterns"]
+    },
+    "tool-use": {
+      "description": "Tool use and function calling questions",
+      "preferredCollections": ["agent_patterns"]
+    },
+    "reasoning": {
+      "description": "Reasoning pattern implementation questions",
+      "preferredCollections": ["agent_patterns"]
+    }
+  },
+  "owners": {
+    "owners": ["Doc"],
+    "reviewers": ["pack-maintainer-1"],
+    "defaultPromotionPolicy": "owner-or-reviewer-approval",
+    "escalationContact": "Doc"
+  },
+  "evalSuites": [
+    "agent-pattern-correctness",
+    "orchestration-validity",
+    "rag-quality",
+    "domain-correctness-negative",
+    "retrieval-provenance"
+  ],
+  "createdUtc": "2026-04-12T20:56:00Z",
+  "updatedUtc": "2026-04-12T20:56:00Z",
+  "createdByRunId": "20260412T205600Z-pack-agent-sim"
+}

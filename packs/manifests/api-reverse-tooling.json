@@ -1,0 +1,228 @@
+{
+  "schemaVersion": 1,
+  "packId": "api-reverse-tooling",
+  "domain": "api-dev",
+  "version": "1.0.0-draft",
+  "taxonomyVersion": "1",
+  "status": "draft",
+  "channel": "draft",
+  "defaultCollections": [
+    "api_capture",
+    "openapi_specs",
+    "traffic_analysis",
+    "schema_inference"
+  ],
+  "description": "Reverse-engineering of HTTP/REST APIs, traffic capture to structured spec conversion, and protocol-to-schema workflows. Includes HAR/mitmproxy parsing, OpenAPI generation, and API security scanning.",
+  "scope": {
+    "includes": [
+      "HTTP/REST API reverse engineering",
+      "Traffic capture analysis (HAR, mitmproxy)",
+      "OpenAPI/Swagger spec generation and parsing",
+      "Request/response pair extraction",
+      "Path template inference and parameterization",
+      "API schema inference from traffic",
+      "Secret detection in API traffic (API keys, tokens)",
+      "Multi-spec merging and version compatibility",
+      "Protocol-to-schema workflow automation"
+    ],
+    "excludes": [
+      "Active exploitation of live APIs",
+      "Credential cracking or brute force attacks",
+      "Redistribution of captured third-party API data",
+      "Replacing authoritative API documentation"
+    ]
+  },
+  "installProfiles": {
+    "core-only": {
+      "description": "Core traffic capture and OpenAPI tools only",
+      "sources": [
+        "alufers/mitmproxy2swagger"
+      ]
+    },
+    "minimal": {
+      "description": "Core + essential HTTP capture tools",
+      "sources": [
+        "alufers/mitmproxy2swagger",
+        "mitmproxy/mitmproxy",
+        "OpenAPITools/openapi-generator"
+      ]
+    },
+    "developer": {
+      "description": "Balanced public pack with analysis tools",
+      "sources": [
+        "alufers/mitmproxy2swagger",
+        "mitmproxy/mitmproxy",
+        "OpenAPITools/openapi-generator",
+        "swagger-api/swagger-codegen",
+        "Kong/insomnia",
+        "postmanlabs/postman-collection"
+      ]
+    },
+    "full": {
+      "description": "All promoted public sources",
+      "sources": "all-promoted"
+    },
+    "private-first": {
+      "description": "Minimal public + strong local capture emphasis",
+      "sources": [
+        "alufers/mitmproxy2swagger",
+        "api_private_project"
+      ]
+    }
+  },
+  "collections": {
+    "api_capture": {
+      "description": "Captured API traffic (HAR, mitmproxy dumps)",
+      "defaultTrust": "Medium",
+      "authorityRole": "traffic-capture"
+    },
+    "openapi_specs": {
+      "description": "OpenAPI 2.0/3.0 specifications and Swagger docs",
+      "defaultTrust": "High",
+      "authorityRole": "reverse-format"
+    },
+    "traffic_analysis": {
+      "description": "Analyzed traffic patterns, endpoint discovery, path templates",
+      "defaultTrust": "Medium",
+      "authorityRole": "tooling-analyzer"
+    },
+    "schema_inference": {
+      "description": "Inferred schemas from traffic, parameter patterns, type detection",
+      "defaultTrust": "Medium",
+      "authorityRole": "schema-inference"
+    }
+  },
+  "extractionConfig": {
+    "modulePath": "module/LLMWorkflow/extraction",
+    "pipelineModule": "ExtractionPipeline.ps1",
+    "parserModules": {
+      "trafficCapture": "TrafficCaptureParser.ps1",
+      "openapi": "OpenAPIExtractor.ps1"
+    },
+    "fileExtensions": {
+      ".har": {
+        "parser": "TrafficCaptureParser.ps1",
+        "function": "ConvertFrom-HARFile",
+        "extractionType": "trafficCapture",
+        "contentCheck": {
+          "pattern": "\"log\"\\s*:\\s*\\{",
+          "description": "HTTP Archive format JSON structure"
+        }
+      },
+      ".flow": {
+        "parser": "TrafficCaptureParser.ps1",
+        "function": "ConvertFrom-MitmproxyDump",
+        "extractionType": "trafficCapture",
+        "contentCheck": {
+          "pattern": "mitmproxy",
+          "description": "mitmproxy flow dump format"
+        }
+      },
+      ".json": {
+        "parser": "OpenAPIExtractor.ps1",
+        "function": "ConvertFrom-OpenAPISpec",
+        "extractionType": "openapi",
+        "contentCheck": {
+          "pattern": "\"(openapi|swagger)\"\\s*:",
+          "description": "OpenAPI or Swagger specification"
+        }
+      },
+      ".yaml": {
+        "parser": "OpenAPIExtractor.ps1",
+        "function": "ConvertFrom-OpenAPISpec",
+        "extractionType": "openapi",
+        "contentCheck": {
+          "pattern": "^(openapi|swagger):",
+          "description": "OpenAPI or Swagger YAML specification"
+        }
+      },
+      ".yml": {
+        "parser": "OpenAPIExtractor.ps1",
+        "function": "ConvertFrom-OpenAPISpec",
+        "extractionType": "openapi",
+        "contentCheck": {
+          "pattern": "^(openapi|swagger):",
+          "description": "OpenAPI or Swagger YAML specification"
+        }
+      }
+    }
+  },
+  "extractionTargets": {
+    "request_response_pairs": {
+      "description": "Extracted HTTP request/response pairs from capture",
+      "required": true,
+      "parserFunction": "Get-RequestResponsePairs"
+    },
+    "endpoint_definitions": {
+      "description": "API endpoint definitions with methods and paths",
+      "required": true,
+      "parserFunction": "Get-OpenAPIEndpoints"
+    },
+    "schema_definitions": {
+      "description": "JSON Schema definitions for request/response bodies",
+      "required": true,
+      "parserFunction": "Get-OpenAPISchemas"
+    },
+    "path_templates": {
+      "description": "Parameterized path templates inferred from traffic",
+      "required": true,
+      "parserFunction": "Invoke-PathTemplateInference"
+    },
+    "security_schemes": {
+      "description": "Authentication and security scheme definitions",
+      "required": true,
+      "parserFunction": "Get-OpenAPISecuritySchemes"
+    },
+    "secret_exposures": {
+      "description": "Detected secrets in traffic (API keys, tokens)",
+      "required": true,
+      "parserFunction": "Find-CapturedSecrets"
+    },
+    "parameter_definitions": {
+      "description": "Query, path, header, and cookie parameters",
+      "required": true,
+      "parserFunction": "Get-OpenAPIParameters"
+    }
+  },
+  "retrievalProfiles": {
+    "api-discovery": {
+      "description": "Discover API endpoints from traffic",
+      "preferredCollections": ["api_capture", "traffic_analysis"]
+    },
+    "spec-generation": {
+      "description": "Generate OpenAPI specs from captures",
+      "preferredCollections": ["traffic_analysis", "openapi_specs"],
+      "requiredEvidence": ["request_response_pairs", "path_templates"]
+    },
+    "spec-analysis": {
+      "description": "Analyze existing OpenAPI specifications",
+      "preferredCollections": ["openapi_specs", "schema_inference"],
+      "requiredEvidence": ["endpoint_definitions", "schema_definitions"]
+    },
+    "security-audit": {
+      "description": "Security analysis of API traffic and specs",
+      "preferredCollections": ["api_capture", "schema_inference"],
+      "requiredEvidence": ["secret_exposures", "security_schemes"]
+    },
+    "spec-merging": {
+      "description": "Merge multiple OpenAPI specifications",
+      "preferredCollections": ["openapi_specs"]
+    }
+  },
+  "owners": {
+    "owners": ["Doc"],
+    "reviewers": ["pack-maintainer-1"],
+    "defaultPromotionPolicy": "owner-or-reviewer-approval",
+    "escalationContact": "Doc"
+  },
+  "evalSuites": [
+    "api-discovery",
+    "spec-generation",
+    "security-audit",
+    "domain-correctness-negative",
+    "retrieval-provenance"
+  ],
+  "createdUtc": "2026-04-12T20:56:00Z",
+  "updatedUtc": "2026-04-12T20:56:00Z",
+  "createdByRunId": "20260412T205600Z-pack-api-reverse"
+}
