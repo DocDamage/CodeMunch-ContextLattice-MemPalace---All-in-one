@@ -1,0 +1,140 @@
+{
+  "schemaVersion": 1,
+  "packId": "ui-frontend-framework",
+  "sources": {
+    "mithriljs/mithril.js": {
+      "sourceId": "mithriljs/mithril.js",
+      "repoUrl": "https://github.com/MithrilJS/mithril.js",
+      "selectedRef": "main",
+      "parseMode": "component-library",
+      "trustTier": "High",
+      "authorityRole": "ui-component-library",
+      "priority": "P0",
+      "license": "MIT",
+      "collections": ["component_libraries"],
+      "extractionTargets": ["component-definitions", "vnode-patterns", "routing", "lifecycle"],
+      "refreshCadence": "30-day",
+      "state": "active",
+      "riskNotes": {
+        "stars": "14k",
+        "note": "Lightweight modern JavaScript framework for building Single Page Applications",
+        "scope": "Primary frontend framework authority"
+      },
+      "lastReviewedUtc": "2026-04-12T20:56:00Z",
+      "createdUtc": "2026-04-12T20:56:00Z",
+      "updatedUtc": "2026-04-12T20:56:00Z"
+    },
+    "mdbootstrap/TW-Elements": {
+      "sourceId": "mdbootstrap/TW-Elements",
+      "repoUrl": "https://github.com/mdbootstrap/TW-Elements",
+      "selectedRef": "main",
+      "parseMode": "component-library",
+      "trustTier": "High",
+      "authorityRole": "ui-component-library",
+      "priority": "P0",
+      "license": "MIT",
+      "collections": ["component_libraries", "styling_frameworks"],
+      "extractionTargets": ["tailwind-components", "accessibility-patterns", "forms", "navigation"],
+      "refreshCadence": "30-day",
+      "state": "active",
+      "riskNotes": {
+        "stars": "11k",
+        "note": "500+ Tailwind UI components for modern web development",
+        "scope": "Tailwind-based component library authority"
+      },
+      "lastReviewedUtc": "2026-04-12T20:56:00Z",
+      "createdUtc": "2026-04-12T20:56:00Z",
+      "updatedUtc": "2026-04-12T20:56:00Z"
+    },
+    "nolly-studio/cult-ui": {
+      "sourceId": "nolly-studio/cult-ui",
+      "repoUrl": "https://github.com/nolly-studio/cult-ui",
+      "selectedRef": "main",
+      "parseMode": "component-library",
+      "trustTier": "Medium-High",
+      "authorityRole": "ui-component-library",
+      "priority": "P1",
+      "license": "MIT",
+      "collections": ["component_libraries"],
+      "extractionTargets": ["react-components", "typescript-patterns", "modern-ui"],
+      "refreshCadence": "45-day",
+      "state": "active",
+      "riskNotes": {
+        "note": "Modern React UI component library with TypeScript",
+        "scope": "React component pattern reference"
+      },
+      "lastReviewedUtc": "2026-04-12T20:56:00Z",
+      "createdUtc": "2026-04-12T20:56:00Z",
+      "updatedUtc": "2026-04-12T20:56:00Z"
+    },
+    "saadeghi/daisyui": {
+      "sourceId": "saadeghi/daisyui",
+      "repoUrl": "https://github.com/saadeghi/daisyui",
+      "selectedRef": "master",
+      "parseMode": "design-system",
+      "trustTier": "High",
+      "authorityRole": "design-system",
+      "priority": "P1",
+      "license": "MIT",
+      "collections": ["design_systems", "styling_frameworks"],
+      "extractionTargets": ["component-classes", "theme-config", "semantic-colors", "design-tokens"],
+      "refreshCadence": "30-day",
+      "state": "active",
+      "riskNotes": {
+        "stars": "32k",
+        "note": "Most popular Tailwind CSS component library",
+        "scope": "Tailwind plugin and semantic class authority"
+      },
+      "lastReviewedUtc": "2026-04-12T20:56:00Z",
+      "createdUtc": "2026-04-12T20:56:00Z",
+      "updatedUtc": "2026-04-12T20:56:00Z"
+    },
+    "tailwindlabs/tailwindcss": {
+      "sourceId": "tailwindlabs/tailwindcss",
+      "repoUrl": "https://github.com/tailwindlabs/tailwindcss",
+      "selectedRef": "main",
+      "parseMode": "styling-framework",
+      "trustTier": "High",
+      "authorityRole": "frontend-framework",
+      "priority": "P2",
+      "license": "MIT",
+      "collections": ["styling_frameworks"],
+      "extractionTargets": ["utility-classes", "config-api", "plugins", "core-concepts"],
+      "refreshCadence": "engine-version-change",
+      "state": "active",
+      "riskNotes": {
+        "stars": "82k",
+        "note": "Core Tailwind CSS framework - utility-first CSS framework",
+        "scope": "Foundational CSS utility framework authority",
+        "mustOutrank": "Must outrank plugins on core framework questions"
+      },
+      "lastReviewedUtc": "2026-04-12T20:56:00Z",
+      "createdUtc": "2026-04-12T20:56:00Z",
+      "updatedUtc": "2026-04-12T20:56:00Z"
+    },
+    "floating-ui/floating-ui": {
+      "sourceId": "floating-ui/floating-ui",
+      "repoUrl": "https://github.com/floating-ui/floating-ui",
+      "selectedRef": "master",
+      "parseMode": "component-library",
+      "trustTier": "High",
+      "authorityRole": "ui-component-library",
+      "priority": "P2",
+      "license": "MIT",
+      "collections": ["component_libraries"],
+      "extractionTargets": ["positioning", "interactions", "dom-utils", "react-bindings"],
+      "refreshCadence": "45-day",
+      "state": "active",
+      "riskNotes": {
+        "stars": "15k",
+        "note": "Low-level library for positioning floating elements (tooltips, popovers, etc.)",
+        "scope": "Floating element positioning authority"
+      },
+      "lastReviewedUtc": "2026-04-12T20:56:00Z",
+      "createdUtc": "2026-04-12T20:56:00Z",
+      "updatedUtc": "2026-04-12T20:56:00Z"
+    }
+  },
+  "sourceFamilies": {},
+  "updatedUtc": "2026-04-12T20:56:00Z"
+}

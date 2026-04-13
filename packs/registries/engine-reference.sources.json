@@ -1,0 +1,131 @@
+{
+  "schemaVersion": 1,
+  "packId": "engine-reference",
+  "sources": {
+    "GarageGames/Torque3D": {
+      "sourceId": "GarageGames/Torque3D",
+      "repoUrl": "https://github.com/GarageGames/Torque3D",
+      "selectedRef": "main",
+      "parseMode": "cpp-engine-source",
+      "trustTier": "High",
+      "authorityRole": "engine-reference",
+      "priority": "P0",
+      "license": "MIT",
+      "collections": ["engine_architecture", "scripting_systems", "world_management", "render_pipeline"],
+      "extractionTargets": ["component-systems", "scene-graph", "entity-management", "script-bindings", "render-pipeline"],
+      "refreshCadence": "manual",
+      "state": "active",
+      "riskNotes": {
+        "note": "Historic but influential open-source game engine. Primary reference for engine architecture patterns.",
+        "legacyStatus": "Historic codebase; patterns may need adaptation for modern engines",
+        "mustOutrank": "Must outrank secondary engine sources on foundational architecture questions"
+      },
+      "lastReviewedUtc": "2026-04-12T20:56:00Z",
+      "createdUtc": "2026-04-12T20:56:00Z",
+      "updatedUtc": "2026-04-12T20:56:00Z"
+    },
+    "bitsquid/stingray-engine": {
+      "sourceId": "bitsquid/stingray-engine",
+      "repoUrl": "https://github.com/bitsquid/stingray-engine",
+      "selectedRef": "main",
+      "parseMode": "cpp-engine-source",
+      "trustTier": "High",
+      "authorityRole": "engine-reference",
+      "priority": "P1",
+      "license": "MIT",
+      "collections": ["engine_architecture", "scripting_systems", "world_management"],
+      "extractionTargets": ["component-systems", "entity-management", "script-runtime"],
+      "refreshCadence": "manual",
+      "state": "active",
+      "riskNotes": {
+        "note": "Bitsquid/Stingray engine (acquired by Autodesk). Modern data-driven architecture.",
+        "stars": "6k+",
+        "scope": "Reference for modern component systems and data-driven design"
+      },
+      "lastReviewedUtc": "2026-04-12T20:56:00Z",
+      "createdUtc": "2026-04-12T20:56:00Z",
+      "updatedUtc": "2026-04-12T20:56:00Z"
+    },
+    "ogrecave/ogre": {
+      "sourceId": "ogrecave/ogre",
+      "repoUrl": "https://github.com/ogrecave/ogre",
+      "selectedRef": "master",
+      "parseMode": "cpp-engine-source",
+      "trustTier": "High",
+      "authorityRole": "architecture-pattern",
+      "priority": "P1",
+      "license": "MIT",
+      "collections": ["engine_architecture", "render_pipeline"],
+      "extractionTargets": ["scene-graph", "render-pipeline", "resource-management"],
+      "refreshCadence": "engine-version-change",
+      "state": "active",
+      "riskNotes": {
+        "note": "Object-Oriented Graphics Rendering Engine. Reference for render pipeline and scene management.",
+        "stars": "4k+",
+        "scope": "Graphics/rendering focus; not a complete game engine"
+      },
+      "lastReviewedUtc": "2026-04-12T20:56:00Z",
+      "createdUtc": "2026-04-12T20:56:00Z",
+      "updatedUtc": "2026-04-12T20:56:00Z"
+    },
+    "gameplay3d/gameplay": {
+      "sourceId": "gameplay3d/gameplay",
+      "repoUrl": "https://github.com/gameplay3d/gameplay",
+      "selectedRef": "master",
+      "parseMode": "cpp-engine-source",
+      "trustTier": "Medium-High",
+      "authorityRole": "architecture-pattern",
+      "priority": "P2",
+      "license": "Apache-2.0",
+      "collections": ["engine_architecture", "scripting_systems"],
+      "extractionTargets": ["component-systems", "script-bindings", "game-loop"],
+      "refreshCadence": "manual",
+      "state": "active",
+      "riskNotes": {
+        "note": "Open-source C++ game framework. Reference for lightweight engine architecture.",
+        "stars": "4k+",
+        "scope": "Cross-platform framework; less feature-complete than Torque3D"
+      },
+      "lastReviewedUtc": "2026-04-12T20:56:00Z",
+      "createdUtc": "2026-04-12T20:56:00Z",
+      "updatedUtc": "2026-04-12T20:56:00Z"
+    },
+    "atomicgameengine/atomic": {
+      "sourceId": "atomicgameengine/atomic",
+      "repoUrl": "https://github.com/atomicgameengine/atomic",
+      "selectedRef": "master",
+      "parseMode": "cpp-engine-source",
+      "trustTier": "Medium-High",
+      "authorityRole": "scripting-runtime",
+      "priority": "P2",
+      "license": "MIT",
+      "collections": ["scripting_systems", "engine_architecture"],
+      "extractionTargets": ["script-bindings", "script-components", "component-systems"],
+      "refreshCadence": "manual",
+      "state": "active",
+      "riskNotes": {
+        "note": "Atomic Game Engine with JavaScript/TypeScript/C# scripting. Reference for scripting integration.",
+        "stars": "2k+",
+        "scope": "Scripting-focused; reference for JS/C# bindings"
+      },
+      "lastReviewedUtc": "2026-04-12T20:56:00Z",
+      "createdUtc": "2026-04-12T20:56:00Z",
+      "updatedUtc": "2026-04-12T20:56:00Z"
+    }
+  },
+  "sourceFamilies": {
+    "torque-family": {
+      "description": "Torque engine family descendants",
+      "sources": ["GarageGames/Torque3D"]
+    },
+    "stingray-family": {
+      "description": "Stingray engine derivatives",
+      "sources": ["bitsquid/stingray-engine"]
+    },
+    "ogre-family": {
+      "description": "OGRE-based engines and renderers",
+      "sources": ["ogrecave/ogre"]
+    }
+  },
+  "updatedUtc": "2026-04-12T20:56:00Z"
+}

@@ -1,0 +1,238 @@
+{
+  "schemaVersion": 1,
+  "packId": "voice-audio-generation",
+  "domain": "audio-ai",
+  "version": "1.0.0-draft",
+  "taxonomyVersion": "1",
+  "status": "draft",
+  "channel": "draft",
+  "defaultCollections": [
+    "voice_cloning",
+    "text_to_speech",
+    "audio_processing",
+    "voice_conversion"
+  ],
+  "description": "Voice generation, speech synthesis, voice cloning, and audio processing workflows including TTS pipelines, voice encoders, and audio feature extraction.",
+  "scope": {
+    "includes": [
+      "Text-to-Speech (TTS) model architectures and pipelines",
+      "Voice cloning and voice conversion techniques",
+      "Audio feature extraction (MFCC, spectrograms, mel-spectrograms)",
+      "Audio preprocessing and augmentation patterns",
+      "Speech synthesis optimization and inference",
+      "Voice encoder models and speaker embeddings",
+      "Streaming audio processing for real-time applications",
+      "Audio format handling and conversion workflows",
+      "Multi-language voice synthesis support"
+    ],
+    "excludes": [
+      "General music generation and composition",
+      "Audio playback and streaming infrastructure only",
+      "Speech recognition (ASR) models and training",
+      "Storing proprietary voice datasets or models",
+      "Real-time audio streaming protocols (WebRTC, etc.)"
+    ]
+  },
+  "installProfiles": {
+    "core-only": {
+      "description": "Core voice generation libraries and documentation",
+      "sources": [
+        "myshell-ai/OpenVoice",
+        "coqui-ai/TTS"
+      ]
+    },
+    "minimal": {
+      "description": "Core + Facebook FairSeq + basic audio processing",
+      "sources": [
+        "myshell-ai/OpenVoice",
+        "coqui-ai/TTS",
+        "facebook/fairseq",
+        "huggingface/transformers"
+      ]
+    },
+    "developer": {
+      "description": "Full voice generation stack with advanced processing",
+      "sources": [
+        "myshell-ai/OpenVoice",
+        "coqui-ai/TTS",
+        "facebook/fairseq",
+        "huggingface/transformers",
+        "jaywalnut310/vits",
+        "p0p4k/vits2_pytorch",
+        "yl4579/StyleTTS2",
+        "VoiceConversionGitHub/VoiceConversion"
+      ]
+    },
+    "full": {
+      "description": "All promoted public sources",
+      "sources": "all-promoted"
+    }
+  },
+  "collections": {
+    "voice_cloning": {
+      "description": "Voice cloning models, speaker embeddings, voice encoder architectures, and zero-shot voice transfer techniques",
+      "defaultTrust": "High",
+      "authorityRole": "voice-generation"
+    },
+    "text_to_speech": {
+      "description": "TTS pipelines, acoustic models, vocoders, and speech synthesis configurations",
+      "defaultTrust": "High",
+      "authorityRole": "speech-synthesis"
+    },
+    "audio_processing": {
+      "description": "Audio feature extraction, preprocessing, augmentation, and format handling",
+      "defaultTrust": "High",
+      "authorityRole": "audio-processing"
+    },
+    "voice_conversion": {
+      "description": "Voice conversion models, style transfer, and prosody manipulation techniques",
+      "defaultTrust": "Medium-High",
+      "authorityRole": "voice-generation"
+    }
+  },
+  "extractionConfig": {
+    "modulePath": "module/LLMWorkflow/extraction",
+    "pipelineModule": "ExtractionPipeline.ps1",
+    "parserModules": {
+      "voiceModel": "VoiceModelExtractor.ps1",
+      "audioProcessing": "AudioProcessingExtractor.ps1"
+    },
+    "fileExtensions": {
+      ".json": {
+        "parser": "VoiceModelExtractor.ps1",
+        "function": "Get-TTSConfiguration",
+        "extractionType": "ttsConfig"
+      },
+      ".yaml": {
+        "parser": "VoiceModelExtractor.ps1",
+        "function": "Get-TTSConfiguration",
+        "extractionType": "ttsConfig"
+      },
+      ".yml": {
+        "parser": "VoiceModelExtractor.ps1",
+        "function": "Get-TTSConfiguration",
+        "extractionType": "ttsConfig"
+      },
+      ".py": {
+        "parser": "VoiceModelExtractor.ps1",
+        "function": "Get-VoiceCloningPipeline",
+        "extractionType": "voicePipeline"
+      },
+      ".wav": {
+        "parser": "AudioProcessingExtractor.ps1",
+        "function": "Get-AudioFormatHandling",
+        "extractionType": "audioFormat"
+      },
+      ".mp3": {
+        "parser": "AudioProcessingExtractor.ps1",
+        "function": "Get-AudioFormatHandling",
+        "extractionType": "audioFormat"
+      }
+    }
+  },
+  "extractionTargets": {
+    "tts_configuration": {
+      "description": "TTS model configuration extraction",
+      "required": true,
+      "parserFunction": "Get-TTSConfiguration"
+    },
+    "voice_encoder_patterns": {
+      "description": "Voice encoder architecture extraction",
+      "required": true,
+      "parserFunction": "Get-VoiceEncoderPatterns"
+    },
+    "inference_optimization": {
+      "description": "Inference optimization patterns",
+      "required": true,
+      "parserFunction": "Get-InferenceOptimization"
+    },
+    "voice_cloning_pipeline": {
+      "description": "Voice cloning workflow extraction",
+      "required": true,
+      "parserFunction": "Get-VoiceCloningPipeline"
+    },
+    "audio_feature_extraction": {
+      "description": "MFCC, spectrogram, mel-spectrogram extraction patterns",
+      "required": true,
+      "parserFunction": "Get-AudioFeatureExtraction"
+    },
+    "audio_augmentation": {
+      "description": "Audio augmentation pattern extraction",
+      "required": true,
+      "parserFunction": "Get-AudioAugmentationPatterns"
+    },
+    "audio_format_handling": {
+      "description": "Audio format conversion handling",
+      "required": true,
+      "parserFunction": "Get-AudioFormatHandling"
+    },
+    "streaming_audio": {
+      "description": "Real-time streaming audio processing patterns",
+      "required": false,
+      "parserFunction": "Get-StreamingAudioPatterns"
+    }
+  },
+  "retrievalProfiles": {
+    "tts-lookup": {
+      "description": "TTS model and configuration questions",
+      "preferredCollections": ["text_to_speech"]
+    },
+    "voice-cloning": {
+      "description": "Voice cloning and speaker embedding questions",
+      "preferredCollections": ["voice_cloning"]
+    },
+    "audio-processing": {
+      "description": "Audio preprocessing and feature extraction",
+      "preferredCollections": ["audio_processing"]
+    },
+    "voice-conversion": {
+      "description": "Voice conversion and style transfer",
+      "preferredCollections": ["voice_conversion", "voice_cloning"]
+    },
+    "inference-optimization": {
+      "description": "Optimization for voice generation inference",
+      "preferredCollections": ["text_to_speech", "voice_cloning"]
+    }
+  },
+  "owners": {
+    "owners": ["Doc"],
+    "reviewers": ["pack-maintainer-1"],
+    "defaultPromotionPolicy": "owner-or-reviewer-approval",
+    "escalationContact": "Doc"
+  },
+  "evalSuites": [
+    "voice-quality",
+    "inference-performance",
+    "domain-correctness-negative",
+    "retrieval-provenance"
+  ],
+  "modelSupport": {
+    "supportedTTSArchitectures": [
+      "VITS",
+      "VITS2",
+      "StyleTTS2",
+      "Tacotron2",
+      "FastSpeech2",
+      "YourTTS",
+      "XTTS"
+    ],
+    "supportedVocoders": [
+      "HiFi-GAN",
+      "WaveGlow",
+      "WaveRNN",
+      "BigVGAN"
+    ],
+    "supportedEncoders": [
+      "ECAPA-TDNN",
+      "ResNet",
+      "Transformer",
+      "Wav2Vec2"
+    ],
+    "languageSupport": [
+      "en", "zh", "ja", "ko", "de", "fr", "es", "it", "pt", "ru", "ar"
+    ]
+  },
+  "createdUtc": "2026-04-12T20:56:00Z",
+  "updatedUtc": "2026-04-12T20:56:00Z",
+  "createdByRunId": "20260412T205600Z-pack-voice"
+}

@@ -1,0 +1,238 @@
+{
+  "schemaVersion": 1,
+  "packId": "ui-frontend-framework",
+  "domain": "frontend-dev",
+  "version": "1.0.0-draft",
+  "taxonomyVersion": "1",
+  "status": "draft",
+  "channel": "draft",
+  "defaultCollections": [
+    "component_libraries",
+    "design_systems",
+    "dashboard_patterns",
+    "styling_frameworks"
+  ],
+  "description": "UI component libraries, design systems, dashboard patterns, and frontend framework implementation for modern web development.",
+  "scope": {
+    "includes": [
+      "UI component library patterns and implementations",
+      "Design system tokens, themes, and configurations",
+      "Dashboard layout patterns and data visualization components",
+      "CSS-in-JS and utility-first styling frameworks",
+      "Component composition and accessibility patterns",
+      "Mithril.js, React, Vue, and other frontend frameworks",
+      "Tailwind CSS, DaisyUI, and TW-Elements implementations",
+      "Floating UI positioning and interaction patterns",
+      "Frontend build tooling and bundler configurations",
+      "TypeScript type definitions for UI components"
+    ],
+    "excludes": [
+      "Backend API development patterns",
+      "Database schema design",
+      "DevOps and deployment pipelines (unless frontend-specific)",
+      "Mobile native development (React Native, Flutter)",
+      "Game engine UI (use godot-engine pack)"
+    ]
+  },
+  "installProfiles": {
+    "core-only": {
+      "description": "Core component libraries and design systems only",
+      "sources": [
+        "mithriljs/mithril.js",
+        "mdbootstrap/TW-Elements"
+      ]
+    },
+    "minimal": {
+      "description": "Core + popular styling frameworks",
+      "sources": [
+        "mithriljs/mithril.js",
+        "mdbootstrap/TW-Elements",
+        "saadeghi/daisyui",
+        "tailwindlabs/tailwindcss"
+      ]
+    },
+    "developer": {
+      "description": "Balanced pack with component libraries and interaction patterns",
+      "sources": [
+        "mithriljs/mithril.js",
+        "mdbootstrap/TW-Elements",
+        "nolly-studio/cult-ui",
+        "saadeghi/daisyui",
+        "tailwindlabs/tailwindcss",
+        "floating-ui/floating-ui"
+      ]
+    },
+    "full": {
+      "description": "All promoted public sources",
+      "sources": "all-promoted"
+    }
+  },
+  "collections": {
+    "component_libraries": {
+      "description": "UI component definitions, props, composition patterns, and accessibility implementations",
+      "defaultTrust": "High",
+      "authorityRole": "ui-component-library"
+    },
+    "design_systems": {
+      "description": "Design tokens, theme configurations, style utilities, and documentation patterns",
+      "defaultTrust": "High",
+      "authorityRole": "design-system"
+    },
+    "dashboard_patterns": {
+      "description": "Dashboard layouts, data visualization components, admin panel patterns",
+      "defaultTrust": "Medium-High",
+      "authorityRole": "frontend-framework"
+    },
+    "styling_frameworks": {
+      "description": "CSS frameworks, utility classes, CSS-in-JS patterns, theming approaches",
+      "defaultTrust": "High",
+      "authorityRole": "frontend-framework"
+    }
+  },
+  "extractionConfig": {
+    "modulePath": "module/LLMWorkflow/extraction",
+    "pipelineModule": "ExtractionPipeline.ps1",
+    "parserModules": {
+      "componentLibrary": "ComponentLibraryExtractor.ps1",
+      "designSystem": "DesignSystemExtractor.ps1"
+    },
+    "fileExtensions": {
+      ".tsx": {
+        "parser": "ComponentLibraryExtractor.ps1",
+        "function": "Get-ComponentDefinitions",
+        "extractionType": "component"
+      },
+      ".jsx": {
+        "parser": "ComponentLibraryExtractor.ps1",
+        "function": "Get-ComponentDefinitions",
+        "extractionType": "component"
+      },
+      ".vue": {
+        "parser": "ComponentLibraryExtractor.ps1",
+        "function": "Get-ComponentDefinitions",
+        "extractionType": "component"
+      },
+      ".svelte": {
+        "parser": "ComponentLibraryExtractor.ps1",
+        "function": "Get-ComponentDefinitions",
+        "extractionType": "component"
+      },
+      ".css": {
+        "parser": "DesignSystemExtractor.ps1",
+        "function": "Get-DesignTokens",
+        "extractionType": "designTokens"
+      },
+      ".scss": {
+        "parser": "DesignSystemExtractor.ps1",
+        "function": "Get-DesignTokens",
+        "extractionType": "designTokens"
+      },
+      ".less": {
+        "parser": "DesignSystemExtractor.ps1",
+        "function": "Get-DesignTokens",
+        "extractionType": "designTokens"
+      },
+      "tailwind.config.js": {
+        "parser": "DesignSystemExtractor.ps1",
+        "function": "Get-ThemeConfigurations",
+        "extractionType": "themeConfig"
+      },
+      "theme.config.js": {
+        "parser": "DesignSystemExtractor.ps1",
+        "function": "Get-ThemeConfigurations",
+        "extractionType": "themeConfig"
+      },
+      ".stories.tsx": {
+        "parser": "ComponentLibraryExtractor.ps1",
+        "function": "Get-DocumentationPatterns",
+        "extractionType": "stories"
+      },
+      ".stories.jsx": {
+        "parser": "ComponentLibraryExtractor.ps1",
+        "function": "Get-DocumentationPatterns",
+        "extractionType": "stories"
+      }
+    }
+  },
+  "extractionTargets": {
+    "component_definitions": {
+      "description": "Component metadata and interface extraction",
+      "required": true,
+      "parserFunction": "Get-ComponentDefinitions"
+    },
+    "component_props": {
+      "description": "Props and TypeScript interface extraction",
+      "required": true,
+      "parserFunction": "Get-ComponentProps"
+    },
+    "composition_patterns": {
+      "description": "Component composition pattern extraction",
+      "required": true,
+      "parserFunction": "Get-CompositionPatterns"
+    },
+    "accessibility_patterns": {
+      "description": "A11y pattern and ARIA implementation extraction",
+      "required": true,
+      "parserFunction": "Get-AccessibilityPatterns"
+    },
+    "design_tokens": {
+      "description": "Colors, typography, spacing token extraction",
+      "required": true,
+      "parserFunction": "Get-DesignTokens"
+    },
+    "theme_configurations": {
+      "description": "Theme variant and configuration extraction",
+      "required": true,
+      "parserFunction": "Get-ThemeConfigurations"
+    },
+    "style_utilities": {
+      "description": "Utility class and style helper extraction",
+      "required": true,
+      "parserFunction": "Get-StyleUtilities"
+    },
+    "documentation_patterns": {
+      "description": "Documentation structure and Storybook patterns",
+      "required": true,
+      "parserFunction": "Get-DocumentationPatterns"
+    }
+  },
+  "retrievalProfiles": {
+    "component-lookup": {
+      "description": "Component API and usage questions",
+      "preferredCollections": ["component_libraries"]
+    },
+    "design-system": {
+      "description": "Design token and theme questions",
+      "preferredCollections": ["design_systems"]
+    },
+    "dashboard-pattern": {
+      "description": "Dashboard layout and data viz questions",
+      "preferredCollections": ["dashboard_patterns", "component_libraries"]
+    },
+    "styling-framework": {
+      "description": "CSS and styling framework questions",
+      "preferredCollections": ["styling_frameworks"]
+    },
+    "accessibility": {
+      "description": "A11y and accessibility implementation questions",
+      "preferredCollections": ["component_libraries"]
+    }
+  },
+  "owners": {
+    "owners": ["Doc"],
+    "reviewers": ["pack-maintainer-1"],
+    "defaultPromotionPolicy": "owner-or-reviewer-approval",
+    "escalationContact": "Doc"
+  },
+  "evalSuites": [
+    "component-usage",
+    "design-system-correctness",
+    "accessibility-compliance",
+    "domain-correctness-negative",
+    "retrieval-provenance"
+  ],
+  "versionBoundaries": {},
+  "createdUtc": "2026-04-12T20:56:00Z",
+  "updatedUtc": "2026-04-12T20:56:00Z",
+  "createdByRunId": "20260412T205600Z-pack-ui"
+}

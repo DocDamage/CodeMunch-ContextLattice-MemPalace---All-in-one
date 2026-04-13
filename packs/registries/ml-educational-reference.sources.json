@@ -1,0 +1,137 @@
+{
+  "schemaVersion": 1,
+  "packId": "ml-educational-reference",
+  "sources": {
+    "lexfridman/mit-deep-learning": {
+      "sourceId": "lexfridman/mit-deep-learning",
+      "repoUrl": "https://github.com/lexfridman/mit-deep-learning",
+      "selectedRef": "master",
+      "parseMode": "educational-content",
+      "trustTier": "High",
+      "authorityRole": "educational-reference",
+      "priority": "P0",
+      "license": "MIT",
+      "collections": ["deep_learning_curriculum", "practical_tutorials"],
+      "extractionTargets": ["tutorial-structure", "code-examples", "assignments", "lecture-materials"],
+      "refreshCadence": "semester-cycle",
+      "state": "active",
+      "riskNotes": {
+        "note": "MIT Deep Learning course materials - authoritative educational content",
+        "mustOutrank": "Must outrank community tutorials on foundational DL concepts"
+      },
+      "lastReviewedUtc": "2026-04-12T20:56:00Z",
+      "createdUtc": "2026-04-12T20:56:00Z",
+      "updatedUtc": "2026-04-12T20:56:00Z"
+    },
+    "d2l-ai/d2l-en": {
+      "sourceId": "d2l-ai/d2l-en",
+      "repoUrl": "https://github.com/d2l-ai/d2l-en",
+      "selectedRef": "master",
+      "parseMode": "textbook-content",
+      "trustTier": "High",
+      "authorityRole": "educational-reference",
+      "priority": "P0",
+      "license": "CC-BY-SA-4.0",
+      "collections": ["deep_learning_curriculum", "ml_concepts", "practical_tutorials"],
+      "extractionTargets": ["chapter-structure", "concept-hierarchies", "code-examples", "exercises"],
+      "refreshCadence": "30-day",
+      "state": "active",
+      "riskNotes": {
+        "note": "Dive into Deep Learning - comprehensive interactive textbook",
+        "stars": "17k+",
+        "scope": "Covers deep learning from basics to advanced topics"
+      },
+      "lastReviewedUtc": "2026-04-12T20:56:00Z",
+      "createdUtc": "2026-04-12T20:56:00Z",
+      "updatedUtc": "2026-04-12T20:56:00Z"
+    },
+    "fastai/fastbook": {
+      "sourceId": "fastai/fastbook",
+      "repoUrl": "https://github.com/fastai/fastbook",
+      "selectedRef": "master",
+      "parseMode": "educational-content",
+      "trustTier": "High",
+      "authorityRole": "educational-reference",
+      "priority": "P1",
+      "license": "GPL-3.0",
+      "collections": ["deep_learning_curriculum", "practical_tutorials"],
+      "extractionTargets": ["notebook-content", "top-down-approach", "practical-examples"],
+      "refreshCadence": "course-cycle",
+      "state": "active",
+      "riskNotes": {
+        "note": "Fast.ai course book - top-down practical deep learning",
+        "stars": "21k+",
+        "teachingStyle": "Top-down approach differs from bottom-up curriculum"
+      },
+      "lastReviewedUtc": "2026-04-12T20:56:00Z",
+      "createdUtc": "2026-04-12T20:56:00Z",
+      "updatedUtc": "2026-04-12T20:56:00Z"
+    },
+    "practical-mlops": {
+      "sourceId": "practical-mlops",
+      "repoUrl": "https://github.com/visenger/awesome-mlops",
+      "selectedRef": "master",
+      "parseMode": "curated-index",
+      "trustTier": "Medium-High",
+      "authorityRole": "tutorial-content",
+      "priority": "P1",
+      "license": "CC0-1.0",
+      "collections": ["workshop_materials", "practical_tutorials"],
+      "extractionTargets": ["mlops-patterns", "deployment-guides", "tool-references"],
+      "refreshCadence": "30-day",
+      "state": "active",
+      "riskNotes": {
+        "note": "MLOps curated resources and practical guides",
+        "scope": "Keep scoped to educational and conceptual MLOps content"
+      },
+      "lastReviewedUtc": "2026-04-12T20:56:00Z",
+      "createdUtc": "2026-04-12T20:56:00Z",
+      "updatedUtc": "2026-04-12T20:56:00Z"
+    },
+    "tensorflow/docs": {
+      "sourceId": "tensorflow/docs",
+      "repoUrl": "https://github.com/tensorflow/docs",
+      "selectedRef": "master",
+      "parseMode": "documentation",
+      "trustTier": "High",
+      "authorityRole": "tutorial-content",
+      "priority": "P2",
+      "license": "Apache-2.0",
+      "collections": ["practical_tutorials", "ml_concepts"],
+      "extractionTargets": ["tensorflow-guides", "keras-examples", "tutorials"],
+      "refreshCadence": "release-cycle",
+      "state": "active",
+      "riskNotes": {
+        "note": "Official TensorFlow documentation and tutorials",
+        "frameworkVersion": "Focus on TensorFlow 2.x content",
+        "doNotUseAs": "framework-agnostic ML theory authority"
+      },
+      "lastReviewedUtc": "2026-04-12T20:56:00Z",
+      "createdUtc": "2026-04-12T20:56:00Z",
+      "updatedUtc": "2026-04-12T20:56:00Z"
+    },
+    "pytorch/tutorials": {
+      "sourceId": "pytorch/tutorials",
+      "repoUrl": "https://github.com/pytorch/tutorials",
+      "selectedRef": "main",
+      "parseMode": "documentation",
+      "trustTier": "High",
+      "authorityRole": "tutorial-content",
+      "priority": "P2",
+      "license": "BSD-3-Clause",
+      "collections": ["practical_tutorials", "ml_concepts"],
+      "extractionTargets": ["pytorch-guides", "beginner-tutorials", "advanced-tutorials"],
+      "refreshCadence": "release-cycle",
+      "state": "active",
+      "riskNotes": {
+        "note": "Official PyTorch tutorials and examples",
+        "doNotUseAs": "framework-agnostic ML theory authority"
+      },
+      "lastReviewedUtc": "2026-04-12T20:56:00Z",
+      "createdUtc": "2026-04-12T20:56:00Z",
+      "updatedUtc": "2026-04-12T20:56:00Z"
+    }
+  },
+  "sourceFamilies": {},
+  "updatedUtc": "2026-04-12T20:56:00Z"
+}

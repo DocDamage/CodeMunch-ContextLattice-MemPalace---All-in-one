@@ -1,0 +1,209 @@
+{
+  "schemaVersion": 1,
+  "packId": "ml-educational-reference",
+  "domain": "ml-education",
+  "version": "1.0.0-draft",
+  "taxonomyVersion": "1",
+  "status": "draft",
+  "channel": "draft",
+  "defaultCollections": [
+    "deep_learning_curriculum",
+    "ml_concepts",
+    "practical_tutorials",
+    "workshop_materials"
+  ],
+  "description": "Machine learning educational references, deep learning curricula, and conceptual support material for ML education and self-study.",
+  "scope": {
+    "includes": [
+      "Deep learning curriculum materials and course content",
+      "Machine learning concept explanations and hierarchies",
+      "Practical tutorials and hands-on exercises",
+      "Workshop materials and lab guides",
+      "Code examples in Python, TensorFlow, and PyTorch",
+      "Model architecture patterns and implementations",
+      "Training loop patterns and best practices",
+      "Evaluation metrics and benchmarking approaches",
+      "Framework comparisons and migration guides",
+      "Educational content from authoritative ML courses"
+    ],
+    "excludes": [
+      "Proprietary research papers without open licenses",
+      "Outdated framework versions (TensorFlow 1.x, deprecated APIs)",
+      "Production deployment without educational context",
+      "Non-educational model weights and datasets",
+      "Commercial ML platform documentation"
+    ]
+  },
+  "installProfiles": {
+    "core-only": {
+      "description": "Core curriculum and concept materials only",
+      "sources": [
+        "lexfridman/mit-deep-learning",
+        "d2l-ai/d2l-en"
+      ]
+    },
+    "minimal": {
+      "description": "Core + practical tutorials",
+      "sources": [
+        "lexfridman/mit-deep-learning",
+        "d2l-ai/d2l-en",
+        "fastai/fastbook"
+      ]
+    },
+    "developer": {
+      "description": "Balanced pack with framework tutorials and MLOps",
+      "sources": [
+        "lexfridman/mit-deep-learning",
+        "d2l-ai/d2l-en",
+        "fastai/fastbook",
+        "tensorflow/docs",
+        "pytorch/tutorials"
+      ]
+    },
+    "full": {
+      "description": "All promoted public sources",
+      "sources": "all-promoted"
+    }
+  },
+  "collections": {
+    "deep_learning_curriculum": {
+      "description": "Structured deep learning courses and curriculum materials from authoritative sources like MIT and comprehensive textbooks",
+      "defaultTrust": "High",
+      "authorityRole": "educational-reference"
+    },
+    "ml_concepts": {
+      "description": "Machine learning concept hierarchies, taxonomy, and theoretical foundations",
+      "defaultTrust": "High",
+      "authorityRole": "conceptual-anchor"
+    },
+    "practical_tutorials": {
+      "description": "Hands-on tutorials, code-along exercises, and practical implementation guides",
+      "defaultTrust": "Medium-High",
+      "authorityRole": "tutorial-content"
+    },
+    "workshop_materials": {
+      "description": "Workshop labs, assignments, and guided learning materials",
+      "defaultTrust": "Medium",
+      "authorityRole": "tutorial-content"
+    }
+  },
+  "extractionConfig": {
+    "modulePath": "module/LLMWorkflow/extraction",
+    "pipelineModule": "ExtractionPipeline.ps1",
+    "parserModules": {
+      "educational": "EducationalContentExtractor.ps1",
+      "mlConcepts": "MLConceptExtractor.ps1"
+    },
+    "fileExtensions": {
+      ".md": {
+        "parser": "EducationalContentExtractor.ps1",
+        "function": "Get-TutorialStructure",
+        "extractionType": "tutorial"
+      },
+      ".ipynb": {
+        "parser": "EducationalContentExtractor.ps1",
+        "function": "Get-CodeExamples",
+        "extractionType": "notebook"
+      },
+      ".py": {
+        "parser": "MLConceptExtractor.ps1",
+        "function": "Get-ModelArchitectures",
+        "extractionType": "python"
+      }
+    }
+  },
+  "extractionTargets": {
+    "tutorial_structure": {
+      "description": "Tutorial outlines and learning path extraction",
+      "required": true,
+      "parserFunction": "Get-TutorialStructure"
+    },
+    "exercise_patterns": {
+      "description": "Exercise types and problem set extraction",
+      "required": true,
+      "parserFunction": "Get-ExercisePatterns"
+    },
+    "concept_hierarchy": {
+      "description": "Topic taxonomy and concept relationship extraction",
+      "required": true,
+      "parserFunction": "Get-ConceptHierarchy"
+    },
+    "code_examples": {
+      "description": "Sample code and implementation extraction",
+      "required": true,
+      "parserFunction": "Get-CodeExamples"
+    },
+    "model_architectures": {
+      "description": "Model type and architecture pattern extraction",
+      "required": true,
+      "parserFunction": "Get-ModelArchitectures"
+    },
+    "training_patterns": {
+      "description": "Training loop and optimization pattern extraction",
+      "required": true,
+      "parserFunction": "Get-TrainingPatterns"
+    },
+    "evaluation_metrics": {
+      "description": "Metrics and evaluation pattern extraction",
+      "required": true,
+      "parserFunction": "Get-EvaluationMetrics"
+    },
+    "framework_comparisons": {
+      "description": "Framework pattern and comparison extraction",
+      "required": true,
+      "parserFunction": "Get-FrameworkComparisons"
+    }
+  },
+  "retrievalProfiles": {
+    "curriculum-lookup": {
+      "description": "Course and curriculum structure questions",
+      "preferredCollections": ["deep_learning_curriculum"]
+    },
+    "concept-explanation": {
+      "description": "ML concept and theory questions",
+      "preferredCollections": ["ml_concepts", "deep_learning_curriculum"]
+    },
+    "tutorial-guidance": {
+      "description": "Tutorial and hands-on learning questions",
+      "preferredCollections": ["practical_tutorials", "workshop_materials"]
+    },
+    "code-example": {
+      "description": "Implementation and code example questions",
+      "preferredCollections": ["practical_tutorials", "deep_learning_curriculum"]
+    },
+    "model-architecture": {
+      "description": "Model architecture and design questions",
+      "preferredCollections": ["ml_concepts", "practical_tutorials"]
+    },
+    "framework-comparison": {
+      "description": "Framework comparison and migration questions",
+      "preferredCollections": ["practical_tutorials", "deep_learning_curriculum"]
+    }
+  },
+  "owners": {
+    "owners": ["Doc"],
+    "reviewers": ["pack-maintainer-1"],
+    "defaultPromotionPolicy": "owner-or-reviewer-approval",
+    "escalationContact": "Doc"
+  },
+  "evalSuites": [
+    "concept-accuracy",
+    "code-correctness",
+    "tutorial-completeness",
+    "domain-correctness-negative",
+    "retrieval-provenance"
+  ],
+  "versionBoundaries": {
+    "tensorflow2": {
+      "deprecatedPatterns": ["tf.Session", "tf.placeholder", "tf.variable_scope"],
+      "modernPatterns": ["tf.function", "tf.keras", "@tf.function"]
+    },
+    "pytorch2": {
+      "eagerModeDefault": true,
+      "compileModeAvailable": true
+    }
+  },
+  "createdUtc": "2026-04-12T20:56:00Z",
+  "updatedUtc": "2026-04-12T20:56:00Z",
+  "createdByRunId": "20260412T205600Z-ml-edu-pack"
+}

@@ -1,0 +1,209 @@
+{
+  "schemaVersion": 1,
+  "packId": "engine-reference",
+  "domain": "game-engines",
+  "version": "1.0.0-draft",
+  "taxonomyVersion": "1",
+  "status": "draft",
+  "channel": "draft",
+  "defaultCollections": [
+    "engine_architecture",
+    "scripting_systems",
+    "world_management",
+    "render_pipeline"
+  ],
+  "description": "Game engine architecture patterns, scripting systems, world management, and render pipeline reference. Based on Torque3D and other influential game engines.",
+  "scope": {
+    "includes": [
+      "Game engine architecture patterns (ECS, component systems)",
+      "Scene graph structures and entity management",
+      "Scripting language bindings and runtime integration",
+      "Engine service patterns and subsystems",
+      "World management and level streaming",
+      "Render pipeline architecture",
+      "Game loop integration patterns",
+      "Script lifecycle hooks and component patterns"
+    ],
+    "excludes": [
+      "Storing proprietary engine source code",
+      "Redistributing commercial engine SDKs",
+      "Treating specific engine implementations as universal law",
+      "Game-specific asset management (use engine-specific packs)"
+    ]
+  },
+  "installProfiles": {
+    "core-only": {
+      "description": "Core engine architecture patterns only",
+      "sources": [
+        "GarageGames/Torque3D"
+      ]
+    },
+    "minimal": {
+      "description": "Core + primary scripting and architecture references",
+      "sources": [
+        "GarageGames/Torque3D",
+        "bitsquid/stingray-engine",
+        "ogrecave/ogre"
+      ]
+    },
+    "developer": {
+      "description": "Balanced pack with multiple engine references",
+      "sources": [
+        "GarageGames/Torque3D",
+        "bitsquid/stingray-engine",
+        "ogrecave/ogre",
+        "gameplay3d/gameplay",
+        "atomicgameengine/atomic"
+      ]
+    },
+    "full": {
+      "description": "All promoted public sources",
+      "sources": "all-promoted"
+    }
+  },
+  "collections": {
+    "engine_architecture": {
+      "description": "Engine architecture patterns: component systems, ECS, scene graphs, entity management",
+      "defaultTrust": "High",
+      "authorityRole": "engine-reference"
+    },
+    "scripting_systems": {
+      "description": "Scripting language bindings, runtime integration, script component patterns",
+      "defaultTrust": "High",
+      "authorityRole": "scripting-runtime"
+    },
+    "world_management": {
+      "description": "World management, level streaming, zone systems, spatial partitioning",
+      "defaultTrust": "Medium-High",
+      "authorityRole": "architecture-pattern"
+    },
+    "render_pipeline": {
+      "description": "Render pipeline architecture, graphics subsystems, material systems",
+      "defaultTrust": "Medium-High",
+      "authorityRole": "architecture-pattern"
+    }
+  },
+  "extractionConfig": {
+    "modulePath": "module/LLMWorkflow/extraction",
+    "pipelineModule": "ExtractionPipeline.ps1",
+    "parserModules": {
+      "engineArchitecture": "EngineArchitectureExtractor.ps1",
+      "scriptRuntime": "ScriptRuntimeExtractor.ps1"
+    },
+    "fileExtensions": {
+      ".cpp": {
+        "parser": "EngineArchitectureExtractor.ps1",
+        "function": "Invoke-EngineArchitectureExtract",
+        "extractionType": "engineArchitecture",
+        "contentCheck": {
+          "pattern": "class.*Component|class.*Entity|class.*Scene|class.*Manager",
+          "description": "Engine component/class pattern"
+        }
+      },
+      ".h": {
+        "parser": "EngineArchitectureExtractor.ps1",
+        "function": "Invoke-EngineArchitectureExtract",
+        "extractionType": "engineArchitecture"
+      },
+      ".cs": {
+        "parser": "ScriptRuntimeExtractor.ps1",
+        "function": "Invoke-ScriptRuntimeExtract",
+        "extractionType": "scriptRuntime"
+      },
+      ".lua": {
+        "parser": "ScriptRuntimeExtractor.ps1",
+        "function": "Invoke-ScriptRuntimeExtract",
+        "extractionType": "scriptRuntime"
+      },
+      ".py": {
+        "parser": "ScriptRuntimeExtractor.ps1",
+        "function": "Invoke-ScriptRuntimeExtract",
+        "extractionType": "scriptRuntime",
+        "contentCheck": {
+          "pattern": "script|binding|gameobject|component",
+          "description": "Script binding pattern"
+        }
+      }
+    }
+  },
+  "extractionTargets": {
+    "component_systems": {
+      "description": "Component system pattern extraction",
+      "required": true,
+      "parserFunction": "Get-ComponentSystemPatterns"
+    },
+    "scene_graphs": {
+      "description": "Scene graph structure extraction",
+      "required": true,
+      "parserFunction": "Get-SceneGraphStructures"
+    },
+    "entity_management": {
+      "description": "Entity management system extraction",
+      "required": true,
+      "parserFunction": "Get-EntityManagement"
+    },
+    "engine_services": {
+      "description": "Engine service pattern extraction",
+      "required": true,
+      "parserFunction": "Get-EngineServicePatterns"
+    },
+    "script_bindings": {
+      "description": "Script language binding extraction",
+      "required": true,
+      "parserFunction": "Get-ScriptLanguageBindings"
+    },
+    "script_components": {
+      "description": "Script component pattern extraction",
+      "required": true,
+      "parserFunction": "Get-ScriptComponentPatterns"
+    },
+    "lifecycle_hooks": {
+      "description": "Script lifecycle hook extraction",
+      "required": true,
+      "parserFunction": "Get-ScriptLifecycleHooks"
+    },
+    "game_loop": {
+      "description": "Game loop integration pattern extraction",
+      "required": true,
+      "parserFunction": "Get-GameLoopIntegration"
+    }
+  },
+  "retrievalProfiles": {
+    "architecture-lookup": {
+      "description": "Engine architecture pattern questions",
+      "preferredCollections": ["engine_architecture"]
+    },
+    "scripting-pattern": {
+      "description": "Scripting system and binding questions",
+      "preferredCollections": ["scripting_systems", "engine_architecture"]
+    },
+    "world-management": {
+      "description": "World and level management questions",
+      "preferredCollections": ["world_management"]
+    },
+    "render-pipeline": {
+      "description": "Render pipeline architecture questions",
+      "preferredCollections": ["render_pipeline"]
+    },
+    "component-design": {
+      "description": "Component system design questions",
+      "preferredCollections": ["engine_architecture", "scripting_systems"]
+    }
+  },
+  "owners": {
+    "owners": ["Doc"],
+    "reviewers": ["pack-maintainer-1"],
+    "defaultPromotionPolicy": "owner-or-reviewer-approval",
+    "escalationContact": "Doc"
+  },
+  "evalSuites": [
+    "architecture-lookup",
+    "component-design",
+    "scripting-pattern",
+    "domain-correctness-negative",
+    "retrieval-provenance"
+  ],
+  "createdUtc": "2026-04-12T20:56:00Z",
+  "updatedUtc": "2026-04-12T20:56:00Z",
+  "createdByRunId": "20260412T205600Z-engine-pack"
+}

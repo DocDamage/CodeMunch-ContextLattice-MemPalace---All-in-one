@@ -388,8 +388,278 @@
       "lastReviewedUtc": "2026-04-12T17:45:00Z",
       "createdUtc": "2026-04-12T17:45:00Z",
       "updatedUtc": "2026-04-12T17:45:00Z"
+    },
+    "bitwes/Gut": {
+      "sourceId": "bitwes/Gut",
+      "repoUrl": "https://github.com/bitwes/Gut",
+      "selectedRef": "main",
+      "parseMode": "gdscript-plugin",
+      "trustTier": "Medium-High",
+      "authorityRole": "testing-framework",
+      "priority": "P2",
+      "license": "MIT",
+      "collections": ["godot_testing", "godot_plugin_patterns"],
+      "extractionTargets": ["test-cases", "assertions", "test-suites", "mocking-patterns", "doubling"],
+      "refreshCadence": "30-day",
+      "state": "active",
+      "riskNotes": {
+        "stars": "1.5k",
+        "note": "GUT - Godot Unit Testing framework for Godot 3 and 4",
+        "scope": "Primary Godot testing framework for unit and integration tests",
+        "extractor": "GodotTestFrameworkExtractor"
+      },
+      "lastReviewedUtc": "2026-04-12T20:00:00Z",
+      "createdUtc": "2026-04-12T20:00:00Z",
+      "updatedUtc": "2026-04-12T20:00:00Z"
+    },
+    "mrdunk/HUnit": {
+      "sourceId": "mrdunk/HUnit",
+      "repoUrl": "https://github.com/mrdunk/HUnit",
+      "selectedRef": "main",
+      "parseMode": "gdscript-plugin",
+      "trustTier": "Medium",
+      "authorityRole": "testing-framework",
+      "priority": "P3",
+      "license": "MIT",
+      "collections": ["godot_testing"],
+      "extractionTargets": ["unit-tests", "assertions", "test-runner"],
+      "refreshCadence": "manual",
+      "state": "active",
+      "riskNotes": {
+        "note": "Lightweight unit testing framework for Godot",
+        "alternativeTo": "GUT - lighter alternative",
+        "scope": "Secondary testing framework reference"
+      },
+      "lastReviewedUtc": "2026-04-12T20:00:00Z",
+      "createdUtc": "2026-04-12T20:00:00Z",
+      "updatedUtc": "2026-04-12T20:00:00Z"
+    },
+    "libgdx/gdx-ai": {
+      "sourceId": "libgdx/gdx-ai",
+      "repoUrl": "https://github.com/libgdx/gdx-ai",
+      "selectedRef": "master",
+      "parseMode": "java-reference",
+      "trustTier": "Medium",
+      "authorityRole": "ai-reference",
+      "priority": "P2",
+      "license": "Apache-2.0",
+      "collections": ["godot_ai_behavior"],
+      "extractionTargets": ["behavior-trees", "state-machines", "GOAP", "pathfinding"],
+      "refreshCadence": "manual",
+      "state": "active",
+      "riskNotes": {
+        "note": "libGDX AI library - reference for Godot AI ports",
+        "language": "Java reference implementation",
+        "scope": "Algorithmic patterns for AI behavior",
+        "extractor": "GodotAIBehaviorExtractor"
+      },
+      "lastReviewedUtc": "2026-04-12T20:00:00Z",
+      "createdUtc": "2026-04-12T20:00:00Z",
+      "updatedUtc": "2026-04-12T20:00:00Z"
+    },
+    "quentincaffeino/godot-console": {
+      "sourceId": "quentincaffeino/godot-console",
+      "repoUrl": "https://github.com/quentincaffeino/godot-console",
+      "selectedRef": "master",
+      "parseMode": "gdscript-plugin",
+      "trustTier": "Medium",
+      "authorityRole": "developer-tooling",
+      "priority": "P3",
+      "license": "MIT",
+      "collections": ["godot_tooling", "godot_ai_behavior"],
+      "extractionTargets": ["console-commands", "cheat-systems", "runtime-debugging"],
+      "refreshCadence": "manual",
+      "state": "active",
+      "riskNotes": {
+        "note": "In-game console for debugging and cheat commands",
+        "stars": "500+",
+        "scope": "Developer tooling and debugging patterns"
+      },
+      "lastReviewedUtc": "2026-04-12T20:00:00Z",
+      "createdUtc": "2026-04-12T20:00:00Z",
+      "updatedUtc": "2026-04-12T20:00:00Z"
+    },
+    "nathanhoad/godot_dialogue_manager": {
+      "sourceId": "nathanhoad/godot_dialogue_manager",
+      "repoUrl": "https://github.com/nathanhoad/godot_dialogue_manager",
+      "selectedRef": "main",
+      "parseMode": "gdscript-plugin",
+      "trustTier": "High",
+      "authorityRole": "dialogue-system",
+      "priority": "P2",
+      "license": "MIT",
+      "collections": ["godot_dialogue_systems"],
+      "extractionTargets": ["dialogue-trees", "conversation-flows", "condition-checks", "localization"],
+      "refreshCadence": "30-day",
+      "state": "active",
+      "riskNotes": {
+        "stars": "2.5k",
+        "note": "Most popular Godot dialogue system with graph editor",
+        "scope": "Primary dialogue system reference",
+        "extractor": "GodotDialogueExtractor"
+      },
+      "lastReviewedUtc": "2026-04-12T20:00:00Z",
+      "createdUtc": "2026-04-12T20:00:00Z",
+      "updatedUtc": "2026-04-12T20:00:00Z"
+    },
+    "QueenOfSquiggles/godot-quest-system": {
+      "sourceId": "QueenOfSquiggles/godot-quest-system",
+      "repoUrl": "https://github.com/QueenOfSquiggles/godot-quest-system",
+      "selectedRef": "main",
+      "parseMode": "gdscript-plugin",
+      "trustTier": "Medium",
+      "authorityRole": "quest-system",
+      "priority": "P2",
+      "license": "MIT",
+      "collections": ["godot_game_systems"],
+      "extractionTargets": ["quest-definitions", "objectives", "rewards", "progress-tracking"],
+      "refreshCadence": "manual",
+      "state": "active",
+      "riskNotes": {
+        "note": "Quest system with objectives, rewards, and progress tracking",
+        "scope": "Quest system implementation patterns"
+      },
+      "lastReviewedUtc": "2026-04-12T20:00:00Z",
+      "createdUtc": "2026-04-12T20:00:00Z",
+      "updatedUtc": "2026-04-12T20:00:00Z"
+    },
+    "CraterCrash/godot-orchestrator": {
+      "sourceId": "CraterCrash/godot-orchestrator",
+      "repoUrl": "https://github.com/CraterCrash/godot-orchestrator",
+      "selectedRef": "main",
+      "parseMode": "gdextension",
+      "trustTier": "Medium-High",
+      "authorityRole": "visual-scripting",
+      "priority": "P2",
+      "license": "MIT",
+      "collections": ["godot_visual_systems", "godot_game_systems"],
+      "extractionTargets": ["visual-scripting", "node-graphs", "inventory-patterns", "item-systems"],
+      "refreshCadence": "30-day",
+      "state": "active",
+      "riskNotes": {
+        "stars": "800+",
+        "note": "Visual scripting with node-based editor, supports inventory systems",
+        "scope": "Visual scripting and game system orchestration"
+      },
+      "lastReviewedUtc": "2026-04-12T20:00:00Z",
+      "createdUtc": "2026-04-12T20:00:00Z",
+      "updatedUtc": "2026-04-12T20:00:00Z"
+    },
+    "foxssake/netfox": {
+      "sourceId": "foxssake/netfox",
+      "repoUrl": "https://github.com/foxssake/netfox",
+      "selectedRef": "main",
+      "parseMode": "gdscript-plugin",
+      "trustTier": "Medium-High",
+      "authorityRole": "networking-framework",
+      "priority": "P2",
+      "license": "MIT",
+      "collections": ["godot_networking"],
+      "extractionTargets": ["multiplayer-framework", "network-prediction", "rollback", "replication"],
+      "refreshCadence": "30-day",
+      "state": "active",
+      "riskNotes": {
+        "stars": "1.2k",
+        "note": "Comprehensive multiplayer networking framework with prediction",
+        "scope": "Primary networking framework for Godot 4 multiplayer",
+        "godot4Only": true
+      },
+      "lastReviewedUtc": "2026-04-12T20:00:00Z",
+      "createdUtc": "2026-04-12T20:00:00Z",
+      "updatedUtc": "2026-04-12T20:00:00Z"
+    },
+    "godotengine/godot-git-plugin": {
+      "sourceId": "godotengine/godot-git-plugin",
+      "repoUrl": "https://github.com/godotengine/godot-git-plugin",
+      "selectedRef": "main",
+      "parseMode": "gdextension",
+      "trustTier": "High",
+      "authorityRole": "vcs-integration",
+      "priority": "P2",
+      "license": "MIT",
+      "collections": ["godot_tooling"],
+      "extractionTargets": ["git-integration", "version-control", "editor-plugin"],
+      "refreshCadence": "godot-release",
+      "state": "active",
+      "riskNotes": {
+        "note": "Official Godot Git plugin for in-editor VCS",
+        "official": true,
+        "scope": "Version control integration patterns"
+      },
+      "lastReviewedUtc": "2026-04-12T20:00:00Z",
+      "createdUtc": "2026-04-12T20:00:00Z",
+      "updatedUtc": "2026-04-12T20:00:00Z"
+    },
+    "KoBeWi/Godot-Simple-Save": {
+      "sourceId": "KoBeWi/Godot-Simple-Save",
+      "repoUrl": "https://github.com/KoBeWi/Godot-Simple-Save",
+      "selectedRef": "master",
+      "parseMode": "gdscript-plugin",
+      "trustTier": "Medium",
+      "authorityRole": "save-system",
+      "priority": "P2",
+      "license": "MIT",
+      "collections": ["godot_game_systems"],
+      "extractionTargets": ["save-load", "serialization", "data-persistence"],
+      "refreshCadence": "manual",
+      "state": "active",
+      "riskNotes": {
+        "note": "Simple save system for Godot with serialization helpers",
+        "author": "KoBeWi - prolific Godot contributor"
+      },
+      "lastReviewedUtc": "2026-04-12T20:00:00Z",
+      "createdUtc": "2026-04-12T20:00:00Z",
+      "updatedUtc": "2026-04-12T20:00:00Z"
+    },
+    "GDQuest/godot-rpg-framework": {
+      "sourceId": "GDQuest/godot-rpg-framework",
+      "repoUrl": "https://github.com/GDQuest/godot-rpg-framework",
+      "selectedRef": "main",
+      "parseMode": "gdscript-plugin",
+      "trustTier": "Medium-High",
+      "authorityRole": "rpg-framework",
+      "priority": "P2",
+      "license": "MIT",
+      "collections": ["godot_game_systems", "godot_plugin_patterns"],
+      "extractionTargets": ["rpg-mechanics", "turn-based", "character-stats", "inventory"],
+      "refreshCadence": "30-day",
+      "state": "active",
+      "riskNotes": {
+        "note": "GDQuest RPG framework - battle systems, stats, progression",
+        "author": "GDQuest - high-quality Godot education",
+        "scope": "RPG game development patterns"
+      },
+      "lastReviewedUtc": "2026-04-12T20:00:00Z",
+      "createdUtc": "2026-04-12T20:00:00Z",
+      "updatedUtc": "2026-04-12T20:00:00Z"
     }
   },
-  "sourceFamilies": {},
-  "updatedUtc": "2026-04-12T17:45:00Z"
+  "sourceFamilies": {
+    "testing": {
+      "familyId": "testing",
+      "description": "Godot testing frameworks and utilities",
+      "sources": ["bitwes/Gut", "mrdunk/HUnit"]
+    },
+    "ai_behavior": {
+      "familyId": "ai_behavior",
+      "description": "AI behavior systems including behavior trees, GOAP, and state machines",
+      "sources": ["libgdx/gdx-ai", "quentincaffeino/godot-console"]
+    },
+    "dialogue": {
+      "familyId": "dialogue",
+      "description": "Dialogue and narrative systems",
+      "sources": ["nathanhoad/godot_dialogue_manager"]
+    },
+    "game_systems": {
+      "familyId": "game_systems",
+      "description": "Complete game system implementations",
+      "sources": ["QueenOfSquiggles/godot-quest-system", "CraterCrash/godot-orchestrator", "KoBeWi/Godot-Simple-Save", "GDQuest/godot-rpg-framework"]
+    },
+    "networking": {
+      "familyId": "networking",
+      "description": "Multiplayer and networking frameworks",
+      "sources": ["foxssake/netfox"]
+    }
+  },
+  "updatedUtc": "2026-04-12T20:00:00Z"
 }
