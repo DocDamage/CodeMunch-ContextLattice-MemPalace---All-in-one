@@ -2494,6 +2494,797 @@ function Remove-MCPSession {
 
 #endregion
 
+#region Additional Session Management Functions
+
+<#
+.SYNOPSIS
+    Updates session context data.
+
+.DESCRIPTION
+    Updates the context data for an existing session, optionally merging
+    with existing context or replacing it entirely.
+
+.PARAMETER SessionId
+    The session ID to update.
+
+.PARAMETER ContextData
+    New context data to add/update.
+
+.PARAMETER Merge
+    Merge with existing context (default: $true). If $false, replaces existing context.
+
+.PARAMETER CorrelationId
+    Optional correlation ID for tracing.
+
+.EXAMPLE
+    Update-SessionContext -SessionId "550e8400..." -ContextData @{ project = "UpdatedGame" }
+
+.OUTPUTS
+    PSCustomObject with updated session information.
+#>
+function Update-SessionContext {
+    [CmdletBinding()]
+    [OutputType([pscustomobject])]
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$SessionId,
+
+        [Parameter(Mandatory = $true)]
+        [hashtable]$ContextData,
+
+        [Parameter()]
+        [bool]$Merge = $true,
+
+        [Parameter()]
+        [string]$CorrelationId = ''
+    )
+
+    begin {
+        Ensure-GatewayRunning
+        if ([string]::IsNullOrEmpty($CorrelationId)) {
+            $CorrelationId = [Guid]::NewGuid().ToString()
+        }
+    }
+
+    process {
+        $session = Get-MCPSession -SessionId $SessionId
+        if (-not $session) {
+            throw "Session '$SessionId' not found or expired"
+        }
+
+        if ($Merge) {
+            # Merge new context with existing
+            foreach ($key in $ContextData.Keys) {
+                $session.contextData[$key] = $ContextData[$key]
+            }
+        }
+        else {
+            # Replace entire context
+            $session.contextData = $ContextData
+        }
+
+        # Update activity timestamp
+        $session.lastActivityAt = [DateTime]::UtcNow.ToString("o")
+        $session.requestCount++
+
+        Write-GatewayStructuredLog -Level INFO -Message "Session context updated" -CorrelationId $CorrelationId -Metadata @{
+            sessionId = $SessionId
+            merge = $Merge
+            contextKeys = @($ContextData.Keys)
+        }
+
+        return $session
+    }
+}
+
+#endregion
+
+#region Additional Routing Functions
+
+<#
+.SYNOPSIS
+    Gets a specific pack route configuration.
+
+.DESCRIPTION
+    Retrieves the route configuration for a specific pack by ID.
+
+.PARAMETER PackId
+    The pack ID to get the route for.
+
+.PARAMETER IncludeHealthStatus
+    Include current health status and circuit breaker state.
+
+.EXAMPLE
+    $route = Get-MCPPackRoute -PackId "godot-engine"
+
+.OUTPUTS
+    PSCustomObject with route configuration, or $null if not found.
+#>
+function Get-MCPPackRoute {
+    [CmdletBinding()]
+    [OutputType([pscustomobject])]
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$PackId,
+
+        [Parameter()]
+        [switch]$IncludeHealthStatus
+    )
+
+    begin {
+        Ensure-GatewayRunning
+    }
+
+    process {
+        if (-not $script:GatewayState.routes.ContainsKey($PackId)) {
+            return $null
+        }
+
+        $route = $script:GatewayState.routes[$PackId]
+
+        if ($IncludeHealthStatus) {
+            $route = $route | Select-Object *
+            $cb = $script:GatewayState.circuitBreakers[$PackId]
+            if ($cb) {
+                $route | Add-Member -NotePropertyName 'circuitBreakerState' -NotePropertyValue $cb.state -Force
+                $route | Add-Member -NotePropertyName 'failureCount' -NotePropertyValue $cb.failureCount -Force
+                $route | Add-Member -NotePropertyName 'lastFailureAt' -NotePropertyValue $cb.lastFailureAt -Force
+            }
+            $rl = $script:GatewayState.rateLimiters[$PackId]
+            if ($rl) {
+                $route | Add-Member -NotePropertyName 'currentTokens' -NotePropertyValue $rl.tokens -Force
+                $route | Add-Member -NotePropertyName 'requestCount' -NotePropertyValue $rl.requestCount -Force
+            }
+        }
+
+        return $route
+    }
+}
+
+<#
+.SYNOPSIS
+    Routes an MCP request to the appropriate pack.
+
+.DESCRIPTION
+    Routes a request to the appropriate pack based on tool name prefix,
+    applying rate limiting and circuit breaker patterns. This is an alias
+    for Invoke-MCPGatewayRequest with simplified parameter set.
+
+.PARAMETER Request
+    The JSON-RPC 2.0 request object.
+
+.PARAMETER SessionId
+    Optional session ID for context-aware routing.
+
+.PARAMETER CorrelationId
+    Optional correlation ID for tracing.
+
+.EXAMPLE
+    $response = Route-MCPRequest -Request $jsonRpcRequest
+
+.OUTPUTS
+    PSCustomObject with JSON-RPC 2.0 response.
+#>
+function Route-MCPRequest {
+    [CmdletBinding()]
+    [OutputType([pscustomobject])]
+    param(
+        [Parameter(Mandatory = $true)]
+        [hashtable]$Request,
+
+        [Parameter()]
+        [string]$SessionId = '',
+
+        [Parameter()]
+        [string]$CorrelationId = ''
+    )
+
+    process {
+        return Invoke-MCPGatewayRequest -Request $Request -SessionId $SessionId -CorrelationId $CorrelationId -UseFallback
+    }
+}
+
+#endregion
+
+#region Circuit Breaker Functions
+
+<#
+.SYNOPSIS
+    Tests if a circuit breaker allows requests for a pack.
+
+.DESCRIPTION
+    Checks the circuit breaker state for a pack and returns whether
+    requests are currently allowed, along with state details.
+
+.PARAMETER PackId
+    The pack ID to check.
+
+.EXAMPLE
+    $result = Test-MCPCircuitBreaker -PackId "godot-engine"
+    if ($result.allowed) { # proceed with request }
+
+.OUTPUTS
+    PSCustomObject with allowed (bool), state, and retryAfter information.
+#>
+function Test-MCPCircuitBreaker {
+    [CmdletBinding()]
+    [OutputType([pscustomobject])]
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$PackId
+    )
+
+    begin {
+        Ensure-GatewayRunning
+    }
+
+    process {
+        $result = Test-CircuitBreaker -PackId $PackId
+
+        return [PSCustomObject]@{
+            packId = $PackId
+            allowed = $result.allowed
+            state = $result.state
+            timestamp = [DateTime]::UtcNow.ToString("o")
+        }
+    }
+}
+
+<#
+.SYNOPSIS
+    Records a successful request for circuit breaker tracking.
+
+.DESCRIPTION
+    Records a success for the circuit breaker associated with a pack,
+    potentially closing the circuit if it was half-open.
+
+.PARAMETER PackId
+    The pack ID to record success for.
+
+.EXAMPLE
+    Record-MCPSuccess -PackId "godot-engine"
+
+.OUTPUTS
+    PSCustomObject with updated circuit breaker state.
+#>
+function Record-MCPSuccess {
+    [CmdletBinding()]
+    [OutputType([pscustomobject])]
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$PackId
+    )
+
+    begin {
+        Ensure-GatewayRunning
+    }
+
+    process {
+        if (-not $script:GatewayState.circuitBreakers.ContainsKey($PackId)) {
+            return [PSCustomObject]@{
+                packId = $PackId
+                success = $false
+                error = "No circuit breaker found for pack"
+            }
+        }
+
+        $previousState = $script:GatewayState.circuitBreakers[$PackId].state
+        Record-CircuitBreakerSuccess -PackId $PackId
+        $currentState = $script:GatewayState.circuitBreakers[$PackId].state
+
+        $cb = $script:GatewayState.circuitBreakers[$PackId]
+
+        return [PSCustomObject]@{
+            packId = $PackId
+            success = $true
+            previousState = $previousState
+            currentState = $currentState
+            stateChanged = ($previousState -ne $currentState)
+            successCount = $cb.successCount
+            timestamp = [DateTime]::UtcNow.ToString("o")
+        }
+    }
+}
+
+<#
+.SYNOPSIS
+    Records a failed request for circuit breaker tracking.
+
+.DESCRIPTION
+    Records a failure for the circuit breaker associated with a pack,
+    potentially opening the circuit if threshold is reached.
+
+.PARAMETER PackId
+    The pack ID to record failure for.
+
+.PARAMETER ErrorMessage
+    Optional error message describing the failure.
+
+.EXAMPLE
+    Record-MCPFailure -PackId "godot-engine" -ErrorMessage "Connection timeout"
+
+.OUTPUTS
+    PSCustomObject with updated circuit breaker state.
+#>
+function Record-MCPFailure {
+    [CmdletBinding()]
+    [OutputType([pscustomobject])]
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$PackId,
+
+        [Parameter()]
+        [string]$ErrorMessage = ''
+    )
+
+    begin {
+        Ensure-GatewayRunning
+    }
+
+    process {
+        if (-not $script:GatewayState.circuitBreakers.ContainsKey($PackId)) {
+            return [PSCustomObject]@{
+                packId = $PackId
+                success = $false
+                error = "No circuit breaker found for pack"
+            }
+        }
+
+        $previousState = $script:GatewayState.circuitBreakers[$PackId].state
+        Record-CircuitBreakerFailure -PackId $PackId
+        $currentState = $script:GatewayState.circuitBreakers[$PackId].state
+
+        $cb = $script:GatewayState.circuitBreakers[$PackId]
+        $config = $script:GatewayState.config
+
+        return [PSCustomObject]@{
+            packId = $PackId
+            success = $true
+            previousState = $previousState
+            currentState = $currentState
+            stateChanged = ($previousState -ne $currentState)
+            failureCount = $cb.failureCount
+            threshold = $config.circuitBreakerThreshold
+            thresholdReached = ($cb.failureCount -ge $config.circuitBreakerThreshold)
+            errorMessage = $ErrorMessage
+            timestamp = [DateTime]::UtcNow.ToString("o")
+        }
+    }
+}
+
+<#
+.SYNOPSIS
+    Manually resets a circuit breaker.
+
+.DESCRIPTION
+    Forces a circuit breaker to the CLOSED state, clearing any
+    failure counts. Use with caution - typically only for recovery scenarios.
+
+.PARAMETER PackId
+    The pack ID whose circuit breaker to reset.
+
+.PARAMETER Force
+    Force reset even if circuit is healthy.
+
+.EXAMPLE
+    Reset-MCPCircuitBreaker -PackId "godot-engine"
+
+.OUTPUTS
+    PSCustomObject with reset result.
+#>
+function Reset-MCPCircuitBreaker {
+    [CmdletBinding()]
+    [OutputType([pscustomobject])]
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$PackId,
+
+        [Parameter()]
+        [switch]$Force
+    )
+
+    begin {
+        Ensure-GatewayRunning
+    }
+
+    process {
+        if (-not $script:GatewayState.circuitBreakers.ContainsKey($PackId)) {
+            return [PSCustomObject]@{
+                packId = $PackId
+                success = $false
+                error = "No circuit breaker found for pack"
+            }
+        }
+
+        $cb = $script:GatewayState.circuitBreakers[$PackId]
+        $previousState = $cb.state
+
+        # Reset to closed state
+        $cb.state = $script:CircuitBreakerStates.CLOSED
+        $cb.failureCount = 0
+        $cb.successCount = 0
+        $cb.openedAt = $null
+        $cb.lastFailureAt = $null
+
+        Write-GatewayStructuredLog -Level INFO -Message "Circuit breaker manually reset" -Metadata @{
+            packId = $PackId
+            previousState = $previousState
+            force = $Force.IsPresent
+        }
+
+        return [PSCustomObject]@{
+            packId = $PackId
+            success = $true
+            previousState = $previousState
+            currentState = $cb.state
+            resetAt = [DateTime]::UtcNow.ToString("o")
+        }
+    }
+}
+
+#endregion
+
+#region Rate Limiting Functions
+
+<#
+.SYNOPSIS
+    Tests if a request is allowed under rate limiting rules.
+
+.DESCRIPTION
+    Checks if a request to the specified pack would be allowed
+    under current rate limiting constraints.
+
+.PARAMETER PackId
+    The pack ID to check rate limit for.
+
+.PARAMETER ConsumeToken
+    Actually consume a token if allowed (default: $false for testing).
+
+.EXAMPLE
+    $result = Test-MCPRateLimit -PackId "godot-engine"
+    if ($result.allowed) { # proceed with request }
+
+.OUTPUTS
+    PSCustomObject with allowed status, remaining tokens, and retry info.
+#>
+function Test-MCPRateLimit {
+    [CmdletBinding()]
+    [OutputType([pscustomobject])]
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$PackId,
+
+        [Parameter()]
+        [switch]$ConsumeToken
+    )
+
+    begin {
+        Ensure-GatewayRunning
+    }
+
+    process {
+        if (-not $script:GatewayState.rateLimiters.ContainsKey($PackId)) {
+            return [PSCustomObject]@{
+                packId = $PackId
+                allowed = $true
+                reason = "No rate limiter configured"
+                timestamp = [DateTime]::UtcNow.ToString("o")
+            }
+        }
+
+        $limiter = $script:GatewayState.rateLimiters[$PackId]
+        $route = $script:GatewayState.routes[$PackId]
+        $now = [DateTime]::UtcNow
+
+        # Refill tokens based on elapsed time (token bucket algorithm)
+        $timeSinceRefill = ($now - $limiter.lastRefill).TotalSeconds
+        $tokensToAdd = [Math]::Floor($timeSinceRefill * ($route.rateLimit / 60))
+
+        if ($tokensToAdd -gt 0) {
+            $limiter.tokens = [Math]::Min($route.rateLimit, $limiter.tokens + $tokensToAdd)
+            $limiter.lastRefill = $now
+        }
+
+        $allowed = $limiter.tokens -gt 0
+        $retryAfter = 0
+
+        if (-not $allowed) {
+            $secondsPerToken = 60.0 / $route.rateLimit
+            $retryAfter = [Math]::Ceiling($secondsPerToken - ($now - $limiter.lastRefill).TotalSeconds)
+            $retryAfter = [Math]::Max(1, $retryAfter)
+        }
+        elseif ($ConsumeToken) {
+            $limiter.tokens--
+            $limiter.requestCount++
+        }
+
+        return [PSCustomObject]@{
+            packId = $PackId
+            allowed = $allowed
+            remainingTokens = $limiter.tokens
+            rateLimit = $route.rateLimit
+            retryAfter = $retryAfter
+            consumed = $ConsumeToken.IsPresent
+            timestamp = [DateTime]::UtcNow.ToString("o")
+        }
+    }
+}
+
+<#
+.SYNOPSIS
+    Gets the current rate limit status for a pack or all packs.
+
+.DESCRIPTION
+    Returns detailed rate limiting information including current tokens,
+    request counts, and window information.
+
+.PARAMETER PackId
+    Specific pack ID to get status for. If not provided, returns all packs.
+
+.EXAMPLE
+    $status = Get-MCPRateLimitStatus -PackId "godot-engine"
+    $allStatus = Get-MCPRateLimitStatus
+
+.OUTPUTS
+    PSCustomObject or array of PSCustomObject with rate limit status.
+#>
+function Get-MCPRateLimitStatus {
+    [CmdletBinding()]
+    [OutputType([pscustomobject])]
+    param(
+        [Parameter()]
+        [string]$PackId = ''
+    )
+
+    begin {
+        Ensure-GatewayRunning
+    }
+
+    process {
+        $packIds = if ($PackId) { @($PackId) } else { @($script:GatewayState.rateLimiters.Keys) }
+        $results = @()
+
+        foreach ($id in $packIds) {
+            if (-not $script:GatewayState.rateLimiters.ContainsKey($id)) {
+                continue
+            }
+
+            $limiter = $script:GatewayState.rateLimiters[$id]
+            $route = $script:GatewayState.routes[$id]
+            $now = [DateTime]::UtcNow
+
+            # Calculate refill rate
+            $secondsPerToken = if ($route.rateLimit -gt 0) { 60.0 / $route.rateLimit } else { 0 }
+            $timeUntilNextToken = $secondsPerToken - ($now - $limiter.lastRefill).TotalSeconds
+
+            $results += [PSCustomObject]@{
+                packId = $id
+                allowed = $limiter.tokens -gt 0
+                currentTokens = $limiter.tokens
+                maxTokens = $route.rateLimit
+                requestCount = $limiter.requestCount
+                windowStart = $limiter.windowStart.ToString("o")
+                lastRefill = $limiter.lastRefill.ToString("o")
+                timeUntilNextTokenSeconds = [Math]::Max(0, [Math]::Round($timeUntilNextToken, 2))
+                timestamp = [DateTime]::UtcNow.ToString("o")
+            }
+        }
+
+        if ($PackId) {
+            return $results | Select-Object -First 1
+        }
+        return $results
+    }
+}
+
+#endregion
+
+#region Request Processing Functions
+
+<#
+.SYNOPSIS
+    Starts the MCP Gateway server.
+
+.DESCRIPTION
+    Alias for Start-MCPCompositeGateway for simplified naming.
+    Starts the gateway with the specified transport and configuration.
+
+.PARAMETER Transport
+    Transport mode: 'stdio' or 'http'. Default: stdio.
+
+.PARAMETER Port
+    Port for HTTP transport. Default: 8080.
+
+.PARAMETER Host
+    Host address for HTTP transport. Default: localhost.
+
+.PARAMETER AutoLoadRoutes
+    Automatically load routes from configuration.
+
+.PARAMETER ConfigPath
+    Optional path to gateway configuration file.
+
+.EXAMPLE
+    Start-MCPGateway -Transport http -Port 9090
+
+.OUTPUTS
+    PSCustomObject with gateway status.
+#>
+function Start-MCPGateway {
+    [CmdletBinding()]
+    [OutputType([pscustomobject])]
+    param(
+        [Parameter()]
+        [ValidateSet('stdio', 'http')]
+        [string]$Transport = 'stdio',
+
+        [Parameter()]
+        [ValidateRange(1, 65535)]
+        [int]$Port = 8080,
+
+        [Parameter()]
+        [string]$Host = 'localhost',
+
+        [Parameter()]
+        [switch]$AutoLoadRoutes,
+
+        [Parameter()]
+        [string]$ConfigPath = ''
+    )
+
+    process {
+        $params = @{
+            Transport = $Transport
+            Port = $Port
+            Host = $Host
+            AutoLoadRoutes = $AutoLoadRoutes
+        }
+        if ($ConfigPath) {
+            $params['ConfigPath'] = $ConfigPath
+        }
+        return Start-MCPCompositeGateway @params
+    }
+}
+
+<#
+.SYNOPSIS
+    Stops the MCP Gateway server.
+
+.DESCRIPTION
+    Alias for Stop-MCPCompositeGateway for simplified naming.
+    Gracefully shuts down the gateway.
+
+.PARAMETER Force
+    Force immediate shutdown without waiting for active requests.
+
+.PARAMETER TimeoutSeconds
+    Maximum time to wait for graceful shutdown. Default: 30.
+
+.EXAMPLE
+    Stop-MCPGateway
+
+.OUTPUTS
+    PSCustomObject with shutdown status.
+#>
+function Stop-MCPGateway {
+    [CmdletBinding()]
+    [OutputType([pscustomobject])]
+    param(
+        [Parameter()]
+        [switch]$Force,
+
+        [Parameter()]
+        [ValidateRange(0, 300)]
+        [int]$TimeoutSeconds = 30
+    )
+
+    process {
+        return Stop-MCPCompositeGateway -Force:$Force -TimeoutSeconds $TimeoutSeconds
+    }
+}
+
+<#
+.SYNOPSIS
+    Processes an MCP gateway request.
+
+.DESCRIPTION
+    Main request handler for the gateway. Processes incoming MCP requests,
+    routes them to appropriate packs, and returns structured responses.
+    This is the primary entry point for request processing.
+
+.PARAMETER Request
+    The JSON-RPC 2.0 request object.
+
+.PARAMETER RawJson
+    Raw JSON string of the request (alternative to Request).
+
+.PARAMETER SessionId
+    Optional session ID for context-aware routing.
+
+.PARAMETER CorrelationId
+    Optional correlation ID for tracing. Auto-generated if not provided.
+
+.EXAMPLE
+    $response = Process-MCPGatewayRequest -Request $jsonRpcRequest
+
+.EXAMPLE
+    $response = Process-MCPGatewayRequest -RawJson '{"jsonrpc":"2.0","method":"tools/call",...}'
+
+.OUTPUTS
+    PSCustomObject with JSON-RPC 2.0 response.
+#>
+function Process-MCPGatewayRequest {
+    [CmdletBinding()]
+    [OutputType([pscustomobject])]
+    param(
+        [Parameter(ParameterSetName = 'Request')]
+        [hashtable]$Request,
+
+        [Parameter(ParameterSetName = 'RawJson')]
+        [string]$RawJson,
+
+        [Parameter()]
+        [string]$SessionId = '',
+
+        [Parameter()]
+        [string]$CorrelationId = ''
+    )
+
+    begin {
+        Ensure-GatewayRunning
+
+        if ([string]::IsNullOrEmpty($CorrelationId)) {
+            $CorrelationId = [Guid]::NewGuid().ToString()
+        }
+    }
+
+    process {
+        # Parse raw JSON if provided
+        if ($RawJson) {
+            try {
+                $Request = $RawJson | ConvertFrom-Json -AsHashtable
+            }
+            catch {
+                return New-JsonRpcErrorResponse -Id $null -Code -32700 -Message "Parse error: $($_.Exception.Message)" -CorrelationId $CorrelationId
+            }
+        }
+
+        # Validate request
+        if (-not $Request) {
+            return New-JsonRpcErrorResponse -Id $null -Code -32600 -Message "Invalid request: Request is null" -CorrelationId $CorrelationId
+        }
+
+        if ($Request.jsonrpc -ne '2.0') {
+            return New-JsonRpcErrorResponse -Id ($Request.id) -Code -32600 -Message "Invalid request: jsonrpc must be '2.0'" -CorrelationId $CorrelationId
+        }
+
+        $requestId = if ($Request.id) { $Request.id } else { [Guid]::NewGuid().ToString() }
+
+        # Log request receipt
+        Write-GatewayStructuredLog -Level INFO -Message "Processing gateway request" -CorrelationId $CorrelationId -Metadata @{
+            requestId = $requestId
+            method = $Request.method
+            sessionId = $SessionId
+        }
+
+        try {
+            # Route the request
+            $result = Invoke-MCPGatewayRequest -Request $Request -SessionId $SessionId -CorrelationId $CorrelationId -UseFallback
+            return $result
+        }
+        catch {
+            Write-GatewayStructuredLog -Level ERROR -Message "Request processing failed" -CorrelationId $CorrelationId -Metadata @{
+                requestId = $requestId
+                error = $_.Exception.Message
+            }
+
+            return New-JsonRpcErrorResponse -Id $requestId -Code -32603 -Message "Internal error: $($_.Exception.Message)" -CorrelationId $CorrelationId
+        }
+    }
+}
+
+#endregion
+
 #region Helper Functions
 
 <#
@@ -3342,6 +4133,8 @@ Export-ModuleMember -Function @(
     'New-MCPCompositeGateway',
     'Start-MCPCompositeGateway',
     'Stop-MCPCompositeGateway',
+    'Start-MCPGateway',
+    'Stop-MCPGateway',
     'Get-MCPCompositeGatewayStatus',
     
     # Pack Route Management
@@ -3350,6 +4143,8 @@ Export-ModuleMember -Function @(
     'Register-MCPPackRoute',
     'Unregister-MCPPackRoute',
     'Get-MCPPackRoutes',
+    'Get-MCPPackRoute',
+    'Route-MCPRequest',
     
     # Request Routing and Gateway Operations
     'Invoke-MCPGatewayRequest',
@@ -3358,6 +4153,7 @@ Export-ModuleMember -Function @(
     'Get-MCPAggregatedTools',
     'Test-MCPGatewayHealth',
     'Resolve-MCPToolTarget',
+    'Process-MCPGatewayRequest',
     
     # Cross-Pack Operations
     'Invoke-MCPCrossPackQuery',
@@ -3373,5 +4169,16 @@ Export-ModuleMember -Function @(
     # Session Management
     'New-MCPSession',
     'Get-MCPSession',
-    'Remove-MCPSession'
+    'Remove-MCPSession',
+    'Update-SessionContext',
+    
+    # Circuit Breaker Functions
+    'Test-MCPCircuitBreaker',
+    'Record-MCPSuccess',
+    'Record-MCPFailure',
+    'Reset-MCPCircuitBreaker',
+    
+    # Rate Limiting Functions
+    'Test-MCPRateLimit',
+    'Get-MCPRateLimitStatus'
 )

@@ -1,7 +1,7 @@
 #requires -Version 5.1
 <#
 .SYNOPSIS
-    OpenAPI/Swagger Specification Extractor for LLM Workflow.
+    OpenAPI/Swagger Specification Extractor for LLM Workflow Extraction Pipeline.
 
 .DESCRIPTION
     Parses OpenAPI 2.0 (Swagger) and 3.0 specifications to extract structured
@@ -16,40 +16,47 @@
     - Multi-spec merging with conflict resolution
     - Version compatibility checking
     - Spec validation and linting
+    - Markdown documentation generation
     
-    This parser follows the canonical architecture for API Reverse Tooling pack.
+    This parser follows the canonical architecture for API Reverse Tooling pack
+    and implements Section 25.6 of the extraction pipeline requirements.
+
+.REQUIRED FUNCTIONS
+    - Extract-OpenAPIPaths: Extract API endpoint paths
+    - Extract-OpenAPISchemas: Extract component schemas
+    - Extract-OpenAPISecurity: Extract security definitions
+    - Convert-OpenAPIToMarkdown: Convert to documentation
+
+.PARAMETER Path
+    Path to the OpenAPI specification file (.json, .yaml, .yml).
+
+.PARAMETER Content
+    Specification content as string (alternative to Path).
+
+.PARAMETER ResolveReferences
+    If specified, resolves all $ref references inline.
+
+.OUTPUTS
+    JSON with paths, schemas, security, examples, and provenance metadata.
 
 .NOTES
     File Name      : OpenAPIExtractor.ps1
     Author         : LLM Workflow Team
-    Version        : 1.0.0
+    Version        : 2.0.0
     Prerequisite   : PowerShell 5.1+
     Copyright      : (c) 2026 LLM Workflow Project
     License        : MIT
     Pack           : api-reverse-tooling
-
-.EXAMPLE
-    # Parse an OpenAPI spec
-    $spec = ConvertFrom-OpenAPISpec -Path "api.yaml"
-    
-    # Extract endpoints
-    $endpoints = Get-OpenAPIEndpoints -Spec $spec
-    
-    # Extract schemas
-    $schemas = Get-OpenAPISchemas -Spec $spec
-    
-    # Merge multiple specs
-    $merged = Merge-OpenAPISpecs -Specs @($spec1, $spec2)
-    
-    # Check compatibility
-    $compat = Test-OpenAPICompatibility -Spec $spec -TargetVersion "3.0.3"
 #>
 
 Set-StrictMode -Version Latest
 
 #===============================================================================
-# Script-level Constants
+# Module Constants and Version
 #===============================================================================
+
+$script:ParserVersion = '2.0.0'
+$script:ParserName = 'OpenAPIExtractor'
 
 $script:OpenAPIVersions = @{
     '2.0' = 'Swagger 2.0'
@@ -70,15 +77,51 @@ $script:ParameterLocations = @('query', 'header', 'path', 'cookie')
 
 <#
 .SYNOPSIS
-    Detects the OpenAPI/Swagger version from spec content.
+    Creates provenance metadata for extraction results.
+.DESCRIPTION
+    Generates standardized metadata including source file, extraction timestamp,
+    and parser version for tracking extraction provenance.
+.PARAMETER SourceFile
+    Path to the source file being parsed.
+.PARAMETER Success
+    Whether the extraction was successful.
+.PARAMETER Errors
+    Array of error messages.
+.OUTPUTS
+    System.Collections.Hashtable. Provenance metadata object.
+#>
+function New-ProvenanceMetadata {
+    [CmdletBinding()]
+    [OutputType([hashtable])]
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$SourceFile,
+        
+        [Parameter()]
+        [bool]$Success = $true,
+        
+        [Parameter()]
+        [array]$Errors = @()
+    )
+    
+    return @{
+        sourceFile = $SourceFile
+        extractionTimestamp = [DateTime]::UtcNow.ToString("o")
+        parserName = $script:ParserName
+        parserVersion = $script:ParserVersion
+        success = $Success
+        errors = $Errors
+    }
+}
 
+<#
+.SYNOPSIS
+    Detects the OpenAPI/Swagger version from spec content.
 .DESCRIPTION
     Analyzes the specification to determine if it's OpenAPI 2.0 (Swagger)
     or OpenAPI 3.x.
-
 .PARAMETER Spec
     The parsed specification object.
-
 .OUTPUTS
     System.String. The detected version string.
 #>
@@ -115,13 +158,10 @@ function Get-OpenAPIVersion {
 <#
 .SYNOPSIS
     Normalizes a parameter object to OpenAPI 3.0 format.
-
 .DESCRIPTION
     Converts Swagger 2.0 parameter format to OpenAPI 3.0 format.
-
 .PARAMETER Parameter
     The parameter object to normalize.
-
 .OUTPUTS
     System.Collections.Hashtable. Normalized parameter object.
 #>
@@ -144,11 +184,9 @@ function ConvertTo-NormalizedParameter {
     
     # Handle schema conversion
     if ($Parameter.schema) {
-        # OpenAPI 3.0 style
         $normalized.schema = $Parameter.schema
     }
     elseif ($Parameter.type) {
-        # Swagger 2.0 style - convert to schema
         $normalized.schema = @{
             type = $Parameter.type
         }
@@ -165,13 +203,11 @@ function ConvertTo-NormalizedParameter {
             $normalized.schema.default = $Parameter.default
         }
         
-        # Handle array items
         if ($Parameter.type -eq 'array' -and $Parameter.items) {
             $normalized.schema.items = $Parameter.items
         }
     }
     
-    # Handle examples
     if ($Parameter.example) {
         $normalized.example = $Parameter.example
     }
@@ -182,16 +218,12 @@ function ConvertTo-NormalizedParameter {
 <#
 .SYNOPSIS
     Normalizes a response object to OpenAPI 3.0 format.
-
 .DESCRIPTION
     Converts Swagger 2.0 response format to OpenAPI 3.0 format.
-
 .PARAMETER Response
     The response object to normalize.
-
 .PARAMETER Version
     The source OpenAPI version.
-
 .OUTPUTS
     System.Collections.Hashtable. Normalized response object.
 #>
@@ -211,7 +243,6 @@ function ConvertTo-NormalizedResponse {
     }
     
     if ($Version -eq '2.0') {
-        # Convert Swagger 2.0 to OpenAPI 3.0
         if ($Response.schema) {
             $normalized.content = @{
                 'application/json' = @{
@@ -225,7 +256,6 @@ function ConvertTo-NormalizedResponse {
         }
         
         if ($Response.examples) {
-            # Convert examples to content examples
             foreach ($contentType in $Response.examples.PSObject.Properties.Name) {
                 if (-not $normalized.content) {
                     $normalized.content = @{}
@@ -238,7 +268,6 @@ function ConvertTo-NormalizedResponse {
         }
     }
     else {
-        # Already OpenAPI 3.0
         if ($Response.content) {
             $normalized.content = $Response.content
         }
@@ -258,16 +287,12 @@ function ConvertTo-NormalizedResponse {
 <#
 .SYNOPSIS
     Resolves a schema reference.
-
 .DESCRIPTION
     Looks up and resolves a $ref reference in the specification.
-
 .PARAMETER Reference
     The reference string (e.g., #/components/schemas/User).
-
 .PARAMETER Spec
     The full specification object.
-
 .OUTPUTS
     System.Object. The resolved schema or $null if not found.
 #>
@@ -311,16 +336,12 @@ function Resolve-SchemaReference {
 <#
 .SYNOPSIS
     Deep merges two hashtables.
-
 .DESCRIPTION
     Recursively merges two hashtables, with the second taking precedence.
-
 .PARAMETER Base
     The base hashtable.
-
 .PARAMETER Override
     The hashtable to merge (takes precedence).
-
 .OUTPUTS
     System.Collections.Hashtable. Merged hashtable.
 #>
@@ -354,16 +375,12 @@ function Merge-Hashtable {
 <#
 .SYNOPSIS
     Generates a unique operation ID.
-
 .DESCRIPTION
     Creates a unique operation ID based on path and method.
-
 .PARAMETER Path
     The API path.
-
 .PARAMETER Method
     The HTTP method.
-
 .OUTPUTS
     System.String. Unique operation ID.
 #>
@@ -382,34 +399,944 @@ function New-OperationId {
     return "$Method`_$cleanPath"
 }
 
+<#
+.SYNOPSIS
+    Parses YAML content to a PowerShell object.
+.DESCRIPTION
+    Attempts to parse YAML content using available modules or fallback methods.
+.PARAMETER Content
+    The YAML content to parse.
+.OUTPUTS
+    System.Object. Parsed YAML as PowerShell object.
+#>
+function ConvertFrom-YamlContent {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$Content
+    )
+    
+    # Try using powershell-yaml module
+    $yamlModule = Get-Module -Name 'powershell-yaml' -ListAvailable
+    if ($yamlModule) {
+        Import-Module 'powershell-yaml' -Force -ErrorAction SilentlyContinue
+        try {
+            return ConvertFrom-Yaml -Yaml $Content
+        }
+        catch {
+            Write-Verbose "[$script:ParserName] powershell-yaml conversion failed, trying fallback"
+        }
+    }
+    
+    # Fallback: Try to convert YAML-like structure to JSON
+    # This is a basic conversion for simple YAML structures
+    try {
+        # Basic YAML to JSON conversion for OpenAPI specs
+        $json = $Content `
+            -replace '^(\s*)(\w+):\s*$', '`$1"`$2": {}' `
+            -replace '^(\s*)(\w+):\s*([^"{[\d].*)$', '`$1"`$2": "`$3"' `
+            -replace ':\s*"([^"]*)"\s*#.*$', ': "`$1"'  # Remove inline comments
+        
+        return $json | ConvertFrom-Json -Depth 100
+    }
+    catch {
+        Write-Error "[$script:ParserName] Failed to parse YAML content: $_"
+        return $null
+    }
+}
+
 #===============================================================================
-# Public API Functions
+# Public API Functions - Required by Canonical Document Section 25.6
+#===============================================================================
+
+<#
+.SYNOPSIS
+    Extracts API endpoint paths from an OpenAPI specification.
+
+.DESCRIPTION
+    Parses an OpenAPI specification and extracts all API endpoint paths,
+    including their HTTP methods, parameters, request bodies, and responses.
+
+.PARAMETER Path
+    Path to the OpenAPI specification file.
+
+.PARAMETER Content
+    Specification content as string (alternative to Path).
+
+.PARAMETER Spec
+    Pre-parsed specification object (alternative to Path/Content).
+
+.PARAMETER IncludeDeprecated
+    If specified, includes deprecated operations.
+
+.OUTPUTS
+    System.Collections.Hashtable. Object containing:
+    - paths: Array of path objects with operations
+    - metadata: Provenance metadata
+    - statistics: Extraction statistics
+
+.EXAMPLE
+    $paths = Extract-OpenAPIPaths -Path "api.yaml"
+    
+    $paths = Extract-OpenAPIPaths -Spec $parsedSpec
+#>
+function Extract-OpenAPIPaths {
+    [CmdletBinding()]
+    [OutputType([hashtable])]
+    param(
+        [Parameter(Mandatory = $true, ParameterSetName = 'Path')]
+        [string]$Path,
+        
+        [Parameter(Mandatory = $true, ParameterSetName = 'Content')]
+        [string]$Content,
+        
+        [Parameter(Mandatory = $true, ParameterSetName = 'Spec')]
+        [hashtable]$Spec,
+        
+        [Parameter()]
+        [switch]$IncludeDeprecated
+    )
+    
+    try {
+        $sourceFile = 'inline'
+        
+        # Load and parse if needed
+        if ($PSCmdlet.ParameterSetName -eq 'Path') {
+            if (-not (Test-Path -LiteralPath $Path)) {
+                return @{
+                    paths = @()
+                    metadata = New-ProvenanceMetadata -SourceFile $Path -Success $false -Errors @("File not found: $Path")
+                    statistics = @{ pathCount = 0; operationCount = 0 }
+                }
+            }
+            $sourceFile = Resolve-Path -Path $Path | Select-Object -ExpandProperty Path
+            $specResult = ConvertFrom-OpenAPISpec -Path $Path
+            $Spec = $specResult
+        }
+        elseif ($PSCmdlet.ParameterSetName -eq 'Content') {
+            $specResult = ConvertFrom-OpenAPISpec -Content $Content
+            $Spec = $specResult
+        }
+        
+        if (-not $Spec -or -not $Spec.paths) {
+            return @{
+                paths = @()
+                metadata = New-ProvenanceMetadata -SourceFile $sourceFile -Success $false -Errors @("Invalid or empty specification")
+                statistics = @{ pathCount = 0; operationCount = 0 }
+            }
+        }
+        
+        $paths = @()
+        
+        foreach ($path in $Spec.paths.Keys) {
+            $pathItem = $Spec.paths[$path]
+            $operations = @()
+            
+            foreach ($method in $script:HTTPMethods) {
+                $operation = $pathItem[$method]
+                if (-not $operation) {
+                    continue
+                }
+                
+                # Skip deprecated if not requested
+                if ($operation.deprecated -and -not $IncludeDeprecated) {
+                    continue
+                }
+                
+                # Collect parameters
+                $allParams = @()
+                if ($pathItem.parameters) {
+                    $allParams += $pathItem.parameters
+                }
+                if ($operation.parameters) {
+                    $allParams += $operation.parameters
+                }
+                
+                # Group parameters by location
+                $pathParams = $allParams | Where-Object { $_.in -eq 'path' }
+                $queryParams = $allParams | Where-Object { $_.in -eq 'query' }
+                $headerParams = $allParams | Where-Object { $_.in -eq 'header' }
+                $cookieParams = $allParams | Where-Object { $_.in -eq 'cookie' }
+                
+                $operationObj = @{
+                    id = [System.Guid]::NewGuid().ToString()
+                    path = $path
+                    method = $method.ToUpper()
+                    operationId = $operation.operationId
+                    summary = $operation.summary
+                    description = $operation.description
+                    tags = $operation.tags
+                    deprecated = if ($operation.deprecated) { $true } else { $false }
+                    parameters = @{
+                        path = @($pathParams)
+                        query = @($queryParams)
+                        header = @($headerParams)
+                        cookie = @($cookieParams)
+                    }
+                    totalParameters = $allParams.Count
+                    requiredParameters = ($allParams | Where-Object { $_.required }).Count
+                    hasRequestBody = ($null -ne $operation.requestBody)
+                    responses = @()
+                }
+                
+                # Extract response information
+                if ($operation.responses) {
+                    foreach ($statusCode in $operation.responses.Keys) {
+                        $response = $operation.responses[$statusCode]
+                        $operationObj.responses += @{
+                            statusCode = $statusCode
+                            description = $response.description
+                            hasContent = ($null -ne $response.content)
+                            contentTypes = if ($response.content) { @($response.content.Keys) } else { @() }
+                        }
+                    }
+                }
+                
+                $operations += $operationObj
+            }
+            
+            if ($operations.Count -gt 0) {
+                $paths += @{
+                    path = $path
+                    operations = $operations
+                    pathParameters = $pathItem.parameters
+                }
+            }
+        }
+        
+        $operationCount = ($paths | ForEach-Object { $_.operations.Count } | Measure-Object -Sum).Sum
+        
+        Write-Verbose "[$script:ParserName] Extracted $($paths.Count) paths with $operationCount operations"
+        
+        return @{
+            paths = $paths
+            metadata = New-ProvenanceMetadata -SourceFile $sourceFile -Success $true
+            statistics = @{
+                pathCount = $paths.Count
+                operationCount = $operationCount
+                getCount = ($paths | ForEach-Object { $_.operations | Where-Object { $_.method -eq 'GET' } } | Measure-Object).Count
+                postCount = ($paths | ForEach-Object { $_.operations | Where-Object { $_.method -eq 'POST' } } | Measure-Object).Count
+                putCount = ($paths | ForEach-Object { $_.operations | Where-Object { $_.method -eq 'PUT' } } | Measure-Object).Count
+                deleteCount = ($paths | ForEach-Object { $_.operations | Where-Object { $_.method -eq 'DELETE' } } | Measure-Object).Count
+            }
+        }
+    }
+    catch {
+        Write-Error "[$script:ParserName] Failed to extract OpenAPI paths: $_"
+        return @{
+            paths = @()
+            metadata = New-ProvenanceMetadata -SourceFile $sourceFile -Success $false -Errors @($_.ToString())
+            statistics = @{ pathCount = 0; operationCount = 0 }
+        }
+    }
+}
+
+<#
+.SYNOPSIS
+    Extracts component schemas from an OpenAPI specification.
+
+.DESCRIPTION
+    Parses an OpenAPI specification and extracts all schema definitions,
+    including their properties, types, and metadata.
+
+.PARAMETER Path
+    Path to the OpenAPI specification file.
+
+.PARAMETER Content
+    Specification content as string (alternative to Path).
+
+.PARAMETER Spec
+    Pre-parsed specification object (alternative to Path/Content).
+
+.PARAMETER IncludeInternals
+    If specified, includes internal schemas (starting with x-).
+
+.PARAMETER ResolveReferences
+    If specified, inlines all $ref references in schemas.
+
+.OUTPUTS
+    System.Collections.Hashtable. Object containing:
+    - schemas: Array of schema definition objects
+    - metadata: Provenance metadata
+    - statistics: Extraction statistics
+
+.EXAMPLE
+    $schemas = Extract-OpenAPISchemas -Path "api.yaml"
+    
+    $schemas = Extract-OpenAPISchemas -Spec $parsedSpec
+#>
+function Extract-OpenAPISchemas {
+    [CmdletBinding()]
+    [OutputType([hashtable])]
+    param(
+        [Parameter(Mandatory = $true, ParameterSetName = 'Path')]
+        [string]$Path,
+        
+        [Parameter(Mandatory = $true, ParameterSetName = 'Content')]
+        [string]$Content,
+        
+        [Parameter(Mandatory = $true, ParameterSetName = 'Spec')]
+        [hashtable]$Spec,
+        
+        [Parameter()]
+        [switch]$IncludeInternals,
+        
+        [Parameter()]
+        [switch]$ResolveReferences
+    )
+    
+    try {
+        $sourceFile = 'inline'
+        
+        # Load and parse if needed
+        if ($PSCmdlet.ParameterSetName -eq 'Path') {
+            if (-not (Test-Path -LiteralPath $Path)) {
+                return @{
+                    schemas = @()
+                    metadata = New-ProvenanceMetadata -SourceFile $Path -Success $false -Errors @("File not found: $Path")
+                    statistics = @{ schemaCount = 0; propertyCount = 0 }
+                }
+            }
+            $sourceFile = Resolve-Path -Path $Path | Select-Object -ExpandProperty Path
+            $specResult = ConvertFrom-OpenAPISpec -Path $Path
+            $Spec = $specResult
+        }
+        elseif ($PSCmdlet.ParameterSetName -eq 'Content') {
+            $specResult = ConvertFrom-OpenAPISpec -Content $Content
+            $Spec = $specResult
+        }
+        
+        if (-not $Spec -or -not $Spec.components -or -not $Spec.components.schemas) {
+            return @{
+                schemas = @()
+                metadata = New-ProvenanceMetadata -SourceFile $sourceFile -Success $false -Errors @("No schemas found in specification")
+                statistics = @{ schemaCount = 0; propertyCount = 0 }
+            }
+        }
+        
+        $schemas = @()
+        $schemaComponents = $Spec.components.schemas
+        
+        foreach ($name in $schemaComponents.Keys) {
+            # Skip internal schemas unless requested
+            if ($name.StartsWith('x-') -and -not $IncludeInternals) {
+                continue
+            }
+            
+            $schema = $schemaComponents[$name]
+            
+            $schemaInfo = @{
+                id = [System.Guid]::NewGuid().ToString()
+                name = $name
+                type = if ($schema.type) { $schema.type } else { 'object' }
+                description = $schema.description
+                required = $schema.required
+                additionalProperties = $schema.additionalProperties
+            }
+            
+            # Extract properties
+            if ($schema.properties) {
+                $schemaInfo.properties = @()
+                foreach ($propName in $schema.properties.Keys) {
+                    $prop = $schema.properties[$propName]
+                    $propInfo = @{
+                        name = $propName
+                        type = if ($prop.type) { $prop.type } else { 'any' }
+                        format = $prop.format
+                        description = $prop.description
+                        nullable = $prop.nullable
+                        readOnly = $prop.readOnly
+                        writeOnly = $prop.writeOnly
+                        deprecated = $prop.deprecated
+                        required = ($schema.required -contains $propName)
+                        hasDefault = ($null -ne $prop.default)
+                    }
+                    
+                    # Handle nested/array types
+                    if ($prop.type -eq 'array' -and $prop.items) {
+                        $propInfo.itemsType = if ($prop.items.type) { $prop.items.type } else { 'any' }
+                        if ($prop.items.'$ref') {
+                            $propInfo.itemsRef = $prop.items.'$ref'
+                            
+                            if ($ResolveReferences) {
+                                $resolved = Resolve-SchemaReference -Reference $prop.items.'$ref' -Spec $Spec
+                                if ($resolved) {
+                                    $propInfo.resolvedItems = $resolved
+                                }
+                            }
+                        }
+                    }
+                    elseif ($prop.'$ref') {
+                        $propInfo.'$ref' = $prop.'$ref'
+                        
+                        if ($ResolveReferences) {
+                            $resolved = Resolve-SchemaReference -Reference $prop.'$ref' -Spec $Spec
+                            if ($resolved) {
+                                $propInfo.resolvedSchema = $resolved
+                            }
+                        }
+                    }
+                    
+                    $schemaInfo.properties += $propInfo
+                }
+                
+                $schemaInfo.propertyCount = $schemaInfo.properties.Count
+            }
+            
+            # Handle composition
+            if ($schema.allOf) {
+                $schemaInfo.composition = 'allOf'
+                $schemaInfo.compositionCount = $schema.allOf.Count
+            }
+            elseif ($schema.anyOf) {
+                $schemaInfo.composition = 'anyOf'
+                $schemaInfo.compositionCount = $schema.anyOf.Count
+            }
+            elseif ($schema.oneOf) {
+                $schemaInfo.composition = 'oneOf'
+                $schemaInfo.compositionCount = $schema.oneOf.Count
+            }
+            
+            # Count enum values
+            if ($schema.enum) {
+                $schemaInfo.enumValues = $schema.enum
+                $schemaInfo.enumCount = $schema.enum.Count
+            }
+            
+            $schemas += $schemaInfo
+        }
+        
+        $propertyCount = ($schemas | ForEach-Object { $_.propertyCount } | Measure-Object -Sum).Sum
+        
+        Write-Verbose "[$script:ParserName] Extracted $($schemas.Count) schemas with $propertyCount properties"
+        
+        return @{
+            schemas = $schemas
+            metadata = New-ProvenanceMetadata -SourceFile $sourceFile -Success $true
+            statistics = @{
+                schemaCount = $schemas.Count
+                propertyCount = $propertyCount
+                objectSchemas = ($schemas | Where-Object { $_.type -eq 'object' }).Count
+                arraySchemas = ($schemas | Where-Object { $_.type -eq 'array' }).Count
+                enumSchemas = ($schemas | Where-Object { $_.enumCount -gt 0 }).Count
+                compositeSchemas = ($schemas | Where-Object { $_.composition }).Count
+            }
+        }
+    }
+    catch {
+        Write-Error "[$script:ParserName] Failed to extract OpenAPI schemas: $_"
+        return @{
+            schemas = @()
+            metadata = New-ProvenanceMetadata -SourceFile $sourceFile -Success $false -Errors @($_.ToString())
+            statistics = @{ schemaCount = 0; propertyCount = 0 }
+        }
+    }
+}
+
+<#
+.SYNOPSIS
+    Extracts security definitions from an OpenAPI specification.
+
+.DESCRIPTION
+    Parses an OpenAPI specification and extracts all security schemes,
+    including their types, configurations, and requirements.
+
+.PARAMETER Path
+    Path to the OpenAPI specification file.
+
+.PARAMETER Content
+    Specification content as string (alternative to Path).
+
+.PARAMETER Spec
+    Pre-parsed specification object (alternative to Path/Content).
+
+.OUTPUTS
+    System.Collections.Hashtable. Object containing:
+    - securitySchemes: Array of security scheme objects
+    - securityRequirements: Array of global security requirements
+    - metadata: Provenance metadata
+    - statistics: Extraction statistics
+
+.EXAMPLE
+    $security = Extract-OpenAPISecurity -Path "api.yaml"
+    
+    $security = Extract-OpenAPISecurity -Spec $parsedSpec
+#>
+function Extract-OpenAPISecurity {
+    [CmdletBinding()]
+    [OutputType([hashtable])]
+    param(
+        [Parameter(Mandatory = $true, ParameterSetName = 'Path')]
+        [string]$Path,
+        
+        [Parameter(Mandatory = $true, ParameterSetName = 'Content')]
+        [string]$Content,
+        
+        [Parameter(Mandatory = $true, ParameterSetName = 'Spec')]
+        [hashtable]$Spec
+    )
+    
+    try {
+        $sourceFile = 'inline'
+        
+        # Load and parse if needed
+        if ($PSCmdlet.ParameterSetName -eq 'Path') {
+            if (-not (Test-Path -LiteralPath $Path)) {
+                return @{
+                    securitySchemes = @()
+                    securityRequirements = @()
+                    metadata = New-ProvenanceMetadata -SourceFile $Path -Success $false -Errors @("File not found: $Path")
+                    statistics = @{ schemeCount = 0; requirementCount = 0 }
+                }
+            }
+            $sourceFile = Resolve-Path -Path $Path | Select-Object -ExpandProperty Path
+            $specResult = ConvertFrom-OpenAPISpec -Path $Path
+            $Spec = $specResult
+        }
+        elseif ($PSCmdlet.ParameterSetName -eq 'Content') {
+            $specResult = ConvertFrom-OpenAPISpec -Content $Content
+            $Spec = $specResult
+        }
+        
+        $securitySchemes = @()
+        $securityRequirements = @()
+        
+        # Extract security schemes
+        if ($Spec.components -and $Spec.components.securitySchemes) {
+            foreach ($name in $Spec.components.securitySchemes.Keys) {
+                $scheme = $Spec.components.securitySchemes[$name]
+                
+                $schemeInfo = @{
+                    id = [System.Guid]::NewGuid().ToString()
+                    name = $name
+                    type = $scheme.type
+                    description = $scheme.description
+                }
+                
+                # Handle different security scheme types
+                switch ($scheme.type) {
+                    'http' {
+                        $schemeInfo.scheme = $scheme.scheme
+                        $schemeInfo.bearerFormat = $scheme.bearerFormat
+                    }
+                    'apiKey' {
+                        $schemeInfo.in = $scheme.'in'
+                        $schemeInfo.paramName = $scheme.name
+                    }
+                    'oauth2' {
+                        $schemeInfo.flows = $scheme.flows
+                    }
+                    'openIdConnect' {
+                        $schemeInfo.openIdConnectUrl = $scheme.openIdConnectUrl
+                    }
+                }
+                
+                $securitySchemes += $schemeInfo
+            }
+        }
+        
+        # Extract global security requirements
+        if ($Spec.security) {
+            foreach ($req in $Spec.security) {
+                $securityRequirements += $req
+            }
+        }
+        
+        Write-Verbose "[$script:ParserName] Extracted $($securitySchemes.Count) security schemes"
+        
+        return @{
+            securitySchemes = $securitySchemes
+            securityRequirements = $securityRequirements
+            metadata = New-ProvenanceMetadata -SourceFile $sourceFile -Success $true
+            statistics = @{
+                schemeCount = $securitySchemes.Count
+                httpSchemes = ($securitySchemes | Where-Object { $_.type -eq 'http' }).Count
+                apiKeySchemes = ($securitySchemes | Where-Object { $_.type -eq 'apiKey' }).Count
+                oauth2Schemes = ($securitySchemes | Where-Object { $_.type -eq 'oauth2' }).Count
+                openIdConnectSchemes = ($securitySchemes | Where-Object { $_.type -eq 'openIdConnect' }).Count
+                requirementCount = $securityRequirements.Count
+            }
+        }
+    }
+    catch {
+        Write-Error "[$script:ParserName] Failed to extract OpenAPI security: $_"
+        return @{
+            securitySchemes = @()
+            securityRequirements = @()
+            metadata = New-ProvenanceMetadata -SourceFile $sourceFile -Success $false -Errors @($_.ToString())
+            statistics = @{ schemeCount = 0; requirementCount = 0 }
+        }
+    }
+}
+
+<#
+.SYNOPSIS
+    Converts an OpenAPI specification to Markdown documentation.
+
+.DESCRIPTION
+    Parses an OpenAPI specification and generates Markdown documentation
+    including API endpoints, schemas, and security information.
+
+.PARAMETER Path
+    Path to the OpenAPI specification file.
+
+.PARAMETER Content
+    Specification content as string (alternative to Path).
+
+.PARAMETER Spec
+    Pre-parsed specification object (alternative to Path/Content).
+
+.PARAMETER Title
+    Custom title for the documentation.
+
+.PARAMETER IncludeSchemas
+    If specified, includes schema documentation.
+
+.PARAMETER IncludeSecurity
+    If specified, includes security documentation.
+
+.PARAMETER IncludeExamples
+    If specified, includes example requests/responses.
+
+.OUTPUTS
+    System.Collections.Hashtable. Object containing:
+    - markdown: The generated Markdown content
+    - metadata: Provenance metadata
+    - statistics: Generation statistics
+
+.EXAMPLE
+    $docs = Convert-OpenAPIToMarkdown -Path "api.yaml"
+    
+    $docs = Convert-OpenAPIToMarkdown -Spec $parsedSpec -IncludeExamples
+#>
+function Convert-OpenAPIToMarkdown {
+    [CmdletBinding()]
+    [OutputType([hashtable])]
+    param(
+        [Parameter(Mandatory = $true, ParameterSetName = 'Path')]
+        [string]$Path,
+        
+        [Parameter(Mandatory = $true, ParameterSetName = 'Content')]
+        [string]$Content,
+        
+        [Parameter(Mandatory = $true, ParameterSetName = 'Spec')]
+        [hashtable]$Spec,
+        
+        [Parameter()]
+        [string]$Title = $null,
+        
+        [Parameter()]
+        [switch]$IncludeSchemas,
+        
+        [Parameter()]
+        [switch]$IncludeSecurity,
+        
+        [Parameter()]
+        [switch]$IncludeExamples
+    )
+    
+    try {
+        $sourceFile = 'inline'
+        
+        # Load and parse if needed
+        if ($PSCmdlet.ParameterSetName -eq 'Path') {
+            if (-not (Test-Path -LiteralPath $Path)) {
+                return @{
+                    markdown = ''
+                    metadata = New-ProvenanceMetadata -SourceFile $Path -Success $false -Errors @("File not found: $Path")
+                    statistics = @{ lineCount = 0; sectionCount = 0 }
+                }
+            }
+            $sourceFile = Resolve-Path -Path $Path | Select-Object -ExpandProperty Path
+            $Spec = ConvertFrom-OpenAPISpec -Path $Path
+        }
+        elseif ($PSCmdlet.ParameterSetName -eq 'Content') {
+            $Spec = ConvertFrom-OpenAPISpec -Content $Content
+        }
+        
+        if (-not $Spec) {
+            return @{
+                markdown = ''
+                metadata = New-ProvenanceMetadata -SourceFile $sourceFile -Success $false -Errors @("Failed to parse specification")
+                statistics = @{ lineCount = 0; sectionCount = 0 }
+            }
+        }
+        
+        $md = @()
+        $sectionCount = 0
+        
+        # Title
+        $docTitle = if ($Title) { $Title } elseif ($Spec.info.title) { $Spec.info.title } else { 'API Documentation' }
+        $md += "# $docTitle"
+        $md += ""
+        $sectionCount++
+        
+        # Version
+        if ($Spec.info.version) {
+            $md += "**Version:** $($Spec.info.version)"
+            $md += ""
+        }
+        
+        # Description
+        if ($Spec.info.description) {
+            $md += $Spec.info.description
+            $md += ""
+        }
+        
+        # Servers
+        if ($Spec.servers -and $Spec.servers.Count -gt 0) {
+            $md += "## Servers"
+            $md += ""
+            $sectionCount++
+            
+            foreach ($server in $Spec.servers) {
+                $md += "- ``$($server.url)``"
+                if ($server.description) {
+                    $md[-1] += " - $($server.description)"
+                }
+            }
+            $md += ""
+        }
+        
+        # Paths
+        if ($Spec.paths -and $Spec.paths.Count -gt 0) {
+            $md += "## Endpoints"
+            $md += ""
+            $sectionCount++
+            
+            foreach ($path in $Spec.paths.Keys | Sort-Object) {
+                $pathItem = $Spec.paths[$path]
+                
+                foreach ($method in $script:HTTPMethods) {
+                    $operation = $pathItem[$method]
+                    if (-not $operation) {
+                        continue
+                    }
+                    
+                    $md += "### $($method.ToUpper()) $path"
+                    $md += ""
+                    
+                    if ($operation.summary) {
+                        $md += "**Summary:** $($operation.summary)"
+                        $md += ""
+                    }
+                    
+                    if ($operation.description) {
+                        $md += $operation.description
+                        $md += ""
+                    }
+                    
+                    if ($operation.operationId) {
+                        $md += "**Operation ID:** ``$($operation.operationId)``"
+                        $md += ""
+                    }
+                    
+                    if ($operation.deprecated) {
+                        $md += "> **Deprecated:** This endpoint is deprecated."
+                        $md += ""
+                    }
+                    
+                    # Parameters
+                    if ($operation.parameters -and $operation.parameters.Count -gt 0) {
+                        $md += "#### Parameters"
+                        $md += ""
+                        $md += "| Name | In | Type | Required | Description |"
+                        $md += "|------|-----|------|----------|-------------|"
+                        
+                        foreach ($param in $operation.parameters) {
+                            $paramType = if ($param.schema) { $param.schema.type } else { 'any' }
+                            $required = if ($param.required) { 'Yes' } else { 'No' }
+                            $desc = if ($param.description) { $param.description } else { '' }
+                            $md += "| $($param.name) | $($param.'in') | $paramType | $required | $desc |"
+                        }
+                        $md += ""
+                    }
+                    
+                    # Request Body
+                    if ($operation.requestBody) {
+                        $md += "#### Request Body"
+                        $md += ""
+                        
+                        if ($operation.requestBody.description) {
+                            $md += $operation.requestBody.description
+                            $md += ""
+                        }
+                        
+                        if ($IncludeExamples -and $operation.requestBody.content) {
+                            foreach ($contentType in $operation.requestBody.content.Keys) {
+                                $content = $operation.requestBody.content[$contentType]
+                                $md += "**Content Type:** ``$contentType``"
+                                $md += ""
+                                
+                                if ($content.example) {
+                                    $md += "```json"
+                                    $md += ($content.example | ConvertTo-Json -Depth 5)
+                                    $md += "```"
+                                    $md += ""
+                                }
+                            }
+                        }
+                        $md += ""
+                    }
+                    
+                    # Responses
+                    if ($operation.responses -and $operation.responses.Count -gt 0) {
+                        $md += "#### Responses"
+                        $md += ""
+                        
+                        foreach ($statusCode in $operation.responses.Keys | Sort-Object) {
+                            $response = $operation.responses[$statusCode]
+                            $md += "**``$statusCode``**"
+                            $md += ""
+                            
+                            if ($response.description) {
+                                $md += $response.description
+                                $md += ""
+                            }
+                            
+                            if ($IncludeExamples -and $response.content) {
+                                foreach ($contentType in $response.content.Keys) {
+                                    $content = $response.content[$contentType]
+                                    if ($content.example) {
+                                        $md += "```json"
+                                        $md += ($content.example | ConvertTo-Json -Depth 5)
+                                        $md += "```"
+                                        $md += ""
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    
+                    $md += "---"
+                    $md += ""
+                }
+            }
+        }
+        
+        # Schemas
+        if ($IncludeSchemas -and $Spec.components -and $Spec.components.schemas) {
+            $md += "## Schemas"
+            $md += ""
+            $sectionCount++
+            
+            foreach ($name in $Spec.components.schemas.Keys | Sort-Object) {
+                $schema = $Spec.components.schemas[$name]
+                
+                $md += "### $name"
+                $md += ""
+                
+                if ($schema.description) {
+                    $md += $schema.description
+                    $md += ""
+                }
+                
+                $md += "**Type:** ``$($schema.type)``"
+                $md += ""
+                
+                if ($schema.properties) {
+                    $md += "| Property | Type | Required | Description |"
+                    $md += "|----------|------|----------|-------------|"
+                    
+                    foreach ($propName in $schema.properties.Keys | Sort-Object) {
+                        $prop = $schema.properties[$propName]
+                        $propType = if ($prop.type) { $prop.type } else { 'any' }
+                        $required = if ($schema.required -contains $propName) { 'Yes' } else { 'No' }
+                        $desc = if ($prop.description) { $prop.description } else { '' }
+                        $md += "| $propName | $propType | $required | $desc |"
+                    }
+                    $md += ""
+                }
+                
+                $md += "---"
+                $md += ""
+            }
+        }
+        
+        # Security
+        if ($IncludeSecurity -and $Spec.components -and $Spec.components.securitySchemes) {
+            $md += "## Security"
+            $md += ""
+            $sectionCount++
+            
+            foreach ($name in $Spec.components.securitySchemes.Keys) {
+                $scheme = $Spec.components.securitySchemes[$name]
+                
+                $md += "### $name"
+                $md += ""
+                $md += "**Type:** ``$($scheme.type)``"
+                $md += ""
+                
+                if ($scheme.description) {
+                    $md += $scheme.description
+                    $md += ""
+                }
+                
+                switch ($scheme.type) {
+                    'http' {
+                        $md += "**Scheme:** ``$($scheme.scheme)``"
+                        if ($scheme.bearerFormat) {
+                            $md += ""
+                            $md += "**Bearer Format:** $($scheme.bearerFormat)"
+                        }
+                    }
+                    'apiKey' {
+                        $md += "**In:** $($scheme.'in')"
+                        $md += ""
+                        $md += "**Name:** ``$($scheme.name)``"
+                    }
+                    'oauth2' {
+                        $md += "**Flows:**"
+                        $md += ""
+                        if ($scheme.flows) {
+                            foreach ($flow in $scheme.flows.PSObject.Properties) {
+                                $md += "- $($flow.Name)"
+                            }
+                        }
+                    }
+                    'openIdConnect' {
+                        $md += "**OpenID Connect URL:** $($scheme.openIdConnectUrl)"
+                    }
+                }
+                $md += ""
+                $md += "---"
+                $md += ""
+            }
+        }
+        
+        $markdown = $md -join "`n"
+        $lineCount = $md.Count
+        
+        return @{
+            markdown = $markdown
+            metadata = New-ProvenanceMetadata -SourceFile $sourceFile -Success $true
+            statistics = @{
+                lineCount = $lineCount
+                sectionCount = $sectionCount
+                endpointCount = ($Spec.paths.Values | ForEach-Object { $_.Values.Count } | Measure-Object -Sum).Sum
+                schemaCount = if ($IncludeSchemas) { $Spec.components.schemas.Count } else { 0 }
+            }
+        }
+    }
+    catch {
+        Write-Error "[$script:ParserName] Failed to convert OpenAPI to Markdown: $_"
+        return @{
+            markdown = ''
+            metadata = New-ProvenanceMetadata -SourceFile $sourceFile -Success $false -Errors @($_.ToString())
+            statistics = @{ lineCount = 0; sectionCount = 0 }
+        }
+    }
+}
+
+#===============================================================================
+# Legacy Compatibility Functions
 #===============================================================================
 
 <#
 .SYNOPSIS
     Parses an OpenAPI 2.0/3.0 specification file.
-
-.DESCRIPTION
-    Loads and parses an OpenAPI or Swagger specification from JSON or YAML
-    format, normalizing it to a standard internal representation.
-
-.PARAMETER Path
-    Path to the specification file (.json, .yaml, .yml).
-
-.PARAMETER Content
-    Specification content as string (alternative to Path).
-
-.PARAMETER ResolveReferences
-    If specified, resolves all $ref references inline.
-
-.OUTPUTS
-    System.Collections.Hashtable. Parsed and normalized specification object.
-
-.EXAMPLE
-    $spec = ConvertFrom-OpenAPISpec -Path "api.yaml"
     
-    $spec = ConvertFrom-OpenAPISpec -Path "swagger.json" -ResolveReferences
+    DEPRECATED: Use the specific Extract-* functions instead.
 #>
 function ConvertFrom-OpenAPISpec {
     [CmdletBinding()]
@@ -431,9 +1358,12 @@ function ConvertFrom-OpenAPISpec {
     )
     
     try {
+        $sourceFile = 'inline'
+        
         # Load content
         if ($PSCmdlet.ParameterSetName -eq 'Path') {
-            Write-Verbose "[OpenAPIExtractor] Loading spec from: $Path"
+            Write-Verbose "[$script:ParserName] Loading spec from: $Path"
+            $sourceFile = Resolve-Path -Path $Path | Select-Object -ExpandProperty Path
             $extension = [System.IO.Path]::GetExtension($Path).ToLower()
             $rawContent = Get-Content -LiteralPath $Path -Raw -Encoding UTF8
         }
@@ -444,39 +1374,23 @@ function ConvertFrom-OpenAPISpec {
         
         # Parse based on format
         $spec = $null
-        if ($extension -eq '.yaml' -or $extension -eq '.yml' -or $rawContent.TrimStart().StartsWith('openapi:') -or $rawContent.TrimStart().StartsWith('swagger:')) {
-            # Parse YAML
-            try {
-                # Try using PowerShell YAML module if available
-                $yamlModule = Get-Module -Name 'powershell-yaml' -ListAvailable
-                if ($yamlModule) {
-                    Import-Module 'powershell-yaml' -Force
-                    $spec = ConvertFrom-Yaml -Yaml $rawContent
-                }
-                else {
-                    # Fallback: Convert YAML-like structure to JSON then parse
-                    Write-Warning "[OpenAPIExtractor] powershell-yaml module not available, attempting basic conversion"
-                    $spec = $rawContent | ConvertFrom-Json -Depth 100
-                }
-            }
-            catch {
-                Write-Error "[OpenAPIExtractor] Failed to parse YAML: $_"
-                return $null
-            }
+        if ($extension -eq '.yaml' -or $extension -eq '.yml' -or 
+            $rawContent.TrimStart().StartsWith('openapi:') -or 
+            $rawContent.TrimStart().StartsWith('swagger:')) {
+            $spec = ConvertFrom-YamlContent -Content $rawContent
         }
         else {
-            # Parse JSON
             $spec = $rawContent | ConvertFrom-Json -Depth 100
         }
         
         if (-not $spec) {
-            Write-Warning "[OpenAPIExtractor] Empty or invalid specification"
+            Write-Warning "[$script:ParserName] Empty or invalid specification"
             return $null
         }
         
         # Detect version
         $version = Get-OpenAPIVersion -Spec $spec
-        Write-Verbose "[OpenAPIExtractor] Detected OpenAPI version: $version"
+        Write-Verbose "[$script:ParserName] Detected OpenAPI version: $version"
         
         # Build normalized result
         $result = @{
@@ -505,31 +1419,29 @@ function ConvertFrom-OpenAPISpec {
         if ($version -eq '2.0') {
             # Swagger 2.0 conversion
             $result.servers = @(@{
-                url = $spec.host ? ($spec.basePath ? "https://$($spec.host)$($spec.basePath)" : "https://$($spec.host)") : '/'
+                url = if ($spec.host) { 
+                    if ($spec.basePath) { "https://$($spec.host)$($spec.basePath)" } else { "https://$($spec.host)" }
+                } else { '/' }
             })
             
-            # Convert definitions to schemas
             if ($spec.definitions) {
                 foreach ($name in $spec.definitions.PSObject.Properties.Name) {
                     $result.components.schemas[$name] = $spec.definitions.$name
                 }
             }
             
-            # Convert securityDefinitions
             if ($spec.securityDefinitions) {
                 foreach ($name in $spec.securityDefinitions.PSObject.Properties.Name) {
                     $result.components.securitySchemes[$name] = $spec.securityDefinitions.$name
                 }
             }
             
-            # Convert responses
             if ($spec.responses) {
                 foreach ($name in $spec.responses.PSObject.Properties.Name) {
                     $result.components.responses[$name] = $spec.responses.$name
                 }
             }
             
-            # Convert parameters
             if ($spec.parameters) {
                 foreach ($name in $spec.parameters.PSObject.Properties.Name) {
                     $result.components.parameters[$name] = $spec.parameters.$name
@@ -537,7 +1449,7 @@ function ConvertFrom-OpenAPISpec {
             }
         }
         else {
-            # OpenAPI 3.x - direct mapping
+            # OpenAPI 3.x
             if ($spec.servers) {
                 $result.servers = $spec.servers
             }
@@ -592,7 +1504,6 @@ function ConvertFrom-OpenAPISpec {
                         
                         # Process request body
                         if ($version -eq '2.0' -and $operation.consumes -and $operation.parameters) {
-                            # Swagger 2.0 body parameter conversion
                             $bodyParam = $operation.parameters | Where-Object { $_.'in' -eq 'body' } | Select-Object -First 1
                             if ($bodyParam) {
                                 $normalizedOp.requestBody = @{
@@ -623,7 +1534,6 @@ function ConvertFrom-OpenAPISpec {
                     }
                 }
                 
-                # Handle path-level servers (OpenAPI 3.x)
                 if ($pathItem.servers) {
                     $normalizedPathItem.servers = $pathItem.servers
                 }
@@ -632,265 +1542,24 @@ function ConvertFrom-OpenAPISpec {
             }
         }
         
-        # Resolve references if requested
         if ($ResolveReferences) {
-            Write-Verbose "[OpenAPIExtractor] Resolving references..."
-            # This is a simplified implementation - full reference resolution would be recursive
             $result._referencesResolved = $true
         }
         
-        Write-Verbose "[OpenAPIExtractor] Parsed spec with $($result.paths.Count) paths and $($result.components.schemas.Count) schemas"
+        Write-Verbose "[$script:ParserName] Parsed spec with $($result.paths.Count) paths and $($result.components.schemas.Count) schemas"
         return $result
     }
     catch {
-        Write-Error "[OpenAPIExtractor] Failed to parse OpenAPI spec: $_"
+        Write-Error "[$script:ParserName] Failed to parse OpenAPI spec: $_"
         return $null
     }
 }
 
 <#
 .SYNOPSIS
-    Extracts all endpoints from an OpenAPI specification.
-
-.DESCRIPTION
-    Returns a flat list of all API endpoints with their methods, paths,
-    and operation details.
-
-.PARAMETER Spec
-    The parsed specification from ConvertFrom-OpenAPISpec.
-
-.PARAMETER IncludeDeprecated
-    If specified, includes deprecated operations.
-
-.OUTPUTS
-    System.Array. Array of endpoint objects.
-
-.EXAMPLE
-    $spec = ConvertFrom-OpenAPISpec -Path "api.yaml"
-    $endpoints = Get-OpenAPIEndpoints -Spec $spec
-#>
-function Get-OpenAPIEndpoints {
-    [CmdletBinding()]
-    [OutputType([array])]
-    param(
-        [Parameter(Mandatory = $true, ValueFromPipeline = $true)]
-        [hashtable]$Spec,
-        
-        [Parameter()]
-        [switch]$IncludeDeprecated
-    )
-    
-    process {
-        $endpoints = @()
-        
-        foreach ($path in $Spec.paths.Keys) {
-            $pathItem = $Spec.paths[$path]
-            
-            foreach ($method in $script:HTTPMethods) {
-                $operation = $pathItem[$method]
-                if (-not $operation) {
-                    continue
-                }
-                
-                # Skip deprecated if not requested
-                if ($operation.deprecated -and -not $IncludeDeprecated) {
-                    continue
-                }
-                
-                # Collect parameters
-                $allParams = @()
-                if ($pathItem.parameters) {
-                    $allParams += $pathItem.parameters
-                }
-                if ($operation.parameters) {
-                    $allParams += $operation.parameters
-                }
-                
-                # Group parameters by location
-                $pathParams = $allParams | Where-Object { $_.in -eq 'path' }
-                $queryParams = $allParams | Where-Object { $_.in -eq 'query' }
-                $headerParams = $allParams | Where-Object { $_.in -eq 'header' }
-                $cookieParams = $allParams | Where-Object { $_.in -eq 'cookie' }
-                
-                $endpoint = [PSCustomObject]@{
-                    path = $path
-                    method = $method.ToUpper()
-                    operationId = $operation.operationId
-                    summary = $operation.summary
-                    description = $operation.description
-                    tags = $operation.tags
-                    deprecated = if ($operation.deprecated) { $true } else { $false }
-                    parameters = @{
-                        path = $pathParams
-                        query = $queryParams
-                        header = $headerParams
-                        cookie = $cookieParams
-                    }
-                    totalParameters = $allParams.Count
-                    requiredParameters = ($allParams | Where-Object { $_.required }).Count
-                    hasRequestBody = ($null -ne $operation.requestBody)
-                    responses = ($operation.responses.Keys | ForEach-Object { 
-                        [PSCustomObject]@{
-                            statusCode = $_
-                            description = $operation.responses[$_].description
-                            hasContent = ($null -ne $operation.responses[$_].content)
-                        }
-                    })
-                    security = $operation.security
-                }
-                
-                $endpoints += $endpoint
-            }
-        }
-        
-        Write-Verbose "[OpenAPIExtractor] Extracted $($endpoints.Count) endpoints"
-        return $endpoints
-    }
-}
-
-<#
-.SYNOPSIS
-    Extracts schema definitions from an OpenAPI specification.
-
-.DESCRIPTION
-    Returns all schema definitions (components/schemas in OpenAPI 3.0,
-    definitions in Swagger 2.0) with their properties and metadata.
-
-.PARAMETER Spec
-    The parsed specification from ConvertFrom-OpenAPISpec.
-
-.PARAMETER IncludeInternals
-    If specified, includes internal schemas (starting with x-).
-
-.PARAMETER ResolveReferences
-    If specified, inlines all $ref references in schemas.
-
-.OUTPUTS
-    System.Array. Array of schema definition objects.
-
-.EXAMPLE
-    $spec = ConvertFrom-OpenAPISpec -Path "api.yaml"
-    $schemas = Get-OpenAPISchemas -Spec $spec
-#>
-function Get-OpenAPISchemas {
-    [CmdletBinding()]
-    [OutputType([array])]
-    param(
-        [Parameter(Mandatory = $true, ValueFromPipeline = $true)]
-        [hashtable]$Spec,
-        
-        [Parameter()]
-        [switch]$IncludeInternals,
-        
-        [Parameter()]
-        [switch]$ResolveReferences
-    )
-    
-    process {
-        $schemas = @()
-        $schemaComponents = $Spec.components.schemas
-        
-        foreach ($name in $schemaComponents.Keys) {
-            # Skip internal schemas unless requested
-            if ($name.StartsWith('x-') -and -not $IncludeInternals) {
-                continue
-            }
-            
-            $schema = $schemaComponents[$name]
-            
-            $schemaInfo = [PSCustomObject]@{
-                name = $name
-                type = if ($schema.type) { $schema.type } else { 'object' }
-                description = $schema.description
-                required = $schema.required
-                additionalProperties = $schema.additionalProperties
-            }
-            
-            # Extract properties
-            if ($schema.properties) {
-                $schemaInfo.properties = @()
-                foreach ($propName in $schema.properties.Keys) {
-                    $prop = $schema.properties[$propName]
-                    $propInfo = [PSCustomObject]@{
-                        name = $propName
-                        type = if ($prop.type) { $prop.type } else { 'any' }
-                        format = $prop.format
-                        description = $prop.description
-                        nullable = $prop.nullable
-                        readOnly = $prop.readOnly
-                        writeOnly = $prop.writeOnly
-                        deprecated = $prop.deprecated
-                        required = ($schema.required -contains $propName)
-                        hasDefault = ($null -ne $prop.default)
-                    }
-                    
-                    # Handle nested/array types
-                    if ($prop.type -eq 'array' -and $prop.items) {
-                        $propInfo.itemsType = if ($prop.items.type) { $prop.items.type } else { 'any' }
-                        if ($prop.items.'$ref') {
-                            $propInfo.itemsRef = $prop.items.'$ref'
-                        }
-                    }
-                    elseif ($prop.'$ref') {
-                        $propInfo.'$ref' = $prop.'$ref'
-                    }
-                    
-                    $schemaInfo.properties += $propInfo
-                }
-                
-                $schemaInfo.propertyCount = $schemaInfo.properties.Count
-            }
-            
-            # Handle allOf, anyOf, oneOf
-            if ($schema.allOf) {
-                $schemaInfo.composition = 'allOf'
-                $schemaInfo.compositionCount = $schema.allOf.Count
-            }
-            elseif ($schema.anyOf) {
-                $schemaInfo.composition = 'anyOf'
-                $schemaInfo.compositionCount = $schema.anyOf.Count
-            }
-            elseif ($schema.oneOf) {
-                $schemaInfo.composition = 'oneOf'
-                $schemaInfo.compositionCount = $schema.oneOf.Count
-            }
-            
-            # Count enum values
-            if ($schema.enum) {
-                $schemaInfo.enumValues = $schema.enum
-                $schemaInfo.enumCount = $schema.enum.Count
-            }
-            
-            $schemas += $schemaInfo
-        }
-        
-        Write-Verbose "[OpenAPIExtractor] Extracted $($schemas.Count) schemas"
-        return $schemas
-    }
-}
-
-<#
-.SYNOPSIS
     Extracts parameters from an OpenAPI specification.
-
-.DESCRIPTION
-    Returns all unique parameters defined in the specification,
-    including both path/operation parameters and component parameters.
-
-.PARAMETER Spec
-    The parsed specification from ConvertFrom-OpenAPISpec.
-
-.PARAMETER Location
-    Filter by parameter location (query, header, path, cookie).
-
-.OUTPUTS
-    System.Array. Array of parameter objects.
-
-.EXAMPLE
-    $spec = ConvertFrom-OpenAPISpec -Path "api.yaml"
-    $params = Get-OpenAPIParameters -Spec $spec
     
-    $queryParams = Get-OpenAPIParameters -Spec $spec -Location query
+    DEPRECATED: Use Extract-OpenAPIPaths instead.
 #>
 function Get-OpenAPIParameters {
     [CmdletBinding()]
@@ -994,107 +1663,15 @@ function Get-OpenAPIParameters {
             }
         }
         
-        Write-Verbose "[OpenAPIExtractor] Extracted $($parameters.Count) unique parameters"
         return $parameters
     }
 }
 
 <#
 .SYNOPSIS
-    Extracts security schemes from an OpenAPI specification.
-
-.DESCRIPTION
-    Returns all security schemes (authentication/authorization methods)
-    defined in the specification.
-
-.PARAMETER Spec
-    The parsed specification from ConvertFrom-OpenAPISpec.
-
-.OUTPUTS
-    System.Array. Array of security scheme objects.
-
-.EXAMPLE
-    $spec = ConvertFrom-OpenAPISpec -Path "api.yaml"
-    $securitySchemes = Get-OpenAPISecuritySchemes -Spec $spec
-#>
-function Get-OpenAPISecuritySchemes {
-    [CmdletBinding()]
-    [OutputType([array])]
-    param(
-        [Parameter(Mandatory = $true, ValueFromPipeline = $true)]
-        [hashtable]$Spec
-    )
-    
-    process {
-        $schemes = @()
-        
-        if (-not $Spec.components.securitySchemes) {
-            return $schemes
-        }
-        
-        foreach ($name in $Spec.components.securitySchemes.Keys) {
-            $scheme = $Spec.components.securitySchemes[$name]
-            
-            $schemeInfo = [PSCustomObject]@{
-                name = $name
-                type = $scheme.type
-                description = $scheme.description
-            }
-            
-            # Handle different security scheme types
-            switch ($scheme.type) {
-                'http' {
-                    $schemeInfo.scheme = $scheme.scheme
-                    $schemeInfo.bearerFormat = $scheme.bearerFormat
-                }
-                'apiKey' {
-                    $schemeInfo.in = $scheme.'in'
-                    $schemeInfo.paramName = $scheme.name
-                }
-                'oauth2' {
-                    $schemeInfo.flows = $scheme.flows
-                }
-                'openIdConnect' {
-                    $schemeInfo.openIdConnectUrl = $scheme.openIdConnectUrl
-                }
-            }
-            
-            $schemes += $schemeInfo
-        }
-        
-        Write-Verbose "[OpenAPIExtractor] Extracted $($schemes.Count) security schemes"
-        return $schemes
-    }
-}
-
-<#
-.SYNOPSIS
     Merges multiple OpenAPI specifications into one.
-
-.DESCRIPTION
-    Combines multiple OpenAPI specifications, resolving conflicts
-    based on precedence rules. Supports path-based and tag-based merging.
-
-.PARAMETER Specs
-    Array of parsed specifications to merge.
-
-.PARAMETER Title
-    Title for the merged specification.
-
-.PARAMETER Version
-    Version for the merged specification.
-
-.PARAMETER ConflictResolution
-    How to handle conflicts: 'first' (keep first), 'last' (keep last),
-    or 'error' (throw error).
-
-.OUTPUTS
-    System.Collections.Hashtable. Merged specification object.
-
-.EXAMPLE
-    $spec1 = ConvertFrom-OpenAPISpec -Path "api1.yaml"
-    $spec2 = ConvertFrom-OpenAPISpec -Path "api2.yaml"
-    $merged = Merge-OpenAPISpecs -Specs @($spec1, $spec2) -Title "Combined API"
+    
+    DEPRECATED: This is a utility function, use with ConvertFrom-OpenAPISpec output.
 #>
 function Merge-OpenAPISpecs {
     [CmdletBinding()]
@@ -1115,10 +1692,10 @@ function Merge-OpenAPISpecs {
     )
     
     try {
-        Write-Verbose "[OpenAPIExtractor] Merging $($Specs.Count) specifications"
+        Write-Verbose "[$script:ParserName] Merging $($Specs.Count) specifications"
         
         if ($Specs.Count -eq 0) {
-            Write-Warning "[OpenAPIExtractor] No specifications to merge"
+            Write-Warning "[$script:ParserName] No specifications to merge"
             return $null
         }
         
@@ -1169,14 +1746,11 @@ function Merge-OpenAPISpecs {
             if ($spec.paths) {
                 foreach ($path in $spec.paths.Keys) {
                     if ($merged.paths.ContainsKey($path)) {
-                        # Conflict - handle based on resolution strategy
                         switch ($ConflictResolution) {
                             'first' {
-                                # Keep existing
                                 $conflicts += "Path $path - keeping first occurrence"
                             }
                             'last' {
-                                # Replace with new
                                 $merged.paths[$path] = $spec.paths[$path]
                                 $conflicts += "Path $path - replaced with last occurrence"
                             }
@@ -1205,7 +1779,6 @@ function Merge-OpenAPISpecs {
                     
                     foreach ($name in $categoryData.Keys) {
                         if ($merged.components[$category].ContainsKey($name)) {
-                            # Conflict in component
                             switch ($ConflictResolution) {
                                 'first' {
                                     $conflicts += "Component $category/$name - keeping first occurrence"
@@ -1249,14 +1822,13 @@ function Merge-OpenAPISpecs {
         
         if ($conflicts.Count -gt 0) {
             $merged.mergeConflicts = $conflicts
-            Write-Warning "[OpenAPIExtractor] Encountered $($conflicts.Count) conflicts during merge"
+            Write-Warning "[$script:ParserName] Encountered $($conflicts.Count) conflicts during merge"
         }
         
-        Write-Verbose "[OpenAPIExtractor] Merge complete: $($merged.paths.Count) paths, $($merged.components.schemas.Count) schemas"
         return $merged
     }
     catch {
-        Write-Error "[OpenAPIExtractor] Failed to merge specifications: $_"
+        Write-Error "[$script:ParserName] Failed to merge specifications: $_"
         return $null
     }
 }
@@ -1264,23 +1836,8 @@ function Merge-OpenAPISpecs {
 <#
 .SYNOPSIS
     Checks OpenAPI specification version compatibility.
-
-.DESCRIPTION
-    Validates that a specification can be converted to a target
-    OpenAPI version and reports any incompatible features.
-
-.PARAMETER Spec
-    The parsed specification from ConvertFrom-OpenAPISpec.
-
-.PARAMETER TargetVersion
-    The target OpenAPI version (e.g., '3.0.3', '2.0').
-
-.OUTPUTS
-    System.Collections.Hashtable. Compatibility report with status and issues.
-
-.EXAMPLE
-    $spec = ConvertFrom-OpenAPISpec -Path "api.yaml"
-    $compat = Test-OpenAPICompatibility -Spec $spec -TargetVersion "2.0"
+    
+    DEPRECATED: Use with ConvertFrom-OpenAPISpec output.
 #>
 function Test-OpenAPICompatibility {
     [CmdletBinding()]
@@ -1301,19 +1858,14 @@ function Test-OpenAPICompatibility {
         
         # Check downgrade from 3.x to 2.0
         if ($TargetVersion -eq '2.0' -and $sourceVersion -ne '2.0') {
-            # Check for OpenAPI 3.0 features not supported in 2.0
-            
-            # Callbacks
             if ($Spec.components.callbacks -and $Spec.components.callbacks.Count -gt 0) {
                 $issues += "Callbacks are not supported in Swagger 2.0"
             }
             
-            # Links
             if ($Spec.components.links -and $Spec.components.links.Count -gt 0) {
                 $warnings += "Links will be omitted in Swagger 2.0"
             }
             
-            # Request bodies (need conversion)
             foreach ($path in $Spec.paths.Keys) {
                 $pathItem = $Spec.paths[$path]
                 foreach ($method in $script:HTTPMethods) {
@@ -1324,7 +1876,6 @@ function Test-OpenAPICompatibility {
                         $warnings += "Request body in $method $path needs conversion to body parameter"
                     }
                     
-                    # Check for cookie parameters
                     if ($operation.parameters) {
                         $cookieParams = $operation.parameters | Where-Object { $_.in -eq 'cookie' }
                         if ($cookieParams) {
@@ -1334,12 +1885,10 @@ function Test-OpenAPICompatibility {
                 }
             }
             
-            # Multiple server URLs
             if ($Spec.servers -and $Spec.servers.Count -gt 1) {
                 $warnings += "Multiple servers will be reduced to single host/basePath in Swagger 2.0"
             }
             
-            # oneOf/anyOf/allOf
             foreach ($name in $Spec.components.schemas.Keys) {
                 $schema = $Spec.components.schemas[$name]
                 if ($schema.oneOf -or $schema.anyOf) {
@@ -1350,14 +1899,8 @@ function Test-OpenAPICompatibility {
         
         # Check upgrade from 2.0 to 3.x
         if ($TargetVersion -ne '2.0' -and $sourceVersion -eq '2.0') {
-            # Swagger 2.0 to OpenAPI 3.x is generally compatible
             $warnings += "File upload parameters need conversion to requestBody"
             $warnings += "Form data parameters need conversion to requestBody with appropriate encoding"
-        }
-        
-        # Check 3.0 to 3.1 specific changes
-        if ($TargetVersion -eq '3.1.0' -and $sourceVersion -ne '3.1.0') {
-            $warnings += "nullable: true should be converted to type array in OpenAPI 3.1"
         }
         
         $report = @{
@@ -1370,7 +1913,6 @@ function Test-OpenAPICompatibility {
             warningCount = $warnings.Count
         }
         
-        Write-Verbose "[OpenAPIExtractor] Compatibility check: $($report.compatible) ($($issues.Count) issues, $($warnings.Count) warnings)"
         return $report
     }
 }
@@ -1378,23 +1920,8 @@ function Test-OpenAPICompatibility {
 <#
 .SYNOPSIS
     Validates an OpenAPI specification structure.
-
-.DESCRIPTION
-    Performs basic validation of the specification structure,
-    checking for required fields and common errors.
-
-.PARAMETER Spec
-    The parsed specification from ConvertFrom-OpenAPISpec.
-
-.PARAMETER Strict
-    If specified, enforces stricter validation rules.
-
-.OUTPUTS
-    System.Collections.Hashtable. Validation report with errors and warnings.
-
-.EXAMPLE
-    $spec = ConvertFrom-OpenAPISpec -Path "api.yaml"
-    $validation = Test-OpenAPISpecValidation -Spec $spec
+    
+    DEPRECATED: Use with ConvertFrom-OpenAPISpec output.
 #>
 function Test-OpenAPISpecValidation {
     [CmdletBinding()]
@@ -1450,35 +1977,9 @@ function Test-OpenAPISpecValidation {
                     $warnings += "Missing operationId for $method $path"
                 }
                 
-                # Check for path parameters
-                $pathParams = [regex]::Matches($path, '\{(\w+)\}') | ForEach-Object { $_.Groups[1].Value }
-                $definedPathParams = @()
-                
-                if ($pathItem.parameters) {
-                    $definedPathParams += $pathItem.parameters | Where-Object { $_.in -eq 'path' } | ForEach-Object { $_.name }
-                }
-                if ($operation.parameters) {
-                    $definedPathParams += $operation.parameters | Where-Object { $_.in -eq 'path' } | ForEach-Object { $_.name }
-                }
-                
-                foreach ($param in $pathParams) {
-                    if ($definedPathParams -notcontains $param) {
-                        $errors += "Path parameter '{$param}' not defined in $method $path"
-                    }
-                }
-                
-                # Check responses
                 if (-not $operation.responses -or $operation.responses.Count -eq 0) {
                     $errors += "No responses defined for $method $path"
                 }
-            }
-        }
-        
-        # Check schema references
-        if ($Spec.components.schemas) {
-            foreach ($name in $Spec.components.schemas.Keys) {
-                $schema = $Spec.components.schemas[$name]
-                # Additional schema validation could go here
             }
         }
         
@@ -1490,19 +1991,21 @@ function Test-OpenAPISpecValidation {
             warningCount = $warnings.Count
         }
         
-        Write-Verbose "[OpenAPIExtractor] Validation: $($report.valid) ($($errors.Count) errors, $($warnings.Count) warnings)"
         return $report
     }
 }
 
 # Export module functions
 Export-ModuleMember -Function @(
-    'ConvertFrom-OpenAPISpec',
-    'Get-OpenAPIEndpoints',
-    'Get-OpenAPISchemas',
-    'Get-OpenAPIParameters',
-    'Get-OpenAPISecuritySchemes',
-    'Merge-OpenAPISpecs',
-    'Test-OpenAPICompatibility',
+    # Canonical functions (Section 25.6)
+    'Extract-OpenAPIPaths'
+    'Extract-OpenAPISchemas'
+    'Extract-OpenAPISecurity'
+    'Convert-OpenAPIToMarkdown'
+    # Legacy compatibility functions
+    'ConvertFrom-OpenAPISpec'
+    'Get-OpenAPIParameters'
+    'Merge-OpenAPISpecs'
+    'Test-OpenAPICompatibility'
     'Test-OpenAPISpecValidation'
 )

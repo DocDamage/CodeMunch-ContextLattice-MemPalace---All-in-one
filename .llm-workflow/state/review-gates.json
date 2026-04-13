@@ -1,0 +1,114 @@
+﻿{
+    "policies":  {
+                     "custom-test-policy":  {
+                                                "name":  "custom-test-policy",
+                                                "createdAt":  "2026-04-13T15:59:49Z",
+                                                "description":  "Custom review policy for custom-test-policy",
+                                                "conditions":  {
+                                                                   "requireOwnerApproval":  false,
+                                                                   "minApprovers":  1,
+                                                                   "autoExpireHours":  72
+                                                               },
+                                                "defaultReviewers":  [
+                                                                         "admin1"
+                                                                     ],
+                                                "operationType":  "unknown",
+                                                "triggers":  {
+                                                                 "largeSourceDelta":  {
+                                                                                          "thresholdPercent":  50,
+                                                                                          "enabled":  true
+                                                                                      },
+                                                                 "majorVersionJump":  {
+                                                                                          "enabled":  true
+                                                                                      }
+                                                             }
+                                            },
+                     "test-gate":  {
+                                       "operationType":  "high-value",
+                                       "description":  "Human review gate for test-gate",
+                                       "createdAt":  "2026-04-13T10:23:45Z",
+                                       "version":  1,
+                                       "name":  "test-gate",
+                                       "triggers":  {
+                                                        "test":  {
+                                                                     "enabled":  true
+                                                                 }
+                                                    },
+                                       "defaultReviewers":  "alice",
+                                       "conditions":  {
+                                                          "requireOwnerApproval":  false,
+                                                          "minApprovers":  1,
+                                                          "autoExpireHours":  72
+                                                      }
+                                   }
+                 },
+    "stats":  {
+                  "expiredCount":  0,
+                  "totalRequests":  4,
+                  "pendingCount":  0,
+                  "rejectedCount":  1,
+                  "approvedCount":  3
+              },
+    "lastUpdated":  "2026-04-13T15:59:49Z",
+    "requests":  {
+                     "review-20260413T155948-bac460":  {
+                                                           "notificationsSent":  [
+                                                                                     {
+                                                                                         "timestamp":  "2026-04-13T15:59:48Z",
+                                                                                         "channels":  {
+
+                                                                                                      },
+                                                                                         "eventType":  "created"
+                                                                                     },
+                                                                                     {
+                                                                                         "timestamp":  "2026-04-13T15:59:48Z",
+                                                                                         "channels":  {
+
+                                                                                                      },
+                                                                                         "eventType":  "decision-submitted"
+                                                                                     }
+                                                                                 ],
+                                                           "operation":  "pack-promotion",
+                                                           "createdAt":  "2026-04-13T15:59:48Z",
+                                                           "priority":  "normal",
+                                                           "operationType":  "unknown",
+                                                           "escalatedAt":  null,
+                                                           "requestId":  "review-20260413T155948-bac460",
+                                                           "justification":  "Test request",
+                                                           "completedAt":  "2026-04-13T15:59:48Z",
+                                                           "changeSet":  {
+                                                                             "newVersion":  "2.0.0",
+                                                                             "packId":  "test-pack",
+                                                                             "oldVersion":  "1.0.0"
+                                                                         },
+                                                           "decisions":  {
+                                                                             "comments":  "Looks good",
+                                                                             "reviewer":  "reviewer1",
+                                                                             "submittedAt":  "2026-04-13T15:59:48Z",
+                                                                             "conditions":  {
+
+                                                                                            },
+                                                                             "decision":  "approved"
+                                                                         },
+                                                           "runId":  "20260413T155948-deb0",
+                                                           "updatedAt":  "2026-04-13T15:59:48Z",
+                                                           "status":  "approved",
+                                                           "metadata":  {
+                                                                            "host":  "docdamage",
+                                                                            "pid":  26856,
+                                                                            "version":  1
+                                                                        },
+                                                           "conditions":  {
+                                                                              "minApprovers":  1
+                                                                          },
+                                                           "reviewers":  [
+                                                                             "reviewer1",
+                                                                             "reviewer2"
+                                                                         ],
+                                                           "requester":  "testuser",
+                                                           "expiresAt":  "2026-04-16T15:59:48Z"
+                                                       }
+                 },
+    "schemaName":  "human-review-gates",
+    "schemaVersion":  1
+}

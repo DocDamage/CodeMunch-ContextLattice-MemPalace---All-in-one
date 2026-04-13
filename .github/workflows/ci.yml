@@ -23,6 +23,11 @@ jobs:
         run: |
           .\tools\ci\validate-compatibility-lock.ps1
 
+      - name: Validate Documentation Truth
+        shell: powershell
+        run: |
+          .\tools\ci\validate-docs-truth.ps1
+
   lint:
     needs: drift-guard
     runs-on: ubuntu-latest

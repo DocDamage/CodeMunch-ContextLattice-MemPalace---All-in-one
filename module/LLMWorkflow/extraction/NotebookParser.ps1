@@ -14,24 +14,48 @@
     - Notebook metadata (kernelspec, language_info, etc.)
     - Cell tags and attachments
     
-    This parser implements Section 25.15.1 of the canonical architecture
+    Also provides conversion from notebook to executable script.
+    
+    This parser implements Section 25.6 of the canonical architecture
     for the Notebook/Data Workflow pack's structured extraction pipeline.
+
+.REQUIRED FUNCTIONS
+    - Extract-NotebookCells: Extract code and markdown cells
+    - Extract-NotebookOutputs: Extract cell outputs
+    - Extract-NotebookMetadata: Extract kernel and language metadata
+    - Convert-NotebookToScript: Convert notebook to executable script
+
+.PARAMETER Path
+    Path to the .ipynb file to parse.
+
+.PARAMETER Content
+    JSON content string (alternative to Path).
+
+.PARAMETER IncludeRawContent
+    If specified, includes the raw JSON content in the output.
+
+.OUTPUTS
+    JSON with cell arrays, outputs, metadata, and provenance information.
 
 .NOTES
     File Name      : NotebookParser.ps1
     Author         : LLM Workflow Team
-    Version        : 1.0.0
+    Version        : 2.0.0
     Prerequisite   : PowerShell 5.1+
     Copyright      : (c) 2026 LLM Workflow Project
     License        : MIT
     Format Support : Jupyter Notebook Format 4.x
+    Pack           : notebook-data
 #>
 
 Set-StrictMode -Version Latest
 
 # ============================================================================
-# Script-level Constants and Patterns
+# Module Constants and Version
 # ============================================================================
+
+$script:ParserVersion = '2.0.0'
+$script:ParserName = 'NotebookParser'
 
 # Supported cell types
 $script:CellTypes = @('code', 'markdown', 'raw')
@@ -57,6 +81,45 @@ $script:MimeTypes = @{
 # ============================================================================
 # Private Helper Functions
 # ============================================================================
+
+<#
+.SYNOPSIS
+    Creates provenance metadata for extraction results.
+.DESCRIPTION
+    Generates standardized metadata including source file, extraction timestamp,
+    and parser version for tracking extraction provenance.
+.PARAMETER SourceFile
+    Path to the source file being parsed.
+.PARAMETER Success
+    Whether the extraction was successful.
+.PARAMETER Errors
+    Array of error messages.
+.OUTPUTS
+    System.Collections.Hashtable. Provenance metadata object.
+#>
+function New-ProvenanceMetadata {
+    [CmdletBinding()]
+    [OutputType([hashtable])]
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$SourceFile,
+        
+        [Parameter()]
+        [bool]$Success = $true,
+        
+        [Parameter()]
+        [array]$Errors = @()
+    )
+    
+    return @{
+        sourceFile = $SourceFile
+        extractionTimestamp = [DateTime]::UtcNow.ToString("o")
+        parserName = $script:ParserName
+        parserVersion = $script:ParserVersion
+        success = $Success
+        errors = $Errors
+    }
+}
 
 <#
 .SYNOPSIS
@@ -265,17 +328,17 @@ function Get-PrimaryMimeType {
     
     # Priority order for MIME types
     $priorityOrder = @(
-        'application/vnd.jupyter.widget-view+json',
-        'application/vnd.jupyter.widget-state+json',
-        'text/html',
-        'image/svg+xml',
-        'image/png',
-        'image/jpeg',
-        'image/gif',
-        'text/markdown',
-        'text/latex',
-        'application/javascript',
-        'application/json',
+        'application/vnd.jupyter.widget-view+json'
+        'application/vnd.jupyter.widget-state+json'
+        'text/html'
+        'image/svg+xml'
+        'image/png'
+        'image/jpeg'
+        'image/gif'
+        'text/markdown'
+        'text/latex'
+        'application/javascript'
+        'application/json'
         'text/plain'
     )
     
@@ -408,17 +471,16 @@ function New-NotebookCell {
 }
 
 # ============================================================================
-# Public API Functions
+# Public API Functions - Required by Canonical Document Section 25.6
 # ============================================================================
 
 <#
 .SYNOPSIS
-    Parses a Jupyter Notebook file (.ipynb).
+    Extracts cells from a Jupyter notebook.
 
 .DESCRIPTION
-    Main entry point for parsing Jupyter notebooks. Extracts all cells,
-    metadata, outputs, and widget state following the Phase 4 Structured
-    Extraction Pipeline schema.
+    Parses a Jupyter Notebook file and extracts code, markdown, and raw cells
+    with their metadata, outputs, and execution information.
 
 .PARAMETER Path
     Path to the .ipynb file to parse.
@@ -426,18 +488,630 @@ function New-NotebookCell {
 .PARAMETER Content
     JSON content string (alternative to Path).
 
-.PARAMETER IncludeRawContent
-    If specified, includes the raw JSON content in the output.
+.PARAMETER CellType
+    Filter by cell type (code, markdown, raw, all).
+
+.PARAMETER HasOutputs
+    If specified, only returns cells with outputs.
 
 .OUTPUTS
-    System.Collections.Hashtable. Complete extraction with cells array and metadata.
+    System.Collections.Hashtable. Object containing:
+    - cells: Array of cell objects
+    - metadata: Provenance metadata
+    - statistics: Extraction statistics
 
 .EXAMPLE
-    $result = ConvertFrom-JupyterNotebook -Path "analysis.ipynb"
+    $cells = Extract-NotebookCells -Path "analysis.ipynb"
+    
+    $cells = Extract-NotebookCells -Path "analysis.ipynb" -CellType 'code'
+#>
+function Extract-NotebookCells {
+    [CmdletBinding()]
+    [OutputType([hashtable])]
+    param(
+        [Parameter(Mandatory = $true, ParameterSetName = 'Path')]
+        [Alias('FilePath')]
+        [string]$Path,
+        
+        [Parameter(Mandatory = $true, ParameterSetName = 'Content')]
+        [string]$Content,
+        
+        [Parameter()]
+        [ValidateSet('code', 'markdown', 'raw', 'all')]
+        [string]$CellType = 'all',
+        
+        [Parameter()]
+        [switch]$HasOutputs
+    )
+    
+    try {
+        # Load content
+        $sourceFile = 'inline'
+        if ($PSCmdlet.ParameterSetName -eq 'Path') {
+            Write-Verbose "[$script:ParserName] Loading notebook: $Path"
+            
+            if (-not (Test-Path -LiteralPath $Path)) {
+                return @{
+                    cells = @()
+                    metadata = New-ProvenanceMetadata -SourceFile $Path -Success $false -Errors @("File not found: $Path")
+                    statistics = @{ totalCells = 0; codeCells = 0; markdownCells = 0 }
+                }
+            }
+            
+            $sourceFile = Resolve-Path -Path $Path | Select-Object -ExpandProperty Path
+            $Content = Get-Content -LiteralPath $sourceFile -Raw -Encoding UTF8
+        }
+        
+        if ([string]::IsNullOrWhiteSpace($Content)) {
+            return @{
+                cells = @()
+                metadata = New-ProvenanceMetadata -SourceFile $sourceFile -Success $false -Errors @("Content is empty")
+                statistics = @{ totalCells = 0; codeCells = 0; markdownCells = 0 }
+            }
+        }
+        
+        # Validate JSON
+        if (-not (Test-ValidJson -Content $Content)) {
+            return @{
+                cells = @()
+                metadata = New-ProvenanceMetadata -SourceFile $sourceFile -Success $false -Errors @("Invalid JSON content")
+                statistics = @{ totalCells = 0; codeCells = 0; markdownCells = 0 }
+            }
+        }
+        
+        # Parse JSON
+        $notebook = $Content | ConvertFrom-Json
+        
+        # Extract cells
+        $cells = @()
+        $cellIndex = 0
+        
+        foreach ($cell in $notebook.cells) {
+            $type = $cell.cell_type
+            $source = Get-CellSourceContent -Source $cell.source
+            $metadata = $cell.metadata
+            $outputs = $cell.outputs
+            $executionCount = $cell.execution_count
+            
+            # Create cell object
+            $parsedCell = New-NotebookCell `
+                -CellType $type `
+                -Source $source `
+                -CellIndex $cellIndex `
+                -Metadata $metadata `
+                -Outputs $outputs `
+                -ExecutionCount $executionCount
+            
+            # Filter by cell type
+            if ($CellType -ne 'all' -and $parsedCell.cellType -ne $CellType) {
+                $cellIndex++
+                continue
+            }
+            
+            # Filter by outputs
+            if ($HasOutputs -and -not $parsedCell.hasOutputs) {
+                $cellIndex++
+                continue
+            }
+            
+            $cells += $parsedCell
+            $cellIndex++
+        }
+        
+        Write-Verbose "[$script:ParserName] Extracted $($cells.Count) cells"
+        
+        return @{
+            cells = $cells
+            metadata = New-ProvenanceMetadata -SourceFile $sourceFile -Success $true
+            statistics = @{
+                totalCells = $cells.Count
+                codeCells = ($cells | Where-Object { $_.cellType -eq 'code' }).Count
+                markdownCells = ($cells | Where-Object { $_.cellType -eq 'markdown' }).Count
+                rawCells = ($cells | Where-Object { $_.cellType -eq 'raw' }).Count
+                cellsWithOutputs = ($cells | Where-Object { $_.hasOutputs }).Count
+            }
+        }
+    }
+    catch {
+        Write-Error "[$script:ParserName] Failed to extract notebook cells: $_"
+        return @{
+            cells = @()
+            metadata = New-ProvenanceMetadata -SourceFile $sourceFile -Success $false -Errors @($_.ToString())
+            statistics = @{ totalCells = 0; codeCells = 0; markdownCells = 0 }
+        }
+    }
+}
+
+<#
+.SYNOPSIS
+    Extracts cell outputs from a Jupyter notebook.
+
+.DESCRIPTION
+    Parses a Jupyter Notebook file and extracts all cell outputs,
+    optionally filtered by output type.
+
+.PARAMETER Path
+    Path to the .ipynb file to parse.
+
+.PARAMETER Content
+    JSON content string (alternative to Path).
+
+.PARAMETER OutputType
+    Filter by output type (stream, display_data, execute_result, error, all).
+
+.PARAMETER IncludeData
+    If specified, includes full output data (can be large).
+
+.OUTPUTS
+    System.Collections.Hashtable. Object containing:
+    - outputs: Array of output objects
+    - metadata: Provenance metadata
+    - statistics: Extraction statistics
 
 .EXAMPLE
-    $json = Get-Content -Raw "notebook.ipynb"
-    $result = ConvertFrom-JupyterNotebook -Content $json
+    $outputs = Extract-NotebookOutputs -Path "analysis.ipynb"
+    
+    $outputs = Extract-NotebookOutputs -Path "analysis.ipynb" -OutputType 'display_data'
+#>
+function Extract-NotebookOutputs {
+    [CmdletBinding()]
+    [OutputType([hashtable])]
+    param(
+        [Parameter(Mandatory = $true, ParameterSetName = 'Path')]
+        [string]$Path,
+        
+        [Parameter(Mandatory = $true, ParameterSetName = 'Content')]
+        [string]$Content,
+        
+        [Parameter()]
+        [ValidateSet('stream', 'display_data', 'execute_result', 'error', 'update_display_data', 'all')]
+        [string]$OutputType = 'all',
+        
+        [Parameter()]
+        [switch]$IncludeData
+    )
+    
+    try {
+        # Load content
+        $sourceFile = 'inline'
+        if ($PSCmdlet.ParameterSetName -eq 'Path') {
+            if (-not (Test-Path -LiteralPath $Path)) {
+                return @{
+                    outputs = @()
+                    metadata = New-ProvenanceMetadata -SourceFile $Path -Success $false -Errors @("File not found: $Path")
+                    statistics = @{ totalOutputs = 0; errorCount = 0 }
+                }
+            }
+            $sourceFile = Resolve-Path -Path $Path | Select-Object -ExpandProperty Path
+            $Content = Get-Content -LiteralPath $Path -Raw -Encoding UTF8
+        }
+        
+        if ([string]::IsNullOrWhiteSpace($Content)) {
+            return @{
+                outputs = @()
+                metadata = New-ProvenanceMetadata -SourceFile $sourceFile -Success $false -Errors @("Content is empty")
+                statistics = @{ totalOutputs = 0; errorCount = 0 }
+            }
+        }
+        
+        # Validate JSON
+        if (-not (Test-ValidJson -Content $Content)) {
+            return @{
+                outputs = @()
+                metadata = New-ProvenanceMetadata -SourceFile $sourceFile -Success $false -Errors @("Invalid JSON content")
+                statistics = @{ totalOutputs = 0; errorCount = 0 }
+            }
+        }
+        
+        # Parse notebook
+        $notebook = $Content | ConvertFrom-Json
+        $result = @()
+        
+        foreach ($cell in $notebook.cells) {
+            if ($cell.cell_type -ne 'code' -or -not $cell.outputs) {
+                continue
+            }
+            
+            $cellIndex = [Array]::IndexOf($notebook.cells, $cell)
+            
+            foreach ($output in $cell.outputs) {
+                if ($OutputType -ne 'all' -and $output.output_type -ne $OutputType) {
+                    continue
+                }
+                
+                $outputInfo = @{
+                    id = [System.Guid]::NewGuid().ToString()
+                    cellIndex = $cellIndex
+                    cellExecutionCount = $cell.execution_count
+                    outputType = $output.output_type
+                }
+                
+                if ($IncludeData) {
+                    $outputInfo.output = ConvertFrom-CellOutputs -Outputs @($output)
+                }
+                else {
+                    # Include summary only
+                    $outputInfo.summary = switch ($output.output_type) {
+                        'stream' { "Stream ($($output.name)): $($output.text[0].Substring(0, [Math]::Min(100, $output.text[0].Length)))..." }
+                        'error' { "Error: $($output.ename) - $($output.evalue)" }
+                        default { "Output: $(($output.data.PSObject.Properties.Name | Select-Object -First 1))" }
+                    }
+                }
+                
+                $result += $outputInfo
+            }
+        }
+        
+        return @{
+            outputs = $result
+            metadata = New-ProvenanceMetadata -SourceFile $sourceFile -Success $true
+            statistics = @{
+                totalOutputs = $result.Count
+                streamOutputs = ($result | Where-Object { $_.outputType -eq 'stream' }).Count
+                displayOutputs = ($result | Where-Object { $_.outputType -eq 'display_data' }).Count
+                executeResults = ($result | Where-Object { $_.outputType -eq 'execute_result' }).Count
+                errorCount = ($result | Where-Object { $_.outputType -eq 'error' }).Count
+            }
+        }
+    }
+    catch {
+        Write-Error "[$script:ParserName] Failed to extract notebook outputs: $_"
+        return @{
+            outputs = @()
+            metadata = New-ProvenanceMetadata -SourceFile $sourceFile -Success $false -Errors @($_.ToString())
+            statistics = @{ totalOutputs = 0; errorCount = 0 }
+        }
+    }
+}
+
+<#
+.SYNOPSIS
+    Extracts notebook metadata from a Jupyter notebook.
+
+.DESCRIPTION
+    Parses a Jupyter Notebook file and extracts kernel and language metadata,
+    including kernelspec, language_info, and widget state.
+
+.PARAMETER Path
+    Path to the .ipynb file to parse.
+
+.PARAMETER Content
+    JSON content string (alternative to Path).
+
+.OUTPUTS
+    System.Collections.Hashtable. Object containing:
+    - metadata: Notebook metadata object
+    - kernelspec: Kernel specification
+    - languageInfo: Language information
+    - widgets: Widget state
+    - provenance: Provenance metadata
+    - statistics: Extraction statistics
+
+.EXAMPLE
+    $metadata = Extract-NotebookMetadata -Path "analysis.ipynb"
+#>
+function Extract-NotebookMetadata {
+    [CmdletBinding()]
+    [OutputType([hashtable])]
+    param(
+        [Parameter(Mandatory = $true, ParameterSetName = 'Path')]
+        [string]$Path,
+        
+        [Parameter(Mandatory = $true, ParameterSetName = 'Content')]
+        [string]$Content
+    )
+    
+    try {
+        # Load content
+        $sourceFile = 'inline'
+        if ($PSCmdlet.ParameterSetName -eq 'Path') {
+            if (-not (Test-Path -LiteralPath $Path)) {
+                return @{
+                    metadata = @{}
+                    kernelspec = $null
+                    languageInfo = $null
+                    widgets = $null
+                    provenance = New-ProvenanceMetadata -SourceFile $Path -Success $false -Errors @("File not found: $Path")
+                    statistics = @{ hasKernelSpec = $false; hasLanguageInfo = $false }
+                }
+            }
+            $sourceFile = Resolve-Path -Path $Path | Select-Object -ExpandProperty Path
+            $Content = Get-Content -LiteralPath $Path -Raw -Encoding UTF8
+        }
+        
+        if ([string]::IsNullOrWhiteSpace($Content)) {
+            return @{
+                metadata = @{}
+                kernelspec = $null
+                languageInfo = $null
+                widgets = $null
+                provenance = New-ProvenanceMetadata -SourceFile $sourceFile -Success $false -Errors @("Content is empty")
+                statistics = @{ hasKernelSpec = $false; hasLanguageInfo = $false }
+            }
+        }
+        
+        # Validate JSON
+        if (-not (Test-ValidJson -Content $Content)) {
+            return @{
+                metadata = @{}
+                kernelspec = $null
+                languageInfo = $null
+                widgets = $null
+                provenance = New-ProvenanceMetadata -SourceFile $sourceFile -Success $false -Errors @("Invalid JSON content")
+                statistics = @{ hasKernelSpec = $false; hasLanguageInfo = $false }
+            }
+        }
+        
+        # Parse notebook
+        $notebook = $Content | ConvertFrom-Json
+        
+        # Validate notebook format
+        if ($notebook.nbformat -lt 3) {
+            Write-Warning "[$script:ParserName] Unsupported notebook format version: $($notebook.nbformat)"
+        }
+        
+        # Extract metadata
+        $kernelspec = $null
+        $languageInfo = $null
+        $widgets = $null
+        
+        if ($notebook.metadata) {
+            if ($notebook.metadata.kernelspec) {
+                $kernelspec = @{
+                    displayName = $notebook.metadata.kernelspec.display_name
+                    language = $notebook.metadata.kernelspec.language
+                    name = $notebook.metadata.kernelspec.name
+                }
+            }
+            
+            if ($notebook.metadata.language_info) {
+                $languageInfo = @{
+                    name = $notebook.metadata.language_info.name
+                    version = $notebook.metadata.language_info.version
+                    mimetype = $notebook.metadata.language_info.mimetype
+                    fileExtension = $notebook.metadata.language_info.file_extension
+                    nbconvertExporter = $notebook.metadata.language_info.nbconvert_exporter
+                    pygmentsLexer = $notebook.metadata.language_info.pygments_lexer
+                }
+            }
+            
+            # Extract widget state
+            if ($notebook.metadata.widgets) {
+                $widgets = ConvertFrom-WidgetState -WidgetState $notebook.metadata.widgets
+            }
+        }
+        
+        return @{
+            metadata = @{
+                nbformat = $notebook.nbformat
+                nbformatMinor = $notebook.nbformat_minor
+                raw = $notebook.metadata
+            }
+            kernelspec = $kernelspec
+            languageInfo = $languageInfo
+            widgets = $widgets
+            provenance = New-ProvenanceMetadata -SourceFile $sourceFile -Success $true
+            statistics = @{
+                hasKernelSpec = $null -ne $kernelspec
+                hasLanguageInfo = $null -ne $languageInfo
+                hasWidgets = $null -ne $widgets
+                nbformat = $notebook.nbformat
+            }
+        }
+    }
+    catch {
+        Write-Error "[$script:ParserName] Failed to extract notebook metadata: $_"
+        return @{
+            metadata = @{}
+            kernelspec = $null
+            languageInfo = $null
+            widgets = $null
+            provenance = New-ProvenanceMetadata -SourceFile $sourceFile -Success $false -Errors @($_.ToString())
+            statistics = @{ hasKernelSpec = $false; hasLanguageInfo = $false }
+        }
+    }
+}
+
+<#
+.SYNOPSIS
+    Converts a Jupyter notebook to an executable script.
+
+.DESCRIPTION
+    Parses a Jupyter Notebook file and converts it to an executable script
+    by concatenating code cells. Supports various output formats and options.
+
+.PARAMETER Path
+    Path to the .ipynb file to parse.
+
+.PARAMETER Content
+    JSON content string (alternative to Path).
+
+.PARAMETER Cells
+    Pre-extracted cells (optional).
+
+.PARAMETER OutputFormat
+    Output format for the script (python, r, julia, javascript, raw).
+
+.PARAMETER IncludeMarkdown
+    If specified, includes markdown cells as comments.
+
+.PARAMETER IncludeMagicCommands
+    If specified, includes cell magic commands.
+
+.PARAMETER CellSeparator
+    String to use between cells (default: newline).
+
+.OUTPUTS
+    System.Collections.Hashtable. Object containing:
+    - script: The generated script content
+    - language: Detected language
+    - cellCount: Number of code cells included
+    - metadata: Provenance metadata
+
+.EXAMPLE
+    $script = Convert-NotebookToScript -Path "analysis.ipynb"
+    
+    $script = Convert-NotebookToScript -Path "analysis.ipynb" -IncludeMarkdown
+#>
+function Convert-NotebookToScript {
+    [CmdletBinding()]
+    [OutputType([hashtable])]
+    param(
+        [Parameter(Mandatory = $true, ParameterSetName = 'Path')]
+        [string]$Path,
+        
+        [Parameter(Mandatory = $true, ParameterSetName = 'Content')]
+        [string]$Content,
+        
+        [Parameter(Mandatory = $true, ParameterSetName = 'Cells')]
+        [array]$Cells,
+        
+        [Parameter()]
+        [ValidateSet('auto', 'python', 'r', 'julia', 'javascript', 'scala', 'raw')]
+        [string]$OutputFormat = 'auto',
+        
+        [Parameter()]
+        [switch]$IncludeMarkdown,
+        
+        [Parameter()]
+        [switch]$IncludeMagicCommands,
+        
+        [Parameter()]
+        [string]$CellSeparator = "`n\n"
+    )
+    
+    try {
+        $sourceFile = 'inline'
+        $cells = @()
+        $languageInfo = $null
+        
+        switch ($PSCmdlet.ParameterSetName) {
+            'Path' {
+                if (-not (Test-Path -LiteralPath $Path)) {
+                    return @{
+                        script = ''
+                        language = 'unknown'
+                        cellCount = 0
+                        metadata = New-ProvenanceMetadata -SourceFile $Path -Success $false -Errors @("File not found: $Path")
+                    }
+                }
+                $sourceFile = Resolve-Path -Path $Path | Select-Object -ExpandProperty Path
+                $cellsResult = Extract-NotebookCells -Path $Path -CellType 'all'
+                $cells = $cellsResult.cells
+                $metadataResult = Extract-NotebookMetadata -Path $Path
+                $languageInfo = $metadataResult.languageInfo
+            }
+            'Content' {
+                $cellsResult = Extract-NotebookCells -Content $Content -CellType 'all'
+                $cells = $cellsResult.cells
+                $metadataResult = Extract-NotebookMetadata -Content $Content
+                $languageInfo = $metadataResult.languageInfo
+            }
+            'Cells' {
+                $cells = $Cells
+            }
+        }
+        
+        # Determine language
+        $language = 'python'
+        $commentChar = '#'
+        
+        if ($languageInfo) {
+            $language = $languageInfo.name.ToLower()
+        }
+        
+        if ($OutputFormat -ne 'auto') {
+            $language = $OutputFormat
+        }
+        
+        # Set comment character based on language
+        switch ($language) {
+            'python' { $commentChar = '#' }
+            'r' { $commentChar = '#' }
+            'julia' { $commentChar = '#' }
+            'javascript' { $commentChar = '//' }
+            'scala' { $commentChar = '//' }
+            'raw' { $commentChar = '#' }
+        }
+        
+        # Build script
+        $scriptParts = @()
+        $codeCellCount = 0
+        
+        # Add header comment
+        $scriptParts += "$commentChar Generated from Jupyter Notebook"
+        $scriptParts += "$commentChar Source: $sourceFile"
+        $scriptParts += "$commentChar Generated: $([DateTime]::UtcNow.ToString("o"))"
+        $scriptParts += "$commentChar Language: $language"
+        $scriptParts += ""
+        
+        foreach ($cell in $cells) {
+            switch ($cell.cellType) {
+                'code' {
+                    $code = $cell.source
+                    
+                    # Skip magic commands if not requested
+                    if (-not $IncludeMagicCommands -and $code -match '^[%!]') {
+                        continue
+                    }
+                    
+                    # Convert magic commands to comments
+                    if ($code -match '^[%!]' -and $IncludeMagicCommands) {
+                        $code = $code -replace '^([%!].*)', "$commentChar `$1"
+                    }
+                    
+                    $scriptParts += $code
+                    $codeCellCount++
+                }
+                'markdown' {
+                    if ($IncludeMarkdown) {
+                        $markdownLines = $cell.source -split "`r?`n"
+                        $commentedMarkdown = $markdownLines | ForEach-Object { "$commentChar $_" }
+                        $scriptParts += ($commentedMarkdown -join "`n")
+                    }
+                }
+                'raw' {
+                    # Raw cells are typically ignored in script conversion
+                    if ($IncludeMarkdown) {
+                        $scriptParts += "$commentChar [Raw cell content omitted]"
+                    }
+                }
+            }
+        }
+        
+        $script = $scriptParts -join $CellSeparator
+        
+        return @{
+            script = $script
+            language = $language
+            cellCount = $codeCellCount
+            metadata = New-ProvenanceMetadata -SourceFile $sourceFile -Success $true
+        }
+    }
+    catch {
+        Write-Error "[$script:ParserName] Failed to convert notebook to script: $_"
+        return @{
+            script = ''
+            language = 'unknown'
+            cellCount = 0
+            metadata = New-ProvenanceMetadata -SourceFile $sourceFile -Success $false -Errors @($_.ToString())
+        }
+    }
+}
+
+# ============================================================================
+# Legacy Compatibility Functions
+# ============================================================================
+
+<#
+.SYNOPSIS
+    Parses a Jupyter Notebook file (.ipynb).
+    
+    DEPRECATED: Use the specific Extract-* functions instead.
+
+.DESCRIPTION
+    Legacy entry point that provides comprehensive notebook parsing.
+    Delegates to canonical extraction functions.
 #>
 function ConvertFrom-JupyterNotebook {
     [CmdletBinding()]
@@ -455,216 +1129,56 @@ function ConvertFrom-JupyterNotebook {
     )
     
     try {
-        # Load content from file if path provided
-        $filePath = ''
-        $rawContent = ''
-        
+        $sourceFile = 'inline'
         if ($PSCmdlet.ParameterSetName -eq 'Path') {
-            Write-Verbose "[ConvertFrom-JupyterNotebook] Loading file: $Path"
-            
             if (-not (Test-Path -LiteralPath $Path)) {
-                Write-Error "File not found: $Path"
-                return $null
-            }
-            
-            $filePath = Resolve-Path -Path $Path | Select-Object -ExpandProperty Path
-            $rawContent = Get-Content -LiteralPath $filePath -Raw -Encoding UTF8
-        }
-        else {
-            $filePath = ''
-            $rawContent = $Content
-        }
-        
-        if ([string]::IsNullOrWhiteSpace($rawContent)) {
-            Write-Error "Content is empty"
-            return $null
-        }
-        
-        # Validate JSON
-        if (-not (Test-ValidJson -Content $rawContent)) {
-            Write-Error "Invalid JSON content"
-            return $null
-        }
-        
-        Write-Verbose "[ConvertFrom-JupyterNotebook] Parsing notebook ($($rawContent.Length) chars)"
-        
-        # Parse JSON
-        $notebook = $rawContent | ConvertFrom-Json
-        
-        # Validate notebook format
-        if ($notebook.nbformat -lt 3) {
-            Write-Warning "Unsupported notebook format version: $($notebook.nbformat)"
-        }
-        
-        # Extract notebook metadata
-        $notebookMetadata = @{
-            kernelspec = $null
-            languageInfo = $null
-            widgets = $null
-            raw = $notebook.metadata
-        }
-        
-        if ($notebook.metadata) {
-            if ($notebook.metadata.kernelspec) {
-                $notebookMetadata.kernelspec = @{
-                    displayName = $notebook.metadata.kernelspec.display_name
-                    language = $notebook.metadata.kernelspec.language
-                    name = $notebook.metadata.kernelspec.name
+                return @{
+                    filePath = $Path
+                    success = $false
+                    error = "File not found: $Path"
                 }
             }
-            
-            if ($notebook.metadata.language_info) {
-                $notebookMetadata.languageInfo = @{
-                    name = $notebook.metadata.language_info.name
-                    version = $notebook.metadata.language_info.version
-                    mimetype = $notebook.metadata.language_info.mimetype
-                    fileExtension = $notebook.metadata.language_info.file_extension
-                }
-            }
-            
-            # Extract widget state
-            if ($notebook.metadata.widgets) {
-                $notebookMetadata.widgets = ConvertFrom-WidgetState -WidgetState $notebook.metadata.widgets
-            }
+            $sourceFile = Resolve-Path -Path $Path | Select-Object -ExpandProperty Path
         }
         
-        # Extract cells
-        $cells = @()
-        $cellIndex = 0
+        # Extract all components
+        $cells = Extract-NotebookCells @PSBoundParameters
+        $outputs = Extract-NotebookOutputs @PSBoundParameters
+        $metadata = Extract-NotebookMetadata @PSBoundParameters
         
-        foreach ($cell in $notebook.cells) {
-            $cellType = $cell.cell_type
-            $source = Get-CellSourceContent -Source $cell.source
-            $metadata = $cell.metadata
-            $outputs = $cell.outputs
-            $executionCount = $cell.execution_count
-            
-            $parsedCell = New-NotebookCell `
-                -CellType $cellType `
-                -Source $source `
-                -CellIndex $cellIndex `
-                -Metadata $metadata `
-                -Outputs $outputs `
-                -ExecutionCount $executionCount
-            
-            $cells += $parsedCell
-            $cellIndex++
-        }
-        
-        # Build final result
-        $result = @{
+        return @{
             fileType = 'jupyter-notebook'
-            filePath = $filePath
-            nbformat = $notebook.nbformat
-            nbformatMinor = $notebook.nbformat_minor
-            metadata = $notebookMetadata
-            cells = $cells
-            cellCounts = @{
-                total = $cells.Count
-                code = ($cells | Where-Object { $_.cellType -eq 'code' }).Count
-                markdown = ($cells | Where-Object { $_.cellType -eq 'markdown' }).Count
-                raw = ($cells | Where-Object { $_.cellType -eq 'raw' }).Count
-                withOutputs = ($cells | Where-Object { $_.hasOutputs }).Count
+            filePath = $sourceFile
+            nbformat = $metadata.metadata.nbformat
+            nbformatMinor = $metadata.metadata.nbformatMinor
+            metadata = @{
+                kernelspec = $metadata.kernelspec
+                languageInfo = $metadata.languageInfo
+                widgets = $metadata.widgets
+                raw = $metadata.metadata.raw
             }
+            cells = $cells.cells
+            outputs = $outputs.outputs
+            cellCounts = $cells.statistics
+            provenance = $cells.metadata
             parsedAt = [DateTime]::UtcNow.ToString("o")
         }
-        
-        if ($IncludeRawContent) {
-            $result.rawContent = $rawContent
-        }
-        
-        Write-Verbose "[ConvertFrom-JupyterNotebook] Parsing complete: $($cells.Count) cells extracted"
-        
-        return $result
     }
     catch {
-        Write-Error "[ConvertFrom-JupyterNotebook] Failed to parse notebook: $_"
-        return $null
+        Write-Error "[$script:ParserName] Failed to parse notebook: $_"
+        return @{
+            filePath = $sourceFile
+            success = $false
+            error = $_.ToString()
+        }
     }
 }
 
 <#
 .SYNOPSIS
-    Extracts cells from a parsed notebook by type.
-
-.DESCRIPTION
-    Filters cells from a parsed notebook based on cell type and other criteria.
-
-.PARAMETER Notebook
-    The parsed notebook object from ConvertFrom-JupyterNotebook.
-
-.PARAMETER CellType
-    The type of cells to extract (code, markdown, raw).
-
-.PARAMETER HasOutputs
-    If specified, filters cells based on whether they have outputs.
-
-.OUTPUTS
-    System.Array. Array of cell objects matching the criteria.
-
-.EXAMPLE
-    $cells = Get-NotebookCells -Notebook $notebook -CellType 'code'
-
-.EXAMPLE
-    $markdownCells = Get-NotebookCells -Notebook $notebook -CellType 'markdown'
-#>
-function Get-NotebookCells {
-    [CmdletBinding()]
-    [OutputType([array])]
-    param(
-        [Parameter(Mandatory = $true, ValueFromPipeline = $true)]
-        [hashtable]$Notebook,
-        
-        [Parameter()]
-        [ValidateSet('code', 'markdown', 'raw', 'all')]
-        [string]$CellType = 'all',
-        
-        [Parameter()]
-        [switch]$HasOutputs
-    )
+    Gets notebook code cells.
     
-    process {
-        if (-not $Notebook.cells) {
-            return @()
-        }
-        
-        $cells = $Notebook.cells
-        
-        # Filter by cell type
-        if ($CellType -ne 'all') {
-            $cells = $cells | Where-Object { $_.cellType -eq $CellType }
-        }
-        
-        # Filter by outputs
-        if ($HasOutputs) {
-            $cells = $cells | Where-Object { $_.hasOutputs }
-        }
-        
-        return $cells
-    }
-}
-
-<#
-.SYNOPSIS
-    Extracts code cell content from a notebook.
-
-.DESCRIPTION
-    Returns just the source code from code cells, optionally with metadata.
-
-.PARAMETER Notebook
-    The parsed notebook object or path to .ipynb file.
-
-.PARAMETER IncludeLineNumbers
-    If specified, includes line number information.
-
-.OUTPUTS
-    System.Array. Array of code strings or objects with metadata.
-
-.EXAMPLE
-    $code = Get-NotebookCode -Notebook $notebook
-
-.EXAMPLE
-    Get-NotebookCode -Notebook $notebook -IncludeLineNumbers
+    DEPRECATED: Use Extract-NotebookCells with -CellType 'code'.
 #>
 function Get-NotebookCode {
     [CmdletBinding(DefaultParameterSetName = 'Notebook')]
@@ -682,15 +1196,14 @@ function Get-NotebookCode {
     
     process {
         try {
-            # Load notebook if path provided
             if ($PSCmdlet.ParameterSetName -eq 'Path') {
-                $Notebook = ConvertFrom-JupyterNotebook -Path $Path
-                if (-not $Notebook) {
-                    return @()
-                }
+                $result = Extract-NotebookCells -Path $Path -CellType 'code'
+            }
+            else {
+                $result = Extract-NotebookCells -Content ($Notebook | ConvertTo-Json -Depth 10) -CellType 'code'
             }
             
-            $codeCells = Get-NotebookCells -Notebook $Notebook -CellType 'code'
+            $codeCells = $result.cells
             $result = @()
             $globalLineNumber = 1
             
@@ -715,286 +1228,8 @@ function Get-NotebookCode {
             return $result
         }
         catch {
-            Write-Error "[Get-NotebookCode] Failed to extract code: $_"
+            Write-Error "[$script:ParserName] Failed to extract code: $_"
             return @()
-        }
-    }
-}
-
-<#
-.SYNOPSIS
-    Extracts cell outputs from a notebook.
-
-.DESCRIPTION
-    Returns all outputs from code cells, optionally filtered by output type.
-
-.PARAMETER Notebook
-    The parsed notebook object or path to .ipynb file.
-
-.PARAMETER OutputType
-    Filter by output type (stream, display_data, execute_result, error).
-
-.PARAMETER IncludeData
-    If specified, includes full output data (can be large).
-
-.OUTPUTS
-    System.Array. Array of output objects.
-
-.EXAMPLE
-    $outputs = Get-NotebookOutputs -Notebook $notebook
-
-.EXAMPLE
-    Get-NotebookOutputs -Notebook $notebook -OutputType 'display_data'
-#>
-function Get-NotebookOutputs {
-    [CmdletBinding(DefaultParameterSetName = 'Notebook')]
-    [OutputType([array])]
-    param(
-        [Parameter(ParameterSetName = 'Notebook', Mandatory = $true, ValueFromPipeline = $true)]
-        [hashtable]$Notebook,
-        
-        [Parameter(ParameterSetName = 'Path', Mandatory = $true)]
-        [string]$Path,
-        
-        [Parameter()]
-        [ValidateSet('stream', 'display_data', 'execute_result', 'error', 'update_display_data', 'all')]
-        [string]$OutputType = 'all',
-        
-        [Parameter()]
-        [switch]$IncludeData
-    )
-    
-    process {
-        try {
-            # Load notebook if path provided
-            if ($PSCmdlet.ParameterSetName -eq 'Path') {
-                $Notebook = ConvertFrom-JupyterNotebook -Path $Path
-                if (-not $Notebook) {
-                    return @()
-                }
-            }
-            
-            $codeCells = Get-NotebookCells -Notebook $Notebook -CellType 'code'
-            $result = @()
-            
-            foreach ($cell in $codeCells) {
-                if ($cell.outputs.Count -eq 0) {
-                    continue
-                }
-                
-                foreach ($output in $cell.outputs) {
-                    if ($OutputType -ne 'all' -and $output.outputType -ne $OutputType) {
-                        continue
-                    }
-                    
-                    $outputInfo = @{
-                        cellIndex = $cell.cellIndex
-                        cellExecutionCount = $cell.executionCount
-                        outputType = $output.outputType
-                    }
-                    
-                    if ($IncludeData) {
-                        $outputInfo.output = $output
-                    }
-                    else {
-                        # Include summary only
-                        $outputInfo.summary = switch ($output.outputType) {
-                            'stream' { "Stream ($($output.name)): $($output.text.Substring(0, [Math]::Min(100, $output.text.Length)))..." }
-                            'error' { "Error: $($output.ename) - $($output.evalue)" }
-                            default { "Output: $($output.primaryMimeType)" }
-                        }
-                    }
-                    
-                    $result += $outputInfo
-                }
-            }
-            
-            return $result
-        }
-        catch {
-            Write-Error "[Get-NotebookOutputs] Failed to extract outputs: $_"
-            return @()
-        }
-    }
-}
-
-<#
-.SYNOPSIS
-    Validates the integrity of a notebook structure.
-
-.DESCRIPTION
-    Checks if a notebook file is valid and complete, detecting common issues
-    like missing cells, invalid JSON, corrupted outputs, etc.
-
-.PARAMETER Path
-    Path to the .ipynb file to validate.
-
-.PARAMETER Notebook
-    The parsed notebook object to validate.
-
-.PARAMETER Strict
-    If specified, performs stricter validation checks.
-
-.OUTPUTS
-    System.Collections.Hashtable. Validation result with status and issues.
-
-.EXAMPLE
-    $validation = Test-NotebookIntegrity -Path "analysis.ipynb"
-
-.EXAMPLE
-    $notebook | Test-NotebookIntegrity -Strict
-#>
-function Test-NotebookIntegrity {
-    [CmdletBinding(DefaultParameterSetName = 'Path')]
-    [OutputType([hashtable])]
-    param(
-        [Parameter(ParameterSetName = 'Path', Mandatory = $true)]
-        [string]$Path,
-        
-        [Parameter(ParameterSetName = 'Notebook', Mandatory = $true, ValueFromPipeline = $true)]
-        [hashtable]$Notebook,
-        
-        [Parameter()]
-        [switch]$Strict
-    )
-    
-    process {
-        $issues = @()
-        $warnings = @()
-        
-        try {
-            # Load notebook if path provided
-            if ($PSCmdlet.ParameterSetName -eq 'Path') {
-                if (-not (Test-Path -LiteralPath $Path)) {
-                    return @{
-                        isValid = $false
-                        status = 'FileNotFound'
-                        issues = @("File not found: $Path")
-                        warnings = @()
-                        cellCount = 0
-                        executionOrder = @()
-                    }
-                }
-                
-                $rawContent = Get-Content -LiteralPath $Path -Raw -Encoding UTF8
-                
-                # Validate JSON
-                if (-not (Test-ValidJson -Content $rawContent)) {
-                    return @{
-                        isValid = $false
-                        status = 'InvalidJson'
-                        issues = @("File contains invalid JSON")
-                        warnings = @()
-                        cellCount = 0
-                        executionOrder = @()
-                    }
-                }
-                
-                $Notebook = ConvertFrom-JupyterNotebook -Path $Path
-                if (-not $Notebook) {
-                    return @{
-                        isValid = $false
-                        status = 'ParseError'
-                        issues = @("Failed to parse notebook")
-                        warnings = @()
-                        cellCount = 0
-                        executionOrder = @()
-                    }
-                }
-            }
-            
-            # Check notebook structure
-            if (-not $Notebook.cells) {
-                $issues += "Notebook has no cells"
-            }
-            elseif ($Notebook.cells.Count -eq 0) {
-                $warnings += "Notebook is empty (no cells)"
-            }
-            
-            # Check for required fields
-            if (-not $Notebook.nbformat) {
-                $issues += "Missing nbformat field"
-            }
-            elseif ($Notebook.nbformat -lt 3) {
-                $warnings += "Legacy notebook format ($($Notebook.nbformat))"
-            }
-            
-            # Validate cells
-            $cellIndex = 0
-            $executionCounts = @()
-            $executionOrder = @()
-            
-            foreach ($cell in $Notebook.cells) {
-                if (-not $cell.cellType) {
-                    $issues += "Cell $cellIndex missing cell_type"
-                }
-                elseif ($cell.cellType -notin $script:CellTypes) {
-                    $issues += "Cell $cellIndex has invalid cell_type: $($cell.cellType)"
-                }
-                
-                # Check for source
-                if (-not $cell.source -and $cell.source -ne '') {
-                    $warnings += "Cell $cellIndex missing source field"
-                }
-                
-                # Validate code cells
-                if ($cell.cellType -eq 'code') {
-                    if ($null -ne $cell.executionCount) {
-                        $executionCounts += $cell.executionCount
-                        $executionOrder += @{
-                            cellIndex = $cellIndex
-                            executionCount = $cell.executionCount
-                        }
-                        
-                        # Check for execution count consistency in strict mode
-                        if ($Strict -and $cell.executionCount -lt 1 -and $cell.hasOutputs) {
-                            $warnings += "Cell $cellIndex has outputs but execution_count is $($cell.executionCount)"
-                        }
-                    }
-                }
-                
-                $cellIndex++
-            }
-            
-            # Check execution order
-            if ($executionCounts.Count -gt 0) {
-                $sorted = $executionCounts | Sort-Object
-                for ($i = 1; $i -lt $sorted.Count; $i++) {
-                    if ($sorted[$i] -lt $sorted[$i - 1]) {
-                        $warnings += "Cell execution order appears non-linear"
-                        break
-                    }
-                }
-            }
-            
-            # Determine overall status
-            $isValid = $issues.Count -eq 0
-            $status = if ($isValid) { 
-                if ($warnings.Count -gt 0) { 'ValidWithWarnings' } else { 'Valid' }
-            } else { 'Invalid' }
-            
-            return @{
-                isValid = $isValid
-                status = $status
-                issues = $issues
-                warnings = $warnings
-                cellCount = $Notebook.cells.Count
-                codeCellCount = ($Notebook.cells | Where-Object { $_.cellType -eq 'code' }).Count
-                markdownCellCount = ($Notebook.cells | Where-Object { $_.cellType -eq 'markdown' }).Count
-                executionOrder = $executionOrder
-                checkedAt = [DateTime]::UtcNow.ToString("o")
-            }
-        }
-        catch {
-            Write-Error "[Test-NotebookIntegrity] Validation error: $_"
-            return @{
-                isValid = $false
-                status = 'Error'
-                issues = @("Validation error: $_")
-                warnings = @()
-                cellCount = 0
-                executionOrder = @()
-            }
         }
     }
 }
@@ -1002,18 +1237,8 @@ function Test-NotebookIntegrity {
 <#
 .SYNOPSIS
     Gets widget state from a parsed notebook.
-
-.DESCRIPTION
-    Extracts widget state information if present in the notebook metadata.
-
-.PARAMETER Notebook
-    The parsed notebook object or path to .ipynb file.
-
-.OUTPUTS
-    System.Collections.Hashtable. Widget state information or null.
-
-.EXAMPLE
-    $widgets = Get-NotebookWidgetState -Notebook $notebook
+    
+    DEPRECATED: Use Extract-NotebookMetadata instead.
 #>
 function Get-NotebookWidgetState {
     [CmdletBinding(DefaultParameterSetName = 'Notebook')]
@@ -1028,22 +1253,17 @@ function Get-NotebookWidgetState {
     
     process {
         try {
-            # Load notebook if path provided
             if ($PSCmdlet.ParameterSetName -eq 'Path') {
-                $Notebook = ConvertFrom-JupyterNotebook -Path $Path
-                if (-not $Notebook) {
-                    return $null
-                }
+                $result = Extract-NotebookMetadata -Path $Path
+            }
+            else {
+                $result = Extract-NotebookMetadata -Content ($Notebook | ConvertTo-Json -Depth 10)
             }
             
-            if ($Notebook.metadata -and $Notebook.metadata.widgets) {
-                return $Notebook.metadata.widgets
-            }
-            
-            return $null
+            return $result.widgets
         }
         catch {
-            Write-Error "[Get-NotebookWidgetState] Failed to extract widget state: $_"
+            Write-Error "[$script:ParserName] Failed to extract widget state: $_"
             return $null
         }
     }
@@ -1052,19 +1272,8 @@ function Get-NotebookWidgetState {
 <#
 .SYNOPSIS
     Gets cell execution order information.
-
-.DESCRIPTION
-    Extracts execution count information from code cells to analyze
-    execution order and identify potential issues.
-
-.PARAMETER Notebook
-    The parsed notebook object or path to .ipynb file.
-
-.OUTPUTS
-    System.Collections.Hashtable. Execution order analysis.
-
-.EXAMPLE
-    $execOrder = Get-NotebookExecutionOrder -Notebook $notebook
+    
+    DEPRECATED: This functionality is now part of Extract-NotebookCells.
 #>
 function Get-NotebookExecutionOrder {
     [CmdletBinding(DefaultParameterSetName = 'Notebook')]
@@ -1079,15 +1288,14 @@ function Get-NotebookExecutionOrder {
     
     process {
         try {
-            # Load notebook if path provided
             if ($PSCmdlet.ParameterSetName -eq 'Path') {
-                $Notebook = ConvertFrom-JupyterNotebook -Path $Path
-                if (-not $Notebook) {
-                    return $null
-                }
+                $result = Extract-NotebookCells -Path $Path -CellType 'code'
+            }
+            else {
+                $result = Extract-NotebookCells -Content ($Notebook | ConvertTo-Json -Depth 10) -CellType 'code'
             }
             
-            $codeCells = Get-NotebookCells -Notebook $Notebook -CellType 'code'
+            $codeCells = $result.cells
             $executions = @()
             $maxExecution = 0
             $gaps = @()
@@ -1145,19 +1353,142 @@ function Get-NotebookExecutionOrder {
             }
         }
         catch {
-            Write-Error "[Get-NotebookExecutionOrder] Failed to get execution order: $_"
+            Write-Error "[$script:ParserName] Failed to get execution order: $_"
             return $null
         }
     }
 }
 
-# Export module members
+<#
+.SYNOPSIS
+    Validates the integrity of a notebook structure.
+    
+    DEPRECATED: This is now handled during extraction.
+#>
+function Test-NotebookIntegrity {
+    [CmdletBinding(DefaultParameterSetName = 'Path')]
+    [OutputType([hashtable])]
+    param(
+        [Parameter(ParameterSetName = 'Path', Mandatory = $true)]
+        [string]$Path,
+        
+        [Parameter(ParameterSetName = 'Notebook', Mandatory = $true, ValueFromPipeline = $true)]
+        [hashtable]$Notebook,
+        
+        [Parameter()]
+        [switch]$Strict
+    )
+    
+    process {
+        $issues = @()
+        $warnings = @()
+        
+        try {
+            if ($PSCmdlet.ParameterSetName -eq 'Path') {
+                if (-not (Test-Path -LiteralPath $Path)) {
+                    return @{
+                        isValid = $false
+                        status = 'FileNotFound'
+                        issues = @("File not found: $Path")
+                        warnings = @()
+                        cellCount = 0
+                        executionOrder = @()
+                    }
+                }
+                
+                $result = Extract-NotebookMetadata -Path $Path
+                $cellsResult = Extract-NotebookCells -Path $Path -CellType 'all'
+            }
+            else {
+                $json = $Notebook | ConvertTo-Json -Depth 10
+                $result = Extract-NotebookMetadata -Content $json
+                $cellsResult = Extract-NotebookCells -Content $json -CellType 'all'
+            }
+            
+            $metadata = $result.metadata
+            $cells = $cellsResult.cells
+            
+            # Check notebook structure
+            if ($cells.Count -eq 0) {
+                $warnings += "Notebook is empty (no cells)"
+            }
+            
+            # Check for required fields
+            if (-not $metadata.nbformat) {
+                $issues += "Missing nbformat field"
+            }
+            elseif ($metadata.nbformat -lt 3) {
+                $warnings += "Legacy notebook format ($($metadata.nbformat))"
+            }
+            
+            # Validate cells
+            $cellIndex = 0
+            $executionCounts = @()
+            
+            foreach ($cell in $cells) {
+                # Check for source
+                if ([string]::IsNullOrEmpty($cell.source) -and $cell.source -ne '') {
+                    $warnings += "Cell $cellIndex missing source field"
+                }
+                
+                # Validate code cells
+                if ($cell.cellType -eq 'code') {
+                    if ($null -ne $cell.executionCount) {
+                        $executionCounts += $cell.executionCount
+                        
+                        if ($Strict -and $cell.executionCount -lt 1 -and $cell.hasOutputs) {
+                            $warnings += "Cell $cellIndex has outputs but execution_count is $($cell.executionCount)"
+                        }
+                    }
+                }
+                
+                $cellIndex++
+            }
+            
+            # Determine overall status
+            $isValid = $issues.Count -eq 0
+            $status = if ($isValid) { 
+                if ($warnings.Count -gt 0) { 'ValidWithWarnings' } else { 'Valid' }
+            } else { 'Invalid' }
+            
+            return @{
+                isValid = $isValid
+                status = $status
+                issues = $issues
+                warnings = $warnings
+                cellCount = $cells.Count
+                codeCellCount = ($cells | Where-Object { $_.cellType -eq 'code' }).Count
+                markdownCellCount = ($cells | Where-Object { $_.cellType -eq 'markdown' }).Count
+                checkedAt = [DateTime]::UtcNow.ToString("o")
+            }
+        }
+        catch {
+            Write-Error "[$script:ParserName] Validation error: $_"
+            return @{
+                isValid = $false
+                status = 'Error'
+                issues = @("Validation error: $_")
+                warnings = @()
+                cellCount = 0
+            }
+        }
+    }
+}
+
+# ============================================================================
+# Export Module Members
+# ============================================================================
+
 Export-ModuleMember -Function @(
-    'ConvertFrom-JupyterNotebook',
-    'Get-NotebookCells',
-    'Get-NotebookCode',
-    'Get-NotebookOutputs',
-    'Test-NotebookIntegrity',
-    'Get-NotebookWidgetState',
+    # Canonical functions (Section 25.6)
+    'Extract-NotebookCells'
+    'Extract-NotebookOutputs'
+    'Extract-NotebookMetadata'
+    'Convert-NotebookToScript'
+    # Legacy compatibility functions
+    'ConvertFrom-JupyterNotebook'
+    'Get-NotebookCode'
+    'Get-NotebookWidgetState'
     'Get-NotebookExecutionOrder'
+    'Test-NotebookIntegrity'
 )

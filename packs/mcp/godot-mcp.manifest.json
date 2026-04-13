@@ -1,0 +1,385 @@
+{
+  "mcpToolkitManifest": {
+    "version": "1.0.0",
+    "server": {
+      "name": "godot-engine-mcp",
+      "version": "1.0.0",
+      "description": "MCP toolkit for Godot Engine integration. Provides tools for scene analysis, script introspection, node hierarchy management, and project modifications.",
+      "author": "LLM Workflow Platform",
+      "license": "MIT"
+    },
+    "environment": {
+      "required": [
+        {
+          "name": "GODOT_PATH",
+          "description": "Path to the Godot executable",
+          "example": "/usr/bin/godot or C:\\Program Files\\Godot\\Godot.exe"
+        }
+      ],
+      "optional": [
+        {
+          "name": "GODOT_PROJECTS_PATH",
+          "description": "Default path to search for Godot projects",
+          "default": "~/godot-projects"
+        }
+      ]
+    },
+    "tools": [
+      {
+        "name": "godot_scene_analysis",
+        "description": "Analyze a Godot scene file and return detailed information about nodes, scripts, and resources",
+        "executionMode": "readonly",
+        "category": "scene",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "scenePath": {
+              "type": "string",
+              "description": "Path to the .tscn scene file"
+            },
+            "includeResources": {
+              "type": "boolean",
+              "description": "Include referenced resource information",
+              "default": true
+            },
+            "includeScriptContent": {
+              "type": "boolean",
+              "description": "Include attached script source code",
+              "default": false
+            }
+          },
+          "required": ["scenePath"],
+          "additionalProperties": false
+        },
+        "returns": {
+          "type": "object",
+          "properties": {
+            "sceneName": { "type": "string" },
+            "rootNode": { "type": "object" },
+            "nodeCount": { "type": "integer" },
+            "nodes": { "type": "array" },
+            "scripts": { "type": "array" },
+            "resources": { "type": "array" }
+          }
+        }
+      },
+      {
+        "name": "godot_script_introspection",
+        "description": "Analyze a GDScript file and return class structure, methods, signals, and exports",
+        "executionMode": "readonly",
+        "category": "script",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "scriptPath": {
+              "type": "string",
+              "description": "Path to the .gd script file"
+            },
+            "includeDocumentation": {
+              "type": "boolean",
+              "description": "Include docstring comments",
+              "default": true
+            }
+          },
+          "required": ["scriptPath"],
+          "additionalProperties": false
+        },
+        "returns": {
+          "type": "object",
+          "properties": {
+            "className": { "type": "string" },
+            "extends": { "type": "string" },
+            "methods": { "type": "array" },
+            "signals": { "type": "array" },
+            "exports": { "type": "array" },
+            "constants": { "type": "array" }
+          }
+        }
+      },
+      {
+        "name": "godot_resource_inventory",
+        "description": "List all resources in a Godot project with filtering by type",
+        "executionMode": "readonly",
+        "category": "resource",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "projectPath": {
+              "type": "string",
+              "description": "Path to the Godot project directory"
+            },
+            "resourceType": {
+              "type": "string",
+              "description": "Filter by resource type (tres, png, wav, etc.)",
+              "default": "*"
+            }
+          },
+          "required": ["projectPath"],
+          "additionalProperties": false
+        },
+        "returns": {
+          "type": "object",
+          "properties": {
+            "totalCount": { "type": "integer" },
+            "resources": { "type": "array" }
+          }
+        }
+      },
+      {
+        "name": "godot_node_hierarchy",
+        "description": "Get the complete node hierarchy of a scene with parent-child relationships",
+        "executionMode": "readonly",
+        "category": "scene",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "scenePath": {
+              "type": "string",
+              "description": "Path to the .tscn scene file"
+            },
+            "maxDepth": {
+              "type": "integer",
+              "description": "Maximum depth to traverse",
+              "default": -1
+            }
+          },
+          "required": ["scenePath"],
+          "additionalProperties": false
+        },
+        "returns": {
+          "type": "object",
+          "properties": {
+            "hierarchy": { "type": "object" },
+            "depth": { "type": "integer" },
+            "totalNodes": { "type": "integer" }
+          }
+        }
+      },
+      {
+        "name": "godot_signal_trace",
+        "description": "Trace signal connections within a scene or across the project",
+        "executionMode": "readonly",
+        "category": "debugging",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "scenePath": {
+              "type": "string",
+              "description": "Path to the scene file (optional if projectPath provided)"
+            },
+            "projectPath": {
+              "type": "string",
+              "description": "Path to the project for global signal tracing"
+            },
+            "signalName": {
+              "type": "string",
+              "description": "Specific signal to trace (optional)"
+            }
+          },
+          "additionalProperties": false
+        },
+        "returns": {
+          "type": "object",
+          "properties": {
+            "connections": { "type": "array" },
+            "emitters": { "type": "array" },
+            "receivers": { "type": "array" }
+          }
+        }
+      },
+      {
+        "name": "godot_scene_modification",
+        "description": "Modify scene properties, node values, or resource references",
+        "executionMode": "mutating",
+        "category": "scene",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "scenePath": {
+              "type": "string",
+              "description": "Path to the .tscn scene file"
+            },
+            "modifications": {
+              "type": "array",
+              "description": "List of modifications to apply",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "nodePath": { "type": "string" },
+                  "property": { "type": "string" },
+                  "value": {}
+                },
+                "required": ["nodePath", "property", "value"]
+              }
+            },
+            "backup": {
+              "type": "boolean",
+              "description": "Create backup before modification",
+              "default": true
+            }
+          },
+          "required": ["scenePath", "modifications"],
+          "additionalProperties": false
+        },
+        "returns": {
+          "type": "object",
+          "properties": {
+            "success": { "type": "boolean" },
+            "modifiedCount": { "type": "integer" },
+            "backupPath": { "type": "string" }
+          }
+        }
+      },
+      {
+        "name": "godot_script_generation",
+        "description": "Generate GDScript code from templates or natural language descriptions",
+        "executionMode": "mutating",
+        "category": "script",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "outputPath": {
+              "type": "string",
+              "description": "Path to save the generated script"
+            },
+            "description": {
+              "type": "string",
+              "description": "Natural language description of desired functionality"
+            },
+            "template": {
+              "type": "string",
+              "description": "Template type to use",
+              "enum": ["node", "autoload", "tool", "editor"],
+              "default": "node"
+            },
+            "className": {
+              "type": "string",
+              "description": "Class name for the script"
+            }
+          },
+          "required": ["outputPath"],
+          "additionalProperties": false
+        },
+        "returns": {
+          "type": "object",
+          "properties": {
+            "success": { "type": "boolean" },
+            "scriptPath": { "type": "string" },
+            "lineCount": { "type": "integer" }
+          }
+        }
+      },
+      {
+        "name": "godot_node_creation",
+        "description": "Create new nodes in a scene with specified type and properties",
+        "executionMode": "mutating",
+        "category": "scene",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "scenePath": {
+              "type": "string",
+              "description": "Path to the .tscn scene file"
+            },
+            "nodes": {
+              "type": "array",
+              "description": "Nodes to create",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "name": { "type": "string" },
+                  "type": { "type": "string" },
+                  "parent": { "type": "string", "default": "." },
+                  "properties": { "type": "object" }
+                },
+                "required": ["name", "type"]
+              }
+            }
+          },
+          "required": ["scenePath", "nodes"],
+          "additionalProperties": false
+        },
+        "returns": {
+          "type": "object",
+          "properties": {
+            "success": { "type": "boolean" },
+            "createdNodes": { "type": "array" }
+          }
+        }
+      },
+      {
+        "name": "godot_export_preset_update",
+        "description": "Update export presets in project configuration",
+        "executionMode": "mutating",
+        "category": "project",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "projectPath": {
+              "type": "string",
+              "description": "Path to the Godot project directory"
+            },
+            "presetName": {
+              "type": "string",
+              "description": "Name of the export preset to modify"
+            },
+            "options": {
+              "type": "object",
+              "description": "Export options to update"
+            }
+          },
+          "required": ["projectPath", "presetName", "options"],
+          "additionalProperties": false
+        },
+        "returns": {
+          "type": "object",
+          "properties": {
+            "success": { "type": "boolean" },
+            "presetUpdated": { "type": "string" }
+          }
+        }
+      },
+      {
+        "name": "godot_project_setting_change",
+        "description": "Modify project.godot configuration settings",
+        "executionMode": "mutating",
+        "category": "project",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "projectPath": {
+              "type": "string",
+              "description": "Path to the Godot project directory"
+            },
+            "section": {
+              "type": "string",
+              "description": "Configuration section (e.g., 'application', 'display')"
+            },
+            "key": {
+              "type": "string",
+              "description": "Setting key"
+            },
+            "value": {
+              "description": "Setting value"
+            }
+          },
+          "required": ["projectPath", "section", "key", "value"],
+          "additionalProperties": false
+        },
+        "returns": {
+          "type": "object",
+          "properties": {
+            "success": { "type": "boolean" },
+            "previousValue": {},
+            "newValue": {}
+          }
+        }
+      }
+    ],
+    "statistics": {
+      "totalTools": 10,
+      "readonlyTools": 5,
+      "mutatingTools": 5
+    }
+  }
+}

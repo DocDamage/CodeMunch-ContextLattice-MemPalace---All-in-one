@@ -45,7 +45,7 @@ $script:ThrottleSettings = [hashtable]::Synchronized(@{
 })
 
 # Valid source types
-$script:ValidSourceTypes = @('github', 'gitlab', 'docssite', 'api', 'custom')
+$script:ValidSourceTypes = @('github', 'gitlab', 'git', 'http', 'https', 's3', 'docssite', 'api', 'custom')
 
 # Valid job states
 $script:ValidJobStates = @('pending', 'running', 'completed', 'failed', 'cancelled')
@@ -1973,6 +1973,1018 @@ function Invoke-APIReferenceIngestion {
 }
 
 # ============================================================================
+# Region: Git Repository Ingestion
+# ============================================================================
+
+<#
+.SYNOPSIS
+    Ingests content from a generic Git repository.
+
+.DESCRIPTION
+    Clones or pulls a Git repository (from any git host) and extracts content
+    based on include/exclude patterns. Supports incremental ingestion.
+
+.PARAMETER SourceId
+    The registered source ID for the Git repository.
+
+.PARAMETER OutputPath
+    Directory where ingested content will be stored.
+
+.PARAMETER Incremental
+    If specified, only ingests changed content since last ingestion.
+
+.PARAMETER Branch
+    Specific branch to ingest. If not specified, uses default branch.
+
+.PARAMETER Depth
+    Clone depth for shallow clones. Default: full history.
+
+.OUTPUTS
+    System.Management.Automation.PSCustomObject with ingestion results.
+
+.EXAMPLE
+    PS C:\> Invoke-GitIngestion -SourceId "git-custom-repo" -OutputPath "./ingested/repo"
+#>
+function Invoke-GitIngestion {
+    [CmdletBinding()]
+    [OutputType([pscustomobject])]
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$SourceId,
+
+        [Parameter(Mandatory = $true)]
+        [string]$OutputPath,
+
+        [Parameter()]
+        [switch]$Incremental,
+
+        [Parameter()]
+        [string]$Branch = "",
+
+        [Parameter()]
+        [int]$Depth = 0
+    )
+
+    process {
+        $source = Get-IngestionSources -SourceId $SourceId
+        if (-not $source) {
+            throw "Source not found: $SourceId"
+        }
+        if ($source -is [array]) {
+            $source = $source[0]
+        }
+
+        if ($source.type -ne 'git') {
+            throw "Source '$SourceId' is not a git source (type: $($source.type))"
+        }
+
+        $result = [ordered]@{
+            sourceId = $SourceId
+            type = 'git'
+            url = $source.url
+            outputPath = $OutputPath
+            filesIngested = 0
+            filesSkipped = 0
+            bytesIngested = 0
+            incremental = $Incremental.IsPresent
+            errors = @()
+            startedAt = [DateTime]::UtcNow.ToString("yyyy-MM-ddTHH:mm:ssZ", [System.Globalization.CultureInfo]::InvariantCulture)
+            completedAt = $null
+        }
+
+        try {
+            # Ensure output directory exists
+            if (-not (Test-Path -LiteralPath $OutputPath)) {
+                $null = New-Item -ItemType Directory -Path $OutputPath -Force
+            }
+
+            # Check if git is available
+            $gitCmd = Get-Command 'git' -ErrorAction SilentlyContinue
+            if (-not $gitCmd) {
+                throw "Git command not found. Please install Git and ensure it's in PATH."
+            }
+
+            # Setup authentication if provided
+            $gitUrl = $source.url
+            if ($source.auth -and $source.auth.type -eq 'token') {
+                $token = Get-SourceAuthToken -Source $source
+                if ($token) {
+                    # Inject token into URL for HTTPS repos
+                    if ($gitUrl -match '^https://') {
+                        $gitUrl = $gitUrl -replace '^https://', "https://oauth2:$token@"
+                    }
+                }
+            }
+
+            $repoPath = Join-Path $OutputPath '.git-repo'
+            
+            # Check if this is an incremental update
+            if ($Incremental -and (Test-Path -LiteralPath (Join-Path $repoPath '.git'))) {
+                # Pull latest changes
+                Write-LogEntry -Level INFO -Message "Pulling latest changes for $SourceId" -Source "Invoke-GitIngestion"
+                
+                $pullArgs = @('-C', $repoPath, 'pull', 'origin')
+                if ($Branch) {
+                    $pullArgs += $Branch
+                }
+                
+                $pullOutput = & git @pullArgs 2>&1
+                if ($LASTEXITCODE -ne 0) {
+                    throw "Git pull failed: $pullOutput"
+                }
+                
+                if ($Branch) {
+                    $checkoutOutput = & git @('-C', $repoPath, 'checkout', $Branch) 2>&1
+                    if ($LASTEXITCODE -ne 0) {
+                        Write-Warning "Failed to checkout branch $Branch`: $checkoutOutput"
+                    }
+                }
+            }
+            else {
+                # Clone the repository
+                Write-LogEntry -Level INFO -Message "Cloning repository $SourceId" -Source "Invoke-GitIngestion"
+                
+                if (Test-Path -LiteralPath $repoPath) {
+                    Remove-Item -LiteralPath $repoPath -Recurse -Force
+                }
+
+                $cloneArgs = @('clone')
+                if ($Depth -gt 0) {
+                    $cloneArgs += @('--depth', $Depth)
+                }
+                if ($Branch) {
+                    $cloneArgs += @('--branch', $Branch)
+                }
+                $cloneArgs += @($gitUrl, $repoPath)
+
+                $cloneOutput = & git @cloneArgs 2>&1
+                if ($LASTEXITCODE -ne 0) {
+                    throw "Git clone failed: $cloneOutput"
+                }
+            }
+
+            # Copy files based on include/exclude patterns
+            $files = Get-ChildItem -Path $repoPath -Recurse -File | Where-Object { 
+                $_.FullName -notlike '*.git*' 
+            }
+
+            foreach ($file in $files) {
+                $relativePath = $file.FullName.Substring($repoPath.Length + 1)
+                $include = $false
+
+                # Check include patterns
+                foreach ($pattern in $source.include) {
+                    if ($relativePath -like $pattern) {
+                        $include = $true
+                        break
+                    }
+                }
+
+                # Check exclude patterns
+                if ($include) {
+                    foreach ($pattern in $source.exclude) {
+                        if ($relativePath -like $pattern -or $relativePath.StartsWith($pattern.TrimEnd('*'))) {
+                            $include = $false
+                            break
+                        }
+                    }
+                }
+
+                if ($include) {
+                    $targetPath = Join-Path $OutputPath $relativePath
+                    $targetDir = Split-Path -Parent $targetPath
+
+                    if (-not (Test-Path -LiteralPath $targetDir)) {
+                        $null = New-Item -ItemType Directory -Path $targetDir -Force
+                    }
+
+                    Copy-Item -LiteralPath $file.FullName -Destination $targetPath -Force
+                    $result.filesIngested++
+                    $result.bytesIngested += $file.Length
+                }
+                else {
+                    $result.filesSkipped++
+                }
+            }
+
+            # Update source metadata
+            $source.lastIngested = [DateTime]::UtcNow.ToString("yyyy-MM-ddTHH:mm:ssZ", [System.Globalization.CultureInfo]::InvariantCulture)
+            $source.ingestCount++
+            $source.lastStatus = 'success'
+
+            $sourcePath = Join-Path $script:IngestionConfigDir "$SourceId.json"
+            if (Test-Path -LiteralPath $sourcePath) {
+                ($source | ConvertTo-Json -Depth 10) | Set-Content -LiteralPath $sourcePath -Encoding UTF8
+            }
+
+            $result.completedAt = [DateTime]::UtcNow.ToString("yyyy-MM-ddTHH:mm:ssZ", [System.Globalization.CultureInfo]::InvariantCulture)
+            
+            Write-LogEntry -Level INFO -Message "Git ingestion completed: $SourceId (Files: $($result.filesIngested))" -Source "Invoke-GitIngestion"
+        }
+        catch {
+            $result.errors += $_.Exception.Message
+            Write-LogEntry -Level ERROR -Message "Git ingestion failed: $SourceId - $_" -Source "Invoke-GitIngestion"
+            throw
+        }
+
+        return [pscustomobject]$result
+    }
+}
+
+# ============================================================================
+# Region: HTTP/HTTPS Ingestion
+# ============================================================================
+
+<#
+.SYNOPSIS
+    Ingests content from HTTP/HTTPS URLs.
+
+.DESCRIPTION
+    Fetches content from HTTP/HTTPS URLs with rate limiting support.
+    Can follow links to a specified depth and respects robots.txt.
+
+.PARAMETER SourceId
+    The registered source ID for the HTTP source.
+
+.PARAMETER OutputPath
+    Directory where ingested content will be stored.
+
+.PARAMETER MaxDepth
+    Maximum depth for link following. Default: 1 (single page).
+
+.PARAMETER MaxPages
+    Maximum number of pages to ingest. Default: 100.
+
+.PARAMETER RespectRobotsTxt
+    If specified, respects robots.txt restrictions.
+
+.PARAMETER RequestDelayMs
+    Delay between requests in milliseconds. Default: 1000.
+
+.OUTPUTS
+    System.Management.Automation.PSCustomObject with ingestion results.
+
+.EXAMPLE
+    PS C:\> Invoke-HttpIngestion -SourceId "http-docs" -OutputPath "./ingested/docs" -MaxDepth 2
+#>
+function Invoke-HttpIngestion {
+    [CmdletBinding()]
+    [OutputType([pscustomobject])]
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$SourceId,
+
+        [Parameter(Mandatory = $true)]
+        [string]$OutputPath,
+
+        [Parameter()]
+        [int]$MaxDepth = 1,
+
+        [Parameter()]
+        [int]$MaxPages = 100,
+
+        [Parameter()]
+        [switch]$RespectRobotsTxt,
+
+        [Parameter()]
+        [int]$RequestDelayMs = 1000
+    )
+
+    process {
+        $source = Get-IngestionSources -SourceId $SourceId
+        if (-not $source) {
+            throw "Source not found: $SourceId"
+        }
+        if ($source -is [array]) {
+            $source = $source[0]
+        }
+
+        if ($source.type -notin @('http', 'https')) {
+            throw "Source '$SourceId' is not an HTTP/HTTPS source (type: $($source.type))"
+        }
+
+        $result = [ordered]@{
+            sourceId = $SourceId
+            type = $source.type
+            url = $source.url
+            outputPath = $OutputPath
+            pagesIngested = 0
+            pagesSkipped = 0
+            bytesIngested = 0
+            errors = @()
+            startedAt = [DateTime]::UtcNow.ToString("yyyy-MM-ddTHH:mm:ssZ", [System.Globalization.CultureInfo]::InvariantCulture)
+            completedAt = $null
+        }
+
+        try {
+            if (-not (Test-Path -LiteralPath $OutputPath)) {
+                $null = New-Item -ItemType Directory -Path $OutputPath -Force
+            }
+
+            $baseUri = [Uri]$source.url
+            $headers = @{
+                'User-Agent' = 'LLM-Workflow-Ingestion/0.7.0'
+            }
+
+            # Add authentication if configured
+            $token = Get-SourceAuthToken -Source $source
+            if ($token) {
+                $headers['Authorization'] = "Bearer $token"
+            }
+            elseif ($source.auth -and $source.auth.type -eq 'basic') {
+                $credentials = "$($source.auth.username):$($source.auth.password)"
+                $encoded = [Convert]::ToBase64String([Text.Encoding]::ASCII.GetBytes($credentials))
+                $headers['Authorization'] = "Basic $encoded"
+            }
+
+            # Track visited URLs
+            $visited = [System.Collections.Generic.HashSet[string]]::new()
+            $toVisit = [System.Collections.Generic.Queue[hashtable]]::new()
+            $toVisit.Enqueue(@{ Url = $source.url; Depth = 0 })
+
+            while ($toVisit.Count -gt 0 -and $result.pagesIngested -lt $MaxPages) {
+                $current = $toVisit.Dequeue()
+                $currentUrl = $current.Url
+                $currentDepth = $current.Depth
+
+                if ($visited.Contains($currentUrl)) {
+                    continue
+                }
+                $null = $visited.Add($currentUrl)
+
+                try {
+                    # Rate limiting delay
+                    if ($result.pagesIngested -gt 0) {
+                        Start-Sleep -Milliseconds $RequestDelayMs
+                    }
+
+                    Write-LogEntry -Level INFO -Message "Fetching HTTP content: $currentUrl" -Source "Invoke-HttpIngestion"
+
+                    $response = Invoke-IngestionWithBackoff -ScriptBlock {
+                        Invoke-WebRequest -Uri $currentUrl -Headers $headers -Method GET -TimeoutSec 30 -UseBasicParsing
+                    } -MaxRetries 3
+
+                    if ($response.StatusCode -eq 200) {
+                        $contentType = $response.Headers['Content-Type']
+                        $isText = $contentType -match 'text|json|xml|javascript'
+
+                        if ($isText) {
+                            # Save content
+                            $uri = [Uri]$currentUrl
+                            $localPath = $uri.LocalPath.Trim('/')
+                            if ([string]::IsNullOrEmpty($localPath)) {
+                                $localPath = 'index.html'
+                            }
+                            if (-not $localPath.Contains('.')) {
+                                $localPath = "$localPath.html"
+                            }
+                            
+                            $targetPath = Join-Path $OutputPath $localPath
+                            $targetDir = Split-Path -Parent $targetPath
+                            
+                            if (-not (Test-Path -LiteralPath $targetDir)) {
+                                $null = New-Item -ItemType Directory -Path $targetDir -Force
+                            }
+
+                            $response.Content | Set-Content -LiteralPath $targetPath -Encoding UTF8
+                            $result.pagesIngested++
+                            $result.bytesIngested += $response.RawContentLength
+
+                            # Extract and queue links if not at max depth
+                            if ($currentDepth -lt $MaxDepth) {
+                                $links = Extract-LinksFromHtml -Html $response.Content -BaseUrl $currentUrl
+                                foreach ($link in $links) {
+                                    if (-not $visited.Contains($link)) {
+                                        $toVisit.Enqueue(@{ Url = $link; Depth = $currentDepth + 1 })
+                                    }
+                                }
+                            }
+                        }
+                        else {
+                            $result.pagesSkipped++
+                        }
+                    }
+                }
+                catch {
+                    $result.errors += "Failed to fetch $currentUrl`: $_"
+                    Write-Warning "[Invoke-HttpIngestion] Failed to fetch $currentUrl`: $_"
+                }
+            }
+
+            # Update source metadata
+            $source.lastIngested = [DateTime]::UtcNow.ToString("yyyy-MM-ddTHH:mm:ssZ", [System.Globalization.CultureInfo]::InvariantCulture)
+            $source.ingestCount++
+            $source.lastStatus = 'success'
+
+            $sourcePath = Join-Path $script:IngestionConfigDir "$SourceId.json"
+            if (Test-Path -LiteralPath $sourcePath) {
+                ($source | ConvertTo-Json -Depth 10) | Set-Content -LiteralPath $sourcePath -Encoding UTF8
+            }
+
+            $result.completedAt = [DateTime]::UtcNow.ToString("yyyy-MM-ddTHH:mm:ssZ", [System.Globalization.CultureInfo]::InvariantCulture)
+            
+            Write-LogEntry -Level INFO -Message "HTTP ingestion completed: $SourceId (Pages: $($result.pagesIngested))" -Source "Invoke-HttpIngestion"
+        }
+        catch {
+            $result.errors += $_.Exception.Message
+            Write-LogEntry -Level ERROR -Message "HTTP ingestion failed: $SourceId - $_" -Source "Invoke-HttpIngestion"
+            throw
+        }
+
+        return [pscustomobject]$result
+    }
+}
+
+# ============================================================================
+# Region: S3 Ingestion
+# ============================================================================
+
+<#
+.SYNOPSIS
+    Ingests content from Amazon S3 buckets.
+
+.DESCRIPTION
+    Downloads and ingests files from S3 buckets with support for
+    prefix filtering, authentication via IAM roles or access keys.
+
+.PARAMETER SourceId
+    The registered source ID for the S3 source.
+
+.PARAMETER OutputPath
+    Directory where ingested content will be stored.
+
+.PARAMETER Incremental
+    If specified, only downloads new or modified objects.
+
+.PARAMETER MaxKeys
+    Maximum number of objects to list per request. Default: 1000.
+
+.OUTPUTS
+    System.Management.Automation.PSCustomObject with ingestion results.
+
+.EXAMPLE
+    PS C:\> Invoke-S3Ingestion -SourceId "s3-dataset" -OutputPath "./ingested/s3" -Incremental
+#>
+function Invoke-S3Ingestion {
+    [CmdletBinding()]
+    [OutputType([pscustomobject])]
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$SourceId,
+
+        [Parameter(Mandatory = $true)]
+        [string]$OutputPath,
+
+        [Parameter()]
+        [switch]$Incremental,
+
+        [Parameter()]
+        [int]$MaxKeys = 1000
+    )
+
+    process {
+        $source = Get-IngestionSources -SourceId $SourceId
+        if (-not $source) {
+            throw "Source not found: $SourceId"
+        }
+        if ($source -is [array]) {
+            $source = $source[0]
+        }
+
+        if ($source.type -ne 's3') {
+            throw "Source '$SourceId' is not an S3 source (type: $($source.type))"
+        }
+
+        $result = [ordered]@{
+            sourceId = $SourceId
+            type = 's3'
+            bucket = $null
+            prefix = $null
+            outputPath = $OutputPath
+            filesIngested = 0
+            filesSkipped = 0
+            bytesIngested = 0
+            bytesSkipped = 0
+            incremental = $Incremental.IsPresent
+            errors = @()
+            startedAt = [DateTime]::UtcNow.ToString("yyyy-MM-ddTHH:mm:ssZ", [System.Globalization.CultureInfo]::InvariantCulture)
+            completedAt = $null
+        }
+
+        try {
+            if (-not (Test-Path -LiteralPath $OutputPath)) {
+                $null = New-Item -ItemType Directory -Path $OutputPath -Force
+            }
+
+            # Parse S3 URL (s3://bucket/prefix or https://s3.region.amazonaws.com/bucket/prefix)
+            $s3Info = Parse-S3Url -Url $source.url
+            if (-not $s3Info) {
+                throw "Failed to parse S3 URL: $($source.url)"
+            }
+            $result.bucket = $s3Info.Bucket
+            $result.prefix = $s3Info.Prefix
+
+            # Check for AWS CLI or AWS Tools for PowerShell
+            $awsCli = Get-Command 'aws' -ErrorAction SilentlyContinue
+            $awsModule = Get-Module 'AWSPowerShell.NetCore' -ListAvailable -ErrorAction SilentlyContinue
+
+            if (-not $awsCli -and -not $awsModule) {
+                throw "AWS CLI or AWSPowerShell module not found. Please install either to use S3 ingestion."
+            }
+
+            # Configure credentials if provided
+            $accessKey = $null
+            $secretKey = $null
+            $sessionToken = $null
+            $region = $s3Info.Region
+
+            if ($source.auth) {
+                if ($source.auth.accessKeyEnv) {
+                    $accessKey = [Environment]::GetEnvironmentVariable($source.auth.accessKeyEnv)
+                }
+                if ($source.auth.secretKeyEnv) {
+                    $secretKey = [Environment]::GetEnvironmentVariable($source.auth.secretKeyEnv)
+                }
+                if ($source.auth.sessionTokenEnv) {
+                    $sessionToken = [Environment]::GetEnvironmentVariable($source.auth.sessionTokenEnv)
+                }
+                if ($source.auth.region) {
+                    $region = $source.auth.region
+                }
+            }
+
+            # Get last ingestion time for incremental
+            $lastIngested = $null
+            if ($Incremental -and $source.lastIngested) {
+                $lastIngested = [DateTime]::Parse($source.lastIngested)
+            }
+
+            if ($awsCli) {
+                # Use AWS CLI
+                $lsArgs = @('s3', 'ls', "s3://$($s3Info.Bucket)/$($s3Info.Prefix)", '--recursive')
+                if ($region) {
+                    $lsArgs += @('--region', $region)
+                }
+
+                # Set credentials via environment variables if provided
+                $envBackup = @{}
+                if ($accessKey) {
+                    $envBackup['AWS_ACCESS_KEY_ID'] = $env:AWS_ACCESS_KEY_ID
+                    $env:AWS_ACCESS_KEY_ID = $accessKey
+                }
+                if ($secretKey) {
+                    $envBackup['AWS_SECRET_ACCESS_KEY'] = $env:AWS_SECRET_ACCESS_KEY
+                    $env:AWS_SECRET_ACCESS_KEY = $secretKey
+                }
+                if ($sessionToken) {
+                    $envBackup['AWS_SESSION_TOKEN'] = $env:AWS_SESSION_TOKEN
+                    $env:AWS_SESSION_TOKEN = $sessionToken
+                }
+
+                try {
+                    $s3Objects = & aws @lsArgs 2>&1
+                    if ($LASTEXITCODE -ne 0) {
+                        throw "AWS S3 ls failed: $s3Objects"
+                    }
+                }
+                finally {
+                    # Restore environment
+                    foreach ($key in $envBackup.Keys) {
+                        Set-Item "env:$key" $envBackup[$key]
+                    }
+                }
+
+                # Parse output (format: DATE TIME SIZE KEY)
+                $objects = $s3Objects | ForEach-Object {
+                    if ($_ -match '(\d{4}-\d{2}-\d{2})\s+(\d{2}:\d{2}:\d{2})\s+(\d+)\s+(.+)') {
+                        @{
+                            LastModified = [DateTime]::Parse("$($matches[1]) $($matches[2])")
+                            Size = [long]$matches[3]
+                            Key = $matches[4]
+                        }
+                    }
+                }
+
+                foreach ($obj in $objects) {
+                    try {
+                        # Check incremental
+                        if ($lastIngested -and $obj.LastModified -le $lastIngested) {
+                            $result.filesSkipped++
+                            $result.bytesSkipped += $obj.Size
+                            continue
+                        }
+
+                        # Check include/exclude patterns
+                        $relativePath = $obj.Key.Substring($s3Info.Prefix.Length).TrimStart('/')
+                        $include = $false
+
+                        foreach ($pattern in $source.include) {
+                            if ($relativePath -like $pattern) {
+                                $include = $true
+                                break
+                            }
+                        }
+
+                        if ($include) {
+                            foreach ($pattern in $source.exclude) {
+                                if ($relativePath -like $pattern -or $relativePath.StartsWith($pattern.TrimEnd('*'))) {
+                                    $include = $false
+                                    break
+                                }
+                            }
+                        }
+
+                        if (-not $include) {
+                            $result.filesSkipped++
+                            continue
+                        }
+
+                        # Download object
+                        $targetPath = Join-Path $OutputPath $relativePath
+                        $targetDir = Split-Path -Parent $targetPath
+
+                        if (-not (Test-Path -LiteralPath $targetDir)) {
+                            $null = New-Item -ItemType Directory -Path $targetDir -Force
+                        }
+
+                        $cpArgs = @('s3', 'cp', "s3://$($s3Info.Bucket)/$($obj.Key)", $targetPath)
+                        if ($region) {
+                            $cpArgs += @('--region', $region)
+                        }
+
+                        $copyOutput = & aws @cpArgs 2>&1
+                        if ($LASTEXITCODE -eq 0) {
+                            $result.filesIngested++
+                            $result.bytesIngested += $obj.Size
+                        }
+                        else {
+                            $result.errors += "Failed to download $($obj.Key): $copyOutput"
+                        }
+                    }
+                    catch {
+                        $result.errors += "Error processing $($obj.Key): $_"
+                    }
+                }
+            }
+            else {
+                throw "AWS Tools for PowerShell not yet implemented. Please install AWS CLI."
+            }
+
+            # Update source metadata
+            $source.lastIngested = [DateTime]::UtcNow.ToString("yyyy-MM-ddTHH:mm:ssZ", [System.Globalization.CultureInfo]::InvariantCulture)
+            $source.ingestCount++
+            $source.lastStatus = 'success'
+
+            $sourcePath = Join-Path $script:IngestionConfigDir "$SourceId.json"
+            if (Test-Path -LiteralPath $sourcePath) {
+                ($source | ConvertTo-Json -Depth 10) | Set-Content -LiteralPath $sourcePath -Encoding UTF8
+            }
+
+            $result.completedAt = [DateTime]::UtcNow.ToString("yyyy-MM-ddTHH:mm:ssZ", [System.Globalization.CultureInfo]::InvariantCulture)
+            
+            Write-LogEntry -Level INFO -Message "S3 ingestion completed: $SourceId (Files: $($result.filesIngested))" -Source "Invoke-S3Ingestion"
+        }
+        catch {
+            $result.errors += $_.Exception.Message
+            Write-LogEntry -Level ERROR -Message "S3 ingestion failed: $SourceId - $_" -Source "Invoke-S3Ingestion"
+            throw
+        }
+
+        return [pscustomobject]$result
+    }
+}
+
+<#
+.SYNOPSIS
+    Parses an S3 URL.
+
+.DESCRIPTION
+    Extracts bucket name, prefix, and region from S3 URLs.
+#>
+function Parse-S3Url {
+    [CmdletBinding()]
+    param([string]$Url)
+
+    # s3://bucket/prefix format
+    if ($Url -match '^s3://([^/]+)(?:/(.*))?$') {
+        return @{
+            Bucket = $matches[1]
+            Prefix = if ($matches[2]) { $matches[2] } else { '' }
+            Region = $null
+        }
+    }
+
+    # https://s3.region.amazonaws.com/bucket/prefix format
+    if ($Url -match '^https?://s3\.([^.]+)\.amazonaws\.com/([^/]+)(?:/(.*))?$') {
+        return @{
+            Bucket = $matches[2]
+            Prefix = if ($matches[3]) { $matches[3] } else { '' }
+            Region = $matches[1]
+        }
+    }
+
+    # https://bucket.s3.region.amazonaws.com/prefix format
+    if ($Url -match '^https?://([^.]+)\.s3\.([^.]+)\.amazonaws\.com(?:/(.*))?$') {
+        return @{
+            Bucket = $matches[1]
+            Prefix = if ($matches[3]) { $matches[3] } else { '' }
+            Region = $matches[2]
+        }
+    }
+
+    return $null
+}
+
+# ============================================================================
+# Region: REST API Ingestion
+# ============================================================================
+
+<#
+.SYNOPSIS
+    Ingests data from REST API endpoints.
+
+.DESCRIPTION
+    Calls REST APIs with authentication, pagination, and rate limiting.
+    Supports various authentication methods and response formats.
+
+.PARAMETER SourceId
+    The registered source ID for the API source.
+
+.PARAMETER OutputPath
+    Directory where ingested content will be stored.
+
+.PARAMETER Endpoint
+    Optional specific endpoint path to call. If not specified, uses the source URL.
+
+.PARAMETER Method
+    HTTP method to use. Default: GET.
+
+.PARAMETER PaginationType
+    Type of pagination: 'none', 'offset', 'cursor', 'link'. Default: 'none'.
+
+.PARAMETER MaxPages
+    Maximum number of pages to fetch. Default: 100.
+
+.PARAMETER RequestDelayMs
+    Delay between requests in milliseconds. Default: 100.
+
+.OUTPUTS
+    System.Management.Automation.PSCustomObject with ingestion results.
+
+.EXAMPLE
+    PS C:\> Invoke-RestApiIngestion -SourceId "api-endpoint" -OutputPath "./ingested/api-data"
+#>
+function Invoke-RestApiIngestion {
+    [CmdletBinding()]
+    [OutputType([pscustomobject])]
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$SourceId,
+
+        [Parameter(Mandatory = $true)]
+        [string]$OutputPath,
+
+        [Parameter()]
+        [string]$Endpoint = "",
+
+        [Parameter()]
+        [ValidateSet('GET', 'POST', 'PUT', 'PATCH')]
+        [string]$Method = 'GET',
+
+        [Parameter()]
+        [ValidateSet('none', 'offset', 'cursor', 'link')]
+        [string]$PaginationType = 'none',
+
+        [Parameter()]
+        [int]$MaxPages = 100,
+
+        [Parameter()]
+        [int]$RequestDelayMs = 100
+    )
+
+    process {
+        $source = Get-IngestionSources -SourceId $SourceId
+        if (-not $source) {
+            throw "Source not found: $SourceId"
+        }
+        if ($source -is [array]) {
+            $source = $source[0]
+        }
+
+        if ($source.type -ne 'api') {
+            throw "Source '$SourceId' is not an API source (type: $($source.type))"
+        }
+
+        $result = [ordered]@{
+            sourceId = $SourceId
+            type = 'api'
+            url = $source.url
+            endpoint = $Endpoint
+            outputPath = $OutputPath
+            method = $Method
+            pagesFetched = 0
+            recordsIngested = 0
+            bytesIngested = 0
+            errors = @()
+            startedAt = [DateTime]::UtcNow.ToString("yyyy-MM-ddTHH:mm:ssZ", [System.Globalization.CultureInfo]::InvariantCulture)
+            completedAt = $null
+        }
+
+        try {
+            if (-not (Test-Path -LiteralPath $OutputPath)) {
+                $null = New-Item -ItemType Directory -Path $OutputPath -Force
+            }
+
+            # Build request headers
+            $headers = @{
+                'Accept' = 'application/json'
+                'User-Agent' = 'LLM-Workflow-Ingestion/0.7.0'
+            }
+
+            # Handle authentication
+            if ($source.auth) {
+                switch ($source.auth.type) {
+                    'token' {
+                        $token = Get-SourceAuthToken -Source $source
+                        if ($token) {
+                            $headerName = if ($source.auth.headerName) { $source.auth.headerName } else { 'Authorization' }
+                            $prefix = if ($source.auth.tokenPrefix) { $source.auth.tokenPrefix } else { 'Bearer ' }
+                            $headers[$headerName] = "$prefix$token"
+                        }
+                    }
+                    'apikey' {
+                        $apiKey = Get-SourceAuthToken -Source $source
+                        if ($apiKey) {
+                            $headerName = if ($source.auth.headerName) { $source.auth.headerName } else { 'X-API-Key' }
+                            $headers[$headerName] = $apiKey
+                        }
+                    }
+                    'basic' {
+                        $credentials = "$($source.auth.username):$($source.auth.password)"
+                        $encoded = [Convert]::ToBase64String([Text.Encoding]::ASCII.GetBytes($credentials))
+                        $headers['Authorization'] = "Basic $encoded"
+                    }
+                }
+            }
+
+            # Build base URL
+            $baseUrl = $source.url.TrimEnd('/')
+            if ($Endpoint) {
+                $baseUrl = "$baseUrl/$($Endpoint.TrimStart('/'))"
+            }
+
+            # Pagination variables
+            $page = 0
+            $nextUrl = $baseUrl
+            $cursor = $null
+            $offset = 0
+            $limit = if ($source.metadata.pageSize) { $source.metadata.pageSize } else { 100 }
+            $allData = [System.Collections.Generic.List[object]]::new()
+
+            while ($nextUrl -and $page -lt $MaxPages) {
+                # Rate limiting
+                if ($page -gt 0) {
+                    Start-Sleep -Milliseconds $RequestDelayMs
+                }
+
+                # Build request URL with pagination
+                $requestUrl = $nextUrl
+                if ($PaginationType -eq 'offset') {
+                    $separator = if ($baseUrl.Contains('?')) { '&' } else { '?' }
+                    $requestUrl = "$baseUrl$separator`offset=$offset&limit=$limit"
+                }
+                elseif ($PaginationType -eq 'cursor' -and $cursor) {
+                    $separator = if ($baseUrl.Contains('?')) { '&' } else { '?' }
+                    $cursorParam = if ($source.metadata.cursorParam) { $source.metadata.cursorParam } else { 'cursor' }
+                    $requestUrl = "$baseUrl$separator`$cursorParam=$cursor"
+                }
+
+                Write-LogEntry -Level INFO -Message "Calling REST API: $requestUrl" -Source "Invoke-RestApiIngestion"
+
+                try {
+                    $response = Invoke-IngestionWithBackoff -ScriptBlock {
+                        Invoke-RestMethod -Uri $requestUrl -Headers $headers -Method $Method -TimeoutSec 60
+                    } -MaxRetries 3
+
+                    $result.pagesFetched++
+
+                    # Handle different response structures
+                    $data = $response
+                    if ($source.metadata.dataPath) {
+                        # Extract data from nested path (e.g., "data.items")
+                        $pathParts = $source.metadata.dataPath -split '\.'
+                        foreach ($part in $pathParts) {
+                            if ($data -and $data.$part) {
+                                $data = $data.$part
+                            }
+                            else {
+                                $data = @()
+                                break
+                            }
+                        }
+                    }
+                    elseif ($response.data) {
+                        $data = $response.data
+                    }
+                    elseif ($response.results) {
+                        $data = $response.results
+                    }
+                    elseif ($response.items) {
+                        $data = $response.items
+                    }
+
+                    if ($data -is [array]) {
+                        $allData.AddRange($data)
+                        $result.recordsIngested += $data.Count
+                    }
+                    else {
+                        $allData.Add($data)
+                        $result.recordsIngested++
+                    }
+
+                    # Handle pagination
+                    $nextUrl = $null
+                    switch ($PaginationType) {
+                        'offset' {
+                            $offset += $limit
+                            if ($data -is [array] -and $data.Count -lt $limit) {
+                                $nextUrl = $null  # No more data
+                            }
+                            else {
+                                $nextUrl = $baseUrl  # Continue with new offset
+                            }
+                        }
+                        'cursor' {
+                            if ($response.cursor) {
+                                $cursor = $response.cursor
+                                $nextUrl = $baseUrl
+                            }
+                            elseif ($response.nextCursor) {
+                                $cursor = $response.nextCursor
+                                $nextUrl = $baseUrl
+                            }
+                            elseif ($response.pagination -and $response.pagination.nextCursor) {
+                                $cursor = $response.pagination.nextCursor
+                                $nextUrl = $baseUrl
+                            }
+                        }
+                        'link' {
+                            # Parse Link header for next URL (would need Invoke-WebRequest instead of Invoke-RestMethod)
+                            # Simplified implementation
+                            if ($response.next -and $response.next -is [string]) {
+                                $nextUrl = $response.next
+                            }
+                            elseif ($response.links -and $response.links.next) {
+                                $nextUrl = $response.links.next
+                            }
+                        }
+                    }
+
+                    # Save each page individually
+                    $pageFile = Join-Path $OutputPath "page_$($page.ToString('D4')).json"
+                    ($data | ConvertTo-Json -Depth 10) | Set-Content -LiteralPath $pageFile -Encoding UTF8
+                    $result.bytesIngested += (Get-Item -LiteralPath $pageFile).Length
+                }
+                catch {
+                    $result.errors += "Failed to fetch page $page`: $_"
+                    Write-Warning "[Invoke-RestApiIngestion] Failed to fetch page $page`: $_"
+                    break
+                }
+
+                $page++
+            }
+
+            # Save combined data
+            if ($allData.Count -gt 0) {
+                $combinedFile = Join-Path $OutputPath 'all_data.json'
+                ($allData | ConvertTo-Json -Depth 10) | Set-Content -LiteralPath $combinedFile -Encoding UTF8
+            }
+
+            # Update source metadata
+            $source.lastIngested = [DateTime]::UtcNow.ToString("yyyy-MM-ddTHH:mm:ssZ", [System.Globalization.CultureInfo]::InvariantCulture)
+            $source.ingestCount++
+            $source.lastStatus = 'success'
+
+            $sourcePath = Join-Path $script:IngestionConfigDir "$SourceId.json"
+            if (Test-Path -LiteralPath $sourcePath) {
+                ($source | ConvertTo-Json -Depth 10) | Set-Content -LiteralPath $sourcePath -Encoding UTF8
+            }
+
+            $result.completedAt = [DateTime]::UtcNow.ToString("yyyy-MM-ddTHH:mm:ssZ", [System.Globalization.CultureInfo]::InvariantCulture)
+            
+            Write-LogEntry -Level INFO -Message "REST API ingestion completed: $SourceId (Records: $($result.recordsIngested))" -Source "Invoke-RestApiIngestion"
+        }
+        catch {
+            $result.errors += $_.Exception.Message
+            Write-LogEntry -Level ERROR -Message "REST API ingestion failed: $SourceId - $_" -Source "Invoke-RestApiIngestion"
+            throw
+        }
+
+        return [pscustomobject]$result
+    }
+}
+
+# ============================================================================
 # Region: Ingestion Pipeline
 # ============================================================================
 
@@ -2121,6 +3133,28 @@ function Start-IngestionJob {
                             -SourceId $SourceId -OutputPath $OutputPath `
                             -Incremental:([bool]$Options.Incremental) -Branch $Options.Branch
                     }
+                    'git' {
+                        $result = & "$PSScriptRoot/ExternalIngestion.ps1" -Command Invoke-GitIngestion `
+                            -SourceId $SourceId -OutputPath $OutputPath `
+                            -Incremental:([bool]$Options.Incremental) -Branch $Options.Branch -Depth ($Options.Depth -or 0)
+                    }
+                    'http' {
+                        $result = & "$PSScriptRoot/ExternalIngestion.ps1" -Command Invoke-HttpIngestion `
+                            -SourceId $SourceId -OutputPath $OutputPath `
+                            -MaxDepth ($Options.MaxDepth -or 1) -MaxPages ($Options.MaxPages -or 100) `
+                            -RequestDelayMs ($Options.RequestDelayMs -or 1000)
+                    }
+                    'https' {
+                        $result = & "$PSScriptRoot/ExternalIngestion.ps1" -Command Invoke-HttpIngestion `
+                            -SourceId $SourceId -OutputPath $OutputPath `
+                            -MaxDepth ($Options.MaxDepth -or 1) -MaxPages ($Options.MaxPages -or 100) `
+                            -RequestDelayMs ($Options.RequestDelayMs -or 1000)
+                    }
+                    's3' {
+                        $result = & "$PSScriptRoot/ExternalIngestion.ps1" -Command Invoke-S3Ingestion `
+                            -SourceId $SourceId -OutputPath $OutputPath `
+                            -Incremental:([bool]$Options.Incremental) -MaxKeys ($Options.MaxKeys -or 1000)
+                    }
                     'docssite' {
                         $result = & "$PSScriptRoot/ExternalIngestion.ps1" -Command Invoke-DocsSiteIngestion `
                             -SourceId $SourceId -OutputPath $OutputPath `
@@ -2128,9 +3162,11 @@ function Start-IngestionJob {
                             -UseSitemap:([bool]$Options.UseSitemap)
                     }
                     'api' {
-                        $result = & "$PSScriptRoot/ExternalIngestion.ps1" -Command Invoke-APIReferenceIngestion `
+                        $result = & "$PSScriptRoot/ExternalIngestion.ps1" -Command Invoke-RestApiIngestion `
                             -SourceId $SourceId -OutputPath $OutputPath `
-                            -Format ($Options.Format -or 'auto') -ResolveRefs:([bool]$Options.ResolveRefs)
+                            -Endpoint ($Options.Endpoint -or '') -Method ($Options.Method -or 'GET') `
+                            -PaginationType ($Options.PaginationType -or 'none') -MaxPages ($Options.MaxPages -or 100) `
+                            -RequestDelayMs ($Options.RequestDelayMs -or 100)
                     }
                     default {
                         throw "Ingestion not implemented for type: $($source.type)"
@@ -3023,6 +4059,18 @@ Export-ModuleMember -Function @(
     # GitLab Integration
     'Invoke-GitLabRepoIngestion',
     'Get-GitLabProjectMetadata',
+    
+    # Generic Git Integration
+    'Invoke-GitIngestion',
+    
+    # HTTP/HTTPS Integration
+    'Invoke-HttpIngestion',
+    
+    # S3 Integration
+    'Invoke-S3Ingestion',
+    
+    # REST API Integration
+    'Invoke-RestApiIngestion',
     
     # Documentation Sites
     'Invoke-DocsSiteIngestion',

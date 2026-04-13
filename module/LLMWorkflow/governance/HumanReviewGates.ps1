@@ -15,6 +15,20 @@
     - Visibility boundary changes
     - Eval regressions with caveats
     - New low-confidence extraction modes
+    
+    Gate Types:
+    - Destructive operations (delete, overwrite)
+    - Network operations (external API calls)
+    - High-value operations (pack promotion)
+    - Cross-pack mutations (inter-pack pipelines)
+    - First-time operations (new sources)
+    - Suspicious patterns (secret detection)
+
+    Requirements from Section 10.3:
+    - Review BEFORE locks acquired
+    - Review BEFORE destructive operations
+    - Persistent review log with run ID
+    - Timeout and escalation support
 
 .NOTES
     File: HumanReviewGates.ps1
@@ -30,6 +44,11 @@
 .EXAMPLE
     # Submit a review decision
     Submit-ReviewDecision -RequestId "review-xxxxx" -Reviewer "alice" -Decision "approved" -Comments "Looks good"
+
+.EXAMPLE
+    # Quick gate check with auto-approval
+    $gate = Invoke-ReviewGate -OperationType "destructive" -Context $context -AutoApproveIfClean
+    if (-not $gate.Approved) { exit 1 }
 #>
 
 Set-StrictMode -Version Latest
@@ -39,14 +58,26 @@ Set-StrictMode -Version Latest
 #===============================================================================
 
 $script:ReviewStateFileName = "review-gates.json"
+$script:ReviewLogFileName = "review-log.jsonl"
 $script:ReviewStateSchemaVersion = 1
 $script:ReviewStateSchemaName = "human-review-gates"
+
+# Gate operation types (Section 10.3)
+$script:GateOperationTypes = @{
+    DESTRUCTIVE = 'destructive'       # delete, overwrite, prune
+    NETWORK = 'network'               # external API calls
+    HIGH_VALUE = 'high-value'         # pack promotion, prod deploy
+    CROSS_PACK = 'cross-pack'         # inter-pack mutations
+    FIRST_TIME = 'first-time'         # new sources, first run
+    SUSPICIOUS = 'suspicious'         # secret detection, policy violations
+}
 
 # Default review policies by operation type
 $script:DefaultReviewPolicies = @{
     "pack-promotion" = @{
         name = "Pack Promotion Review Policy"
         description = "Reviews required for pack promotion operations"
+        operationType = 'high-value'
         triggers = @{
             largeSourceDelta = @{ enabled = $true; thresholdPercent = 30 }
             majorVersionJump = @{ enabled = $true }
@@ -63,6 +94,7 @@ $script:DefaultReviewPolicies = @{
     "source-ingestion" = @{
         name = "Source Ingestion Review Policy"
         description = "Reviews required for new source ingestion"
+        operationType = 'first-time'
         triggers = @{
             newSource = @{ enabled = $true }
             trustTierChange = @{ enabled = $true }
@@ -78,6 +110,7 @@ $script:DefaultReviewPolicies = @{
     "parser-upgrade" = @{
         name = "Parser Upgrade Review Policy"
         description = "Reviews required for parser version changes"
+        operationType = 'high-value'
         triggers = @{
             majorVersionJump = @{ enabled = $true }
             extractionModeChange = @{ enabled = $true }
@@ -93,6 +126,7 @@ $script:DefaultReviewPolicies = @{
     "visibility-change" = @{
         name = "Visibility Change Review Policy"
         description = "Reviews required for visibility boundary changes"
+        operationType = 'high-value'
         triggers = @{
             visibilityBoundaryChange = @{ enabled = $true }
             exportPermissionChange = @{ enabled = $true }
@@ -101,6 +135,73 @@ $script:DefaultReviewPolicies = @{
             minApprovers = 2
             requireOwnerApproval = $true
             autoExpireHours = 48
+        }
+        defaultReviewers = @()
+    }
+    "destructive-operation" = @{
+        name = "Destructive Operation Review Policy"
+        description = "Reviews required for destructive operations (delete, overwrite, prune)"
+        operationType = 'destructive'
+        triggers = @{
+            fileDelete = @{ enabled = $true }
+            dataOverwrite = @{ enabled = $true }
+            packPrune = @{ enabled = $true }
+            stateReset = @{ enabled = $true }
+        }
+        conditions = @{
+            minApprovers = 2
+            requireOwnerApproval = $true
+            autoExpireHours = 24
+            requireExplicitConfirmation = $true
+        }
+        defaultReviewers = @()
+    }
+    "network-operation" = @{
+        name = "Network Operation Review Policy"
+        description = "Reviews required for external API calls and network operations"
+        operationType = 'network'
+        triggers = @{
+            externalAPICall = @{ enabled = $true }
+            dataExport = @{ enabled = $true }
+            thirdPartyUpload = @{ enabled = $true }
+        }
+        conditions = @{
+            minApprovers = 1
+            requireOwnerApproval = $false
+            autoExpireHours = 24
+        }
+        defaultReviewers = @()
+    }
+    "cross-pack-mutation" = @{
+        name = "Cross-Pack Mutation Review Policy"
+        description = "Reviews required for inter-pack pipeline operations"
+        operationType = 'cross-pack'
+        triggers = @{
+            crossPackDataTransfer = @{ enabled = $true }
+            packDependencyChange = @{ enabled = $true }
+            sharedStateMutation = @{ enabled = $true }
+        }
+        conditions = @{
+            minApprovers = 2
+            requireOwnerApproval = $true
+            autoExpireHours = 72
+        }
+        defaultReviewers = @()
+    }
+    "suspicious-pattern" = @{
+        name = "Suspicious Pattern Review Policy"
+        description = "Reviews triggered by secret detection or policy violations"
+        operationType = 'suspicious'
+        triggers = @{
+            secretDetected = @{ enabled = $true }
+            policyViolation = @{ enabled = $true }
+            unusualAccessPattern = @{ enabled = $true }
+        }
+        conditions = @{
+            minApprovers = 2
+            requireOwnerApproval = $true
+            autoExpireHours = 4
+            immediateEscalation = $true
         }
         defaultReviewers = @()
     }
@@ -152,6 +253,42 @@ function Get-ReviewStatePath {
     return Join-Path $stateDir $script:ReviewStateFileName
 }
 
+function Get-ReviewLogPath {
+    <#
+    .SYNOPSIS
+        Gets the path to the review log file (JSON Lines format).
+    
+    .PARAMETER ProjectRoot
+        The project root directory.
+    
+    .OUTPUTS
+        System.String. The full path to the review log file.
+    #>
+    [CmdletBinding()]
+    [OutputType([string])]
+    param(
+        [string]$ProjectRoot = "."
+    )
+    
+    $resolvedRoot = Resolve-Path -Path $ProjectRoot -ErrorAction SilentlyContinue
+    if (-not $resolvedRoot) {
+        $resolvedRoot = $ProjectRoot
+    }
+    
+    $logsDir = Join-Path $resolvedRoot ".llm-workflow\logs"
+    
+    if (-not (Test-Path -LiteralPath $logsDir)) {
+        try {
+            New-Item -ItemType Directory -Path $logsDir -Force | Out-Null
+        }
+        catch {
+            throw "Failed to create logs directory: $logsDir. Error: $_"
+        }
+    }
+    
+    return Join-Path $logsDir $script:ReviewLogFileName
+}
+
 function Get-ReviewState {
     <#
     .SYNOPSIS
@@ -175,6 +312,7 @@ function Get-ReviewState {
         # Initialize empty state
         return @{
             schemaVersion = $script:ReviewStateSchemaVersion
+            schemaName = $script:ReviewStateSchemaName
             requests = @{}
             policies = @{}
             stats = @{
@@ -182,6 +320,7 @@ function Get-ReviewState {
                 approvedCount = 0
                 rejectedCount = 0
                 pendingCount = 0
+                expiredCount = 0
             }
             lastUpdated = [DateTime]::UtcNow.ToString("yyyy-MM-ddTHH:mm:ssZ")
         }
@@ -214,7 +353,11 @@ function Get-ReviewState {
                 approvedCount = 0
                 rejectedCount = 0
                 pendingCount = 0
+                expiredCount = 0
             }
+        }
+        if (-not $state.ContainsKey('schemaName')) {
+            $state['schemaName'] = $script:ReviewStateSchemaName
         }
         
         return $state
@@ -223,6 +366,7 @@ function Get-ReviewState {
         Write-Warning "Failed to load review state: $_. Initializing new state."
         return @{
             schemaVersion = $script:ReviewStateSchemaVersion
+            schemaName = $script:ReviewStateSchemaName
             requests = @{}
             policies = @{}
             stats = @{
@@ -230,6 +374,7 @@ function Get-ReviewState {
                 approvedCount = 0
                 rejectedCount = 0
                 pendingCount = 0
+                expiredCount = 0
             }
             lastUpdated = [DateTime]::UtcNow.ToString("yyyy-MM-ddTHH:mm:ssZ")
         }
@@ -285,6 +430,49 @@ function Save-ReviewState {
             Remove-Item -LiteralPath $tempPath -Force -ErrorAction SilentlyContinue
         }
         throw "Failed to save review state: $_"
+    }
+}
+
+function Write-ReviewLogEntry {
+    <#
+    .SYNOPSIS
+        Writes an entry to the review log (JSON Lines format).
+    
+    .DESCRIPTION
+        Persists review events to a JSON Lines log file as per Section 10.3
+        requirement for persistent review log with run ID.
+    
+    .PARAMETER Entry
+        The log entry to write.
+    
+    .PARAMETER ProjectRoot
+        The project root directory.
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory = $true)]
+        [hashtable]$Entry,
+        
+        [string]$ProjectRoot = "."
+    )
+    
+    try {
+        $logPath = Get-ReviewLogPath -ProjectRoot $ProjectRoot
+        
+        # Add standard fields
+        $Entry['timestamp'] = [DateTime]::UtcNow.ToString("yyyy-MM-ddTHH:mm:ss.fffZ")
+        if (-not $Entry.ContainsKey('runId')) {
+            $Entry['runId'] = Get-CurrentRunId -ErrorAction SilentlyContinue
+        }
+        
+        # Convert to JSON line
+        $jsonLine = $Entry | ConvertTo-Json -Compress -Depth 5
+        
+        # Append to log file
+        $jsonLine | Out-File -FilePath $logPath -Encoding UTF8 -Append
+    }
+    catch {
+        Write-Warning "Failed to write review log entry: $_"
     }
 }
 
@@ -413,8 +601,31 @@ function Get-PropertyValue {
     return $null
 }
 
+function Get-CurrentRunId {
+    <#
+    .SYNOPSIS
+        Gets the current run ID from environment or generates a new one.
+    
+    .OUTPUTS
+        System.String. The run ID.
+    #>
+    [CmdletBinding()]
+    [OutputType([string])]
+    param()
+    
+    # Try to get from environment first
+    if ($env:LLM_WORKFLOW_RUN_ID) {
+        return $env:LLM_WORKFLOW_RUN_ID
+    }
+    
+    # Generate a new run ID
+    $timestamp = [DateTime]::UtcNow.ToString("yyyyMMddTHHmmss")
+    $random = -join ((1..4) | ForEach-Object { '{0:x}' -f (Get-Random -Maximum 16) })
+    return "$timestamp-$random"
+}
+
 #===============================================================================
-# Core Review Functions
+# Core Review Functions (22 functions as specified)
 #===============================================================================
 
 function Test-HumanReviewRequired {
@@ -544,6 +755,33 @@ function Test-HumanReviewRequired {
         }
     }
     
+    # Check for destructive operation triggers
+    if ($Policy.triggers.ContainsKey('fileDelete') -and $Policy.triggers.fileDelete.enabled) {
+        if ($ChangeSet.ContainsKey('filesDeleted') -and $ChangeSet.filesDeleted.Count -gt 0) {
+            $triggers.Add("file-delete")
+        }
+    }
+    
+    if ($Policy.triggers.ContainsKey('dataOverwrite') -and $Policy.triggers.dataOverwrite.enabled) {
+        if ($ChangeSet.ContainsKey('willOverwrite') -and $ChangeSet.willOverwrite) {
+            $triggers.Add("data-overwrite")
+        }
+    }
+    
+    # Check for network operation triggers
+    if ($Policy.triggers.ContainsKey('externalAPICall') -and $Policy.triggers.externalAPICall.enabled) {
+        if ($ChangeSet.ContainsKey('externalAPICalls') -and $ChangeSet.externalAPICalls.Count -gt 0) {
+            $triggers.Add("external-api-call")
+        }
+    }
+    
+    # Check for suspicious pattern triggers
+    if ($Policy.triggers.ContainsKey('secretDetected') -and $Policy.triggers.secretDetected.enabled) {
+        if ($ChangeSet.ContainsKey('secretsDetected') -and $ChangeSet.secretsDetected.Count -gt 0) {
+            $triggers.Add("secret-detected")
+        }
+    }
+    
     $required = $triggers.Count -gt 0
     $reviewers = @()
     if ($required -and $Policy.ContainsKey('defaultReviewers')) { 
@@ -559,6 +797,7 @@ function Test-HumanReviewRequired {
             Reviewers = $reviewers
             Conditions = $Policy.conditions
             Triggers = $triggers.ToArray()
+            OperationType = if ($Policy.ContainsKey('operationType')) { $Policy.operationType } else { 'unknown' }
         }
     }
     
@@ -569,6 +808,481 @@ function Test-HumanReviewRequired {
         RequestParams = $requestParams
         Reason = $(if ($required) { "Review required due to: $($triggers -join ', ')" } else { "No review triggers matched" })
     }
+}
+
+function Request-HumanReview {
+    <#
+    .SYNOPSIS
+        Requests human review for an operation.
+    
+    .DESCRIPTION
+        Creates a new review request for the specified operation.
+        This is the main entry point for requesting human review.
+    
+    .PARAMETER Operation
+        The operation requiring review.
+    
+    .PARAMETER ChangeSet
+        Hashtable describing what changed.
+    
+    .PARAMETER Requester
+        Username of the person requesting the review.
+    
+    .PARAMETER Justification
+        Business justification for the change.
+    
+    .PARAMETER Priority
+        Priority level: low, normal, high, critical.
+    
+    .PARAMETER ProjectRoot
+        The project root directory.
+    
+    .OUTPUTS
+        PSCustomObject representing the created review request.
+    
+    .EXAMPLE
+        $request = Request-HumanReview -Operation "pack-promote" -ChangeSet $changes `
+            -Requester "alice" -Justification "Major feature release"
+    #>
+    [CmdletBinding()]
+    [OutputType([pscustomobject])]
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$Operation,
+        
+        [Parameter(Mandatory = $true)]
+        [hashtable]$ChangeSet,
+        
+        [Parameter(Mandatory = $true)]
+        [string]$Requester,
+        
+        [string]$Justification = "",
+        
+        [ValidateSet('low', 'normal', 'high', 'critical')]
+        [string]$Priority = 'normal',
+        
+        [string]$ProjectRoot = "."
+    )
+    
+    # Check if review is required
+    $check = Test-HumanReviewRequired -Operation $Operation -ChangeSet $ChangeSet -ProjectRoot $ProjectRoot
+    
+    if (-not $check.Required) {
+        Write-Verbose "No review required for operation '$Operation'"
+        return New-Object -TypeName PSObject -Property @{
+            RequestId = $null
+            Status = "not-required"
+            Message = "Human review not required for this operation"
+            CheckResult = $check
+        }
+    }
+    
+    # Create the review request
+    $requestParams = $check.RequestParams
+    return New-ReviewGateRequest @requestParams -Requester $Requester -Justification $Justification -Priority $Priority -ProjectRoot $ProjectRoot
+}
+
+function Test-ReviewGate {
+    <#
+    .SYNOPSIS
+        Checks if operation needs review (alias for Test-HumanReviewRequired).
+    
+    .DESCRIPTION
+        Evaluates whether a review gate is required for the given operation.
+        This is a simplified interface for quick gate checks.
+    
+    .PARAMETER OperationType
+        The type of operation (destructive, network, high-value, cross-pack, first-time, suspicious).
+    
+    .PARAMETER Context
+        Hashtable with operation context.
+    
+    .PARAMETER ProjectRoot
+        The project root directory.
+    
+    .OUTPUTS
+        Boolean indicating if review is required.
+    
+    .EXAMPLE
+        if (Test-ReviewGate -OperationType "destructive" -Context $ctx) { Request-HumanReview ... }
+    #>
+    [CmdletBinding()]
+    [OutputType([bool])]
+    param(
+        [Parameter(Mandatory = $true)]
+        [ValidateSet('destructive', 'network', 'high-value', 'cross-pack', 'first-time', 'suspicious')]
+        [string]$OperationType,
+        
+        [Parameter(Mandatory = $true)]
+        [hashtable]$Context,
+        
+        [string]$ProjectRoot = "."
+    )
+    
+    # Map operation type to policy
+    $policyMap = @{
+        'destructive' = 'destructive-operation'
+        'network' = 'network-operation'
+        'high-value' = 'pack-promotion'
+        'cross-pack' = 'cross-pack-mutation'
+        'first-time' = 'source-ingestion'
+        'suspicious' = 'suspicious-pattern'
+    }
+    
+    $operation = $policyMap[$OperationType]
+    $result = Test-HumanReviewRequired -Operation $operation -ChangeSet $Context -ProjectRoot $ProjectRoot
+    
+    return $result.Required
+}
+
+function Invoke-ReviewGate {
+    <#
+    .SYNOPSIS
+        Execute gate check with interactive prompt.
+    
+    .DESCRIPTION
+        Performs a complete gate check including review requirement evaluation
+        and optional interactive approval prompt.
+    
+    .PARAMETER OperationType
+        The type of operation.
+    
+    .PARAMETER Context
+        Operation context.
+    
+    .PARAMETER Prompt
+        Custom prompt message for interactive mode.
+    
+    .PARAMETER Interactive
+        Show interactive prompt if review is required.
+    
+    .PARAMETER AutoApproveIfClean
+        Automatically approve if no review triggers detected.
+    
+    .PARAMETER Requester
+        Requester identity.
+    
+    .PARAMETER ProjectRoot
+        The project root directory.
+    
+    .OUTPUTS
+        PSCustomObject with Approved (bool), RequestId, and Status.
+    
+    .EXAMPLE
+        $gate = Invoke-ReviewGate -OperationType "destructive" -Context $ctx -Interactive
+        if (-not $gate.Approved) { exit 1 }
+    #>
+    [CmdletBinding()]
+    [OutputType([pscustomobject])]
+    param(
+        [Parameter(Mandatory = $true)]
+        [ValidateSet('destructive', 'network', 'high-value', 'cross-pack', 'first-time', 'suspicious')]
+        [string]$OperationType,
+        
+        [Parameter(Mandatory = $true)]
+        [hashtable]$Context,
+        
+        [string]$Prompt = "This operation requires human review. Do you want to proceed?",
+        
+        [switch]$Interactive,
+        
+        [switch]$AutoApproveIfClean,
+        
+        [string]$Requester = $env:USER,
+        
+        [string]$ProjectRoot = "."
+    )
+    
+    # Map operation type to policy name
+    $policyMap = @{
+        'destructive' = 'destructive-operation'
+        'network' = 'network-operation'
+        'high-value' = 'pack-promotion'
+        'cross-pack' = 'cross-pack-mutation'
+        'first-time' = 'source-ingestion'
+        'suspicious' = 'suspicious-pattern'
+    }
+    
+    $operation = $policyMap[$OperationType]
+    
+    # Check if review is required
+    $check = Test-HumanReviewRequired -Operation $operation -ChangeSet $Context -ProjectRoot $ProjectRoot
+    
+    if (-not $check.Required) {
+        if ($AutoApproveIfClean) {
+            # Log the auto-approval
+            Write-ReviewLogEntry -Entry @{
+                eventType = 'auto-approved'
+                operation = $operation
+                operationType = $OperationType
+                reason = 'No review triggers detected'
+                requester = $Requester
+            } -ProjectRoot $ProjectRoot
+            
+            return New-Object -TypeName PSObject -Property @{
+                Approved = $true
+                RequestId = $null
+                Status = "auto-approved"
+                Message = "No review required - automatically approved"
+                Triggers = @()
+            }
+        }
+        
+        return New-Object -TypeName PSObject -Property @{
+            Approved = $true
+            RequestId = $null
+            Status = "open"
+            Message = "No review required"
+            Triggers = @()
+        }
+    }
+    
+    # Review is required
+    Write-Host "`n[REVIEW GATE TRIGGERED]" -ForegroundColor Yellow
+    Write-Host "Operation: $operation" -ForegroundColor White
+    Write-Host "Type: $OperationType" -ForegroundColor White
+    Write-Host "Triggers: $($check.Triggers -join ', ')" -ForegroundColor Cyan
+    
+    if ($Interactive) {
+        Write-Host "`n$Prompt" -ForegroundColor Yellow
+        $response = Read-Host "Enter 'yes' to approve, 'no' to deny"
+        
+        if ($response -eq 'yes') {
+            $request = Request-HumanReview -Operation $operation -ChangeSet $Context -Requester $Requester -Priority 'high' -ProjectRoot $ProjectRoot
+            $decision = Approve-Operation -RequestId $request.requestId -Reviewer $Requester -Comments "Interactive approval" -ProjectRoot $ProjectRoot
+            
+            return New-Object -TypeName PSObject -Property @{
+                Approved = $true
+                RequestId = $request.requestId
+                Status = "approved"
+                Message = "Operation approved interactively"
+                Triggers = $check.Triggers
+            }
+        }
+        else {
+            return New-Object -TypeName PSObject -Property @{
+                Approved = $false
+                RequestId = $null
+                Status = "denied-by-user"
+                Message = "Operation denied by user"
+                Triggers = $check.Triggers
+            }
+        }
+    }
+    
+    # Create review request
+    $request = Request-HumanReview -Operation $operation -ChangeSet $Context -Requester $Requester -Priority 'normal' -ProjectRoot $ProjectRoot
+    
+    return New-Object -TypeName PSObject -Property @{
+        Approved = $false
+        RequestId = $request.requestId
+        Status = "pending-review"
+        Message = "Review request created - awaiting approval"
+        Triggers = $check.Triggers
+    }
+}
+
+function Approve-Operation {
+    <#
+    .SYNOPSIS
+        Records human approval for an operation.
+    
+    .DESCRIPTION
+        Submits an approval decision for a pending review request.
+        Alias for Submit-ReviewDecision with 'approved' decision.
+    
+    .PARAMETER RequestId
+        The review request ID.
+    
+    .PARAMETER Reviewer
+        Username of the reviewer.
+    
+    .PARAMETER Comments
+        Optional review comments.
+    
+    .PARAMETER ProjectRoot
+        The project root directory.
+    
+    .OUTPUTS
+        PSCustomObject with the updated review request.
+    
+    .EXAMPLE
+        Approve-Operation -RequestId "review-xxxxx" -Reviewer "alice" -Comments "Looks good"
+    #>
+    [CmdletBinding()]
+    [OutputType([pscustomobject])]
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$RequestId,
+        
+        [Parameter(Mandatory = $true)]
+        [string]$Reviewer,
+        
+        [string]$Comments = "",
+        
+        [string]$ProjectRoot = "."
+    )
+    
+    return Submit-ReviewDecision -RequestId $RequestId -Reviewer $Reviewer -Decision 'approved' -Comments $Comments -ProjectRoot $ProjectRoot
+}
+
+function Deny-Operation {
+    <#
+    .SYNOPSIS
+        Records human denial for an operation.
+    
+    .DESCRIPTION
+        Submits a rejection decision for a pending review request.
+        Alias for Submit-ReviewDecision with 'rejected' decision.
+    
+    .PARAMETER RequestId
+        The review request ID.
+    
+    .PARAMETER Reviewer
+        Username of the reviewer.
+    
+    .PARAMETER Comments
+        Required comments explaining the denial.
+    
+    .PARAMETER ProjectRoot
+        The project root directory.
+    
+    .OUTPUTS
+        PSCustomObject with the updated review request.
+    
+    .EXAMPLE
+        Deny-Operation -RequestId "review-xxxxx" -Reviewer "alice" -Comments "Security concerns"
+    #>
+    [CmdletBinding()]
+    [OutputType([pscustomobject])]
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$RequestId,
+        
+        [Parameter(Mandatory = $true)]
+        [string]$Reviewer,
+        
+        [Parameter(Mandatory = $true)]
+        [string]$Comments,
+        
+        [string]$ProjectRoot = "."
+    )
+    
+    if ([string]::IsNullOrWhiteSpace($Comments)) {
+        throw "Comments are required when denying an operation"
+    }
+    
+    return Submit-ReviewDecision -RequestId $RequestId -Reviewer $Reviewer -Decision 'rejected' -Comments $Comments -ProjectRoot $ProjectRoot
+}
+
+function Get-ReviewHistory {
+    <#
+    .SYNOPSIS
+        Gets review decisions history.
+    
+    .DESCRIPTION
+        Retrieves the review decision history from the review log.
+        Supports filtering by request ID, operation, reviewer, and date range.
+    
+    .PARAMETER RequestId
+        Filter by specific request ID.
+    
+    .PARAMETER Operation
+        Filter by operation type.
+    
+    .PARAMETER Reviewer
+        Filter by reviewer username.
+    
+    .PARAMETER Decision
+        Filter by decision type (approved, rejected, needs-work).
+    
+    .PARAMETER FromDate
+        Start date for the query.
+    
+    .PARAMETER ToDate
+        End date for the query.
+    
+    .PARAMETER Limit
+        Maximum number of results to return.
+    
+    .PARAMETER ProjectRoot
+        The project root directory.
+    
+    .OUTPUTS
+        Array of review log entries.
+    
+    .EXAMPLE
+        Get-ReviewHistory -Operation "pack-promotion" -Limit 10
+    #>
+    [CmdletBinding()]
+    [OutputType([array])]
+    param(
+        [string]$RequestId = "",
+        
+        [string]$Operation = "",
+        
+        [string]$Reviewer = "",
+        
+        [ValidateSet('', 'approved', 'rejected', 'needs-work')]
+        [string]$Decision = "",
+        
+        [DateTime]$FromDate = [DateTime]::MinValue,
+        
+        [DateTime]$ToDate = [DateTime]::MaxValue,
+        
+        [int]$Limit = 0,
+        
+        [string]$ProjectRoot = "."
+    )
+    
+    $logPath = Get-ReviewLogPath -ProjectRoot $ProjectRoot
+    
+    if (-not (Test-Path -LiteralPath $logPath)) {
+        return @()
+    }
+    
+    $results = @()
+    
+    try {
+        $lines = Get-Content -LiteralPath $logPath -Encoding UTF8
+        
+        foreach ($line in $lines) {
+            if ([string]::IsNullOrWhiteSpace($line)) { continue }
+            
+            try {
+                $entry = $line | ConvertFrom-Json
+                
+                # Apply filters
+                if ($RequestId -and $entry.requestId -ne $RequestId) { continue }
+                if ($Operation -and $entry.operation -ne $Operation) { continue }
+                if ($Reviewer -and $entry.reviewer -ne $Reviewer) { continue }
+                if ($Decision -and $entry.decision -ne $Decision) { continue }
+                
+                if ($entry.timestamp) {
+                    $entryTime = [DateTime]::Parse($entry.timestamp)
+                    if ($entryTime -lt $FromDate -or $entryTime -gt $ToDate) { continue }
+                }
+                
+                $results += $entry
+            }
+            catch {
+                Write-Verbose "Failed to parse log entry: $_"
+            }
+        }
+    }
+    catch {
+        Write-Warning "Failed to read review log: $_"
+    }
+    
+    # Sort by timestamp (newest first)
+    $sorted = $results | Sort-Object -Property timestamp -Descending
+    
+    # Apply limit
+    if ($Limit -gt 0 -and $sorted.Count -gt $Limit) {
+        $sorted = $sorted | Select-Object -First $Limit
+    }
+    
+    return $sorted
 }
 
 function New-ReviewGateRequest {
@@ -601,6 +1315,9 @@ function New-ReviewGateRequest {
     .PARAMETER Priority
         Priority level: low, normal, high, critical.
     
+    .PARAMETER OperationType
+        The operation type category.
+    
     .PARAMETER ProjectRoot
         The project root directory.
     
@@ -632,6 +1349,8 @@ function New-ReviewGateRequest {
         [ValidateSet('low', 'normal', 'high', 'critical')]
         [string]$Priority = 'normal',
         
+        [string]$OperationType = 'unknown',
+        
         [string]$ProjectRoot = "."
     )
     
@@ -640,10 +1359,14 @@ function New-ReviewGateRequest {
     $random = -join ((1..6) | ForEach-Object { '{0:x}' -f (Get-Random -Maximum 16) })
     $requestId = "review-$timestamp-$random"
     
+    # Get run ID for persistent log
+    $runId = Get-CurrentRunId
+    
     # Build the review request
     $request = @{
         requestId = $requestId
         operation = $Operation
+        operationType = $OperationType
         status = "pending"
         priority = $Priority
         changeSet = $ChangeSet
@@ -653,6 +1376,7 @@ function New-ReviewGateRequest {
         decisions = @()
         conditions = $(if ($Conditions) { $Conditions } else { @{ minApprovers = 1 } })
         notificationsSent = @()
+        runId = $runId
         createdAt = [DateTime]::UtcNow.ToString("yyyy-MM-ddTHH:mm:ssZ")
         updatedAt = [DateTime]::UtcNow.ToString("yyyy-MM-ddTHH:mm:ssZ")
         expiresAt = $null
@@ -661,6 +1385,7 @@ function New-ReviewGateRequest {
         metadata = @{
             host = [Environment]::MachineName.ToLowerInvariant()
             pid = $PID
+            version = $script:ReviewStateSchemaVersion
         }
     }
     
@@ -677,6 +1402,17 @@ function New-ReviewGateRequest {
     $state.stats.totalRequests++
     $state.stats.pendingCount++
     [void](Save-ReviewState -State $state -ProjectRoot $ProjectRoot)
+    
+    # Write to persistent log
+    Write-ReviewLogEntry -Entry @{
+        eventType = 'request-created'
+        requestId = $requestId
+        operation = $Operation
+        operationType = $OperationType
+        requester = $Requester
+        priority = $Priority
+        triggers = if ($ChangeSet.ContainsKey('triggers')) { $ChangeSet.triggers } else { @() }
+    } -ProjectRoot $ProjectRoot
     
     # Trigger notification hooks (suppress output)
     [void](Invoke-ReviewNotification -Request $request -EventType "created" -ProjectRoot $ProjectRoot)
@@ -754,10 +1490,17 @@ function Submit-ReviewDecision {
         throw "Cannot submit decision: request is already $($request.status)"
     }
     
+    # Ensure decisions is an array
+    if (-not $request.ContainsKey('decisions') -or $null -eq $request.decisions) {
+        $request['decisions'] = @()
+    }
+    # PowerShell 5.1: Ensure we have an array
+    $decisionsArray = @($request.decisions)
+    
     # Check if reviewer has already submitted a decision
     $existingDecisionIndex = -1
-    for ($i = 0; $i -lt $request.decisions.Count; $i++) {
-        if ($request.decisions[$i].reviewer -eq $Reviewer) {
+    for ($i = 0; $i -lt $decisionsArray.Count; $i++) {
+        if ($decisionsArray[$i].reviewer -eq $Reviewer) {
             $existingDecisionIndex = $i
             break
         }
@@ -773,12 +1516,23 @@ function Submit-ReviewDecision {
     
     if ($existingDecisionIndex -ge 0) {
         # Update existing decision
-        $request.decisions[$existingDecisionIndex] = $decisionRecord
+        $decisionsArray[$existingDecisionIndex] = $decisionRecord
     }
     else {
         # Add new decision
-        $request.decisions += @($decisionRecord)
+        $decisionsArray += @($decisionRecord)
     }
+    $request['decisions'] = $decisionsArray
+    
+    # Write to persistent log
+    Write-ReviewLogEntry -Entry @{
+        eventType = 'decision-submitted'
+        requestId = $RequestId
+        operation = $request.operation
+        reviewer = $Reviewer
+        decision = $Decision
+        comments = $Comments
+    } -ProjectRoot $ProjectRoot
     
     # Check if review is complete
     $completionCheck = Test-ReviewCompleteInternal -Request $request
@@ -795,6 +1549,15 @@ function Submit-ReviewDecision {
             $state.stats.rejectedCount++
         }
         $state.stats.pendingCount--
+        
+        # Log completion
+        Write-ReviewLogEntry -Entry @{
+            eventType = 'request-completed'
+            requestId = $RequestId
+            operation = $request.operation
+            finalStatus = $completionCheck.FinalStatus
+            totalDecisions = $request.decisions.Count
+        } -ProjectRoot $ProjectRoot
     }
     elseif ($Decision -eq 'needs-work') {
         $request.status = 'needs-work'
@@ -923,6 +1686,7 @@ function Get-ReviewStatus {
         UpdatedAt = $request.updatedAt
         ExpiresAt = $request.expiresAt
         CompletedAt = $request.completedAt
+        RunId = $request.runId
         Progress = New-Object -TypeName PSObject -Property @{
             Approvals = $approvalCount
             Rejections = $rejectionCount
@@ -1185,6 +1949,9 @@ function New-ReviewPolicy {
     .PARAMETER Conditions
         Approval conditions.
     
+    .PARAMETER OperationType
+        The operation type category.
+    
     .PARAMETER ProjectRoot
         The project root directory.
     
@@ -1207,19 +1974,27 @@ function New-ReviewPolicy {
         
         [hashtable]$Conditions = $null,
         
+        [string]$OperationType = 'unknown',
+        
         [string]$ProjectRoot = "."
     )
     
     # Determine conditions (PowerShell 5.1 compatibility)
-    $policyConditions = if ($Conditions) { $Conditions } else { @{ 
-        minApprovers = 1 
-        requireOwnerApproval = $false
-        autoExpireHours = 72
-    }}
+    if ($Conditions) {
+        $policyConditions = $Conditions
+    }
+    else {
+        $policyConditions = @{
+            minApprovers = 1
+            requireOwnerApproval = $false
+            autoExpireHours = 72
+        }
+    }
     
     $policy = @{
         name = $PolicyName
         description = "Custom review policy for $PolicyName"
+        operationType = $OperationType
         triggers = $Rules
         conditions = $policyConditions
         defaultReviewers = $DefaultReviewers
@@ -1269,6 +2044,64 @@ function Get-ReviewPolicy {
     }
     
     return $null
+}
+
+function Remove-ReviewRequest {
+    <#
+    .SYNOPSIS
+        Removes a review request from the system.
+    
+    .DESCRIPTION
+        Permanently deletes a review request. Should be used for cleanup
+        of old completed reviews.
+    
+    .PARAMETER RequestId
+        The review request ID to remove.
+    
+    .PARAMETER Force
+        Skip confirmation prompt.
+    
+    .PARAMETER ProjectRoot
+        The project root directory.
+    #>
+    [CmdletBinding(SupportsShouldProcess = $true)]
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$RequestId,
+        
+        [switch]$Force,
+        
+        [string]$ProjectRoot = "."
+    )
+    
+    $state = Get-ReviewState -ProjectRoot $ProjectRoot
+    
+    if (-not $state.requests.ContainsKey($RequestId)) {
+        Write-Warning "Review request not found: $RequestId"
+        return
+    }
+    
+    $request = $state.requests[$RequestId]
+    
+    if ($PSCmdlet.ShouldProcess($RequestId, "Remove review request")) {
+        if ($Force -or $request.status -in @('approved', 'rejected', 'expired')) {
+            $state.requests.Remove($RequestId)
+            Save-ReviewState -State $state -ProjectRoot $ProjectRoot
+            
+            # Log removal
+            Write-ReviewLogEntry -Entry @{
+                eventType = 'request-removed'
+                requestId = $RequestId
+                operation = $request.operation
+                removedBy = $env:USER
+            } -ProjectRoot $ProjectRoot
+            
+            Write-Verbose "Removed review request $RequestId"
+        }
+        else {
+            Write-Warning "Request $RequestId is still $($request.status). Use -Force to remove pending requests."
+        }
+    }
 }
 
 #===============================================================================
@@ -1474,6 +2307,51 @@ function Test-EvalRegression {
     return $false
 }
 
+function Test-SecretPattern {
+    <#
+    .SYNOPSIS
+        Tests if the change set contains potential secrets.
+    
+    .DESCRIPTION
+        Detects common secret patterns (API keys, passwords, tokens) in the change set.
+    
+    .PARAMETER ChangeSet
+        The change set to evaluate.
+    
+    .OUTPUTS
+        Boolean indicating if secrets were detected.
+    #>
+    [CmdletBinding()]
+    [OutputType([bool])]
+    param(
+        [Parameter(Mandatory = $true)]
+        [hashtable]$ChangeSet
+    )
+    
+    if ($ChangeSet.ContainsKey('secretsDetected') -and $ChangeSet.secretsDetected.Count -gt 0) {
+        return $true
+    }
+    
+    if ($ChangeSet.ContainsKey('content')) {
+        # Secret detection patterns (escaped for PowerShell parser compatibility)
+        $secretPatterns = @(
+            "api[_-]?key\s*[=:]\s*[`"']?[a-zA-Z0-9]{16,}[`"']?",
+            "password\s*[=:]\s*[`"'][^`"']{8,}[`"']",
+            "token\s*[=:]\s*[`"']?[a-zA-Z0-9_-]{20,}[`"']?",
+            "secret\s*[=:]\s*[`"']?[a-zA-Z0-9]{16,}[`"']?",
+            "-----BEGIN (RSA |DSA |EC |OPENSSH )?PRIVATE KEY-----"
+        )
+        
+        foreach ($pattern in $secretPatterns) {
+            if ($ChangeSet.content -match $pattern) {
+                return $true
+            }
+        }
+    }
+    
+    return $false
+}
+
 #===============================================================================
 # Internal Helper Functions
 #===============================================================================
@@ -1496,8 +2374,10 @@ function Test-ReviewCompleteInternal {
         [hashtable]$Request
     )
     
-    $approvalCount = ($Request.decisions | Where-Object { $_.decision -eq 'approved' }).Count
-    $rejectionCount = ($Request.decisions | Where-Object { $_.decision -eq 'rejected' }).Count
+    # Ensure decisions is an array for PowerShell 5.1 compatibility
+    $decisionsList = @($Request.decisions)
+    $approvalCount = @($decisionsList | Where-Object { $_.decision -eq 'approved' }).Count
+    $rejectionCount = @($decisionsList | Where-Object { $_.decision -eq 'rejected' }).Count
     
     $minApprovers = 1
     if ($Request.conditions.ContainsKey('minApprovers')) {
@@ -1521,7 +2401,7 @@ function Test-ReviewCompleteInternal {
     }
     
     if ($requireOwnerApproval -and $Request.changeSet.ContainsKey('owner')) {
-        $ownerApproved = ($Request.decisions | Where-Object { 
+        $ownerApproved = @($decisionsList | Where-Object { 
             $_.reviewer -eq $Request.changeSet.owner -and $_.decision -eq 'approved' 
         }).Count -gt 0
         
@@ -1603,10 +2483,12 @@ function Invoke-ReviewNotification {
     }
     
     # Update request with notification record
-    if (-not $Request.ContainsKey('notificationsSent')) {
+    if (-not $Request.ContainsKey('notificationsSent') -or $null -eq $Request.notificationsSent) {
         $Request['notificationsSent'] = @()
     }
-    $Request.notificationsSent += @($notificationRecord)
+    $notificationsArray = @($Request.notificationsSent)
+    $notificationsArray += @($notificationRecord)
+    $Request['notificationsSent'] = $notificationsArray
     
     # Save state if request exists
     $state = Get-ReviewState -ProjectRoot $ProjectRoot
@@ -1666,6 +2548,14 @@ function Invoke-ReviewEscalation {
                 # Trigger escalation notification (suppress output)
                 [void](Invoke-ReviewNotification -Request $request -EventType "expired" -ProjectRoot $ProjectRoot)
                 
+                # Log escalation
+                Write-ReviewLogEntry -Entry @{
+                    eventType = 'request-escalated'
+                    requestId = $requestId
+                    operation = $request.operation
+                    reason = 'timeout-expired'
+                } -ProjectRoot $ProjectRoot
+                
                 $escalated += (New-Object -TypeName PSObject -Property $request)
                 
                 Write-Warning "Review request $requestId has expired and been escalated"
@@ -1682,30 +2572,260 @@ function Invoke-ReviewEscalation {
     return @($escalated)
 }
 
-function Remove-ReviewRequest {
+#===============================================================================
+# Required Public API Functions (as per specification)
+#===============================================================================
+
+function New-HumanReviewGate {
     <#
     .SYNOPSIS
-        Removes a review request from the system.
+        Creates a new human review gate configuration.
     
     .DESCRIPTION
-        Permanently deletes a review request. Should be used for cleanup
-        of old completed reviews.
+        Creates and stores a review gate configuration that defines when human
+        review is required for specific operations. This is a high-level wrapper
+        around New-ReviewPolicy with additional gate-specific settings.
     
-    .PARAMETER RequestId
-        The review request ID to remove.
+    .PARAMETER GateName
+        The unique name for this review gate.
     
-    .PARAMETER Force
-        Skip confirmation prompt.
+    .PARAMETER OperationType
+        The type of operation: destructive, network, high-value, cross-pack, first-time, suspicious.
+    
+    .PARAMETER Triggers
+        Hashtable defining what triggers the review requirement.
+    
+    .PARAMETER Conditions
+        Approval conditions including minApprovers, requireOwnerApproval, autoExpireHours.
+    
+    .PARAMETER DefaultReviewers
+        Array of default reviewer usernames.
+    
+    .PARAMETER Description
+        Human-readable description of the gate's purpose.
     
     .PARAMETER ProjectRoot
         The project root directory.
+    
+    .OUTPUTS
+        PSCustomObject representing the created gate configuration.
+    
+    .EXAMPLE
+        $gate = New-HumanReviewGate -GateName "prod-deploy" -OperationType "high-value" `
+            -Triggers @{ largeSourceDelta = @{ enabled = $true; thresholdPercent = 20 } } `
+            -Conditions @{ minApprovers = 2; requireOwnerApproval = $true } `
+            -DefaultReviewers @("alice", "bob")
     #>
-    [CmdletBinding(SupportsShouldProcess = $true)]
+    [CmdletBinding()]
+    [OutputType([pscustomobject])]
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$GateName,
+        
+        [Parameter(Mandatory = $true)]
+        [ValidateSet('destructive', 'network', 'high-value', 'cross-pack', 'first-time', 'suspicious')]
+        [string]$OperationType,
+        
+        [Parameter(Mandatory = $true)]
+        [hashtable]$Triggers,
+        
+        [hashtable]$Conditions = $null,
+        
+        [array]$DefaultReviewers = @(),
+        
+        [string]$Description = "",
+        
+        [string]$ProjectRoot = "."
+    )
+    
+    # Set default conditions if not provided
+    if ($Conditions) {
+        $gateConditions = $Conditions
+    }
+    else {
+        $gateConditions = @{
+            minApprovers = 1
+            requireOwnerApproval = $false
+            autoExpireHours = 72
+        }
+    }
+    
+    # Build the gate configuration
+    $gateConfig = @{
+        name = $GateName
+        description = $(if ($Description) { $Description } else { "Human review gate for $GateName" })
+        operationType = $OperationType
+        triggers = $Triggers
+        conditions = $gateConditions
+        defaultReviewers = $DefaultReviewers
+        createdAt = [DateTime]::UtcNow.ToString("yyyy-MM-ddTHH:mm:ssZ")
+        version = 1
+    }
+    
+    # Store in state
+    $state = Get-ReviewState -ProjectRoot $ProjectRoot
+    $state.policies[$GateName] = $gateConfig
+    Save-ReviewState -State $state -ProjectRoot $ProjectRoot
+    
+    # Log gate creation
+    Write-ReviewLogEntry -Entry @{
+        eventType = 'gate-created'
+        gateName = $GateName
+        operationType = $OperationType
+        createdBy = $env:USER
+    } -ProjectRoot $ProjectRoot
+    
+    Write-Verbose "Created human review gate '$GateName' for operation type '$OperationType'"
+    
+    return New-Object -TypeName PSObject -Property $gateConfig
+}
+
+function Submit-ReviewRequest {
+    <#
+    .SYNOPSIS
+        Submits content for human review.
+    
+    .DESCRIPTION
+        Submits content requiring human review, creating a review request.
+        This is the primary entry point for submitting review requests.
+    
+    .PARAMETER GateName
+        The review gate name (or operation type).
+    
+    .PARAMETER Content
+        The content being submitted for review.
+    
+    .PARAMETER Requester
+        Username of the person submitting the request.
+    
+    .PARAMETER Justification
+        Business justification for the change.
+    
+    .PARAMETER Priority
+        Priority level: low, normal, high, critical.
+    
+    .PARAMETER Context
+        Additional context data for the review.
+    
+    .PARAMETER ProjectRoot
+        The project root directory.
+    
+    .OUTPUTS
+        PSCustomObject representing the created review request.
+    
+    .EXAMPLE
+        $request = Submit-ReviewRequest -GateName "prod-deploy" `
+            -Content $deploymentPackage `
+            -Requester "alice" -Priority "high" `
+            -Justification "Critical security patch"
+    #>
+    [CmdletBinding()]
+    [OutputType([pscustomobject])]
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$GateName,
+        
+        [Parameter(Mandatory = $true)]
+        [hashtable]$Content,
+        
+        [Parameter(Mandatory = $true)]
+        [string]$Requester,
+        
+        [string]$Justification = "",
+        
+        [ValidateSet('low', 'normal', 'high', 'critical')]
+        [string]$Priority = 'normal',
+        
+        [hashtable]$Context = @{},
+        
+        [string]$ProjectRoot = "."
+    )
+    
+    # Get the gate/policy configuration
+    $state = Get-ReviewState -ProjectRoot $ProjectRoot
+    $gateConfig = $null
+    
+    if ($state.policies.ContainsKey($GateName)) {
+        $gateConfig = $state.policies[$GateName]
+    }
+    elseif ($script:DefaultReviewPolicies.ContainsKey($GateName)) {
+        $gateConfig = $script:DefaultReviewPolicies[$GateName]
+    }
+    
+    # Build change set from content and context
+    $changeSet = @{
+        content = $Content
+        context = $Context
+    }
+    
+    # Add metadata from context
+    if ($Context.ContainsKey('packId')) { $changeSet['packId'] = $Context.packId }
+    if ($Context.ContainsKey('owner')) { $changeSet['owner'] = $Context.owner }
+    if ($Context.ContainsKey('oldVersion')) { $changeSet['oldVersion'] = $Context.oldVersion }
+    if ($Context.ContainsKey('newVersion')) { $changeSet['newVersion'] = $Context.newVersion }
+    if ($Context.ContainsKey('triggers')) { $changeSet['triggers'] = $Context.triggers }
+    
+    # Determine operation type
+    $operationType = 'unknown'
+    if ($gateConfig -and $gateConfig.ContainsKey('operationType')) {
+        $operationType = $gateConfig.operationType
+    }
+    
+    # Get default reviewers from gate config
+    $reviewers = @()
+    if ($gateConfig -and $gateConfig.ContainsKey('defaultReviewers')) {
+        $reviewers = $gateConfig.defaultReviewers
+    }
+    
+    # Get conditions from gate config
+    $conditions = @{ minApprovers = 1; autoExpireHours = 72 }
+    if ($gateConfig -and $gateConfig.ContainsKey('conditions')) {
+        $conditions = $gateConfig.conditions
+    }
+    
+    # Create the review request
+    $request = New-ReviewGateRequest `
+        -Operation $GateName `
+        -ChangeSet $changeSet `
+        -Requester $Requester `
+        -Justification $Justification `
+        -Reviewers $reviewers `
+        -Conditions $conditions `
+        -Priority $Priority `
+        -OperationType $operationType `
+        -ProjectRoot $ProjectRoot
+    
+    Write-Verbose "Submitted review request $($request.requestId) to gate '$GateName'"
+    
+    return $request
+}
+
+function Get-ReviewRequest {
+    <#
+    .SYNOPSIS
+        Gets a review request by ID.
+    
+    .DESCRIPTION
+        Retrieves the details of a specific review request including its
+        current status, decisions, and metadata.
+    
+    .PARAMETER RequestId
+        The unique ID of the review request.
+    
+    .PARAMETER ProjectRoot
+        The project root directory.
+    
+    .OUTPUTS
+        PSCustomObject with the review request details, or null if not found.
+    
+    .EXAMPLE
+        $request = Get-ReviewRequest -RequestId "review-20260115T120000-a1b2c3"
+    #>
+    [CmdletBinding()]
+    [OutputType([pscustomobject])]
     param(
         [Parameter(Mandatory = $true)]
         [string]$RequestId,
-        
-        [switch]$Force,
         
         [string]$ProjectRoot = "."
     )
@@ -1713,21 +2833,439 @@ function Remove-ReviewRequest {
     $state = Get-ReviewState -ProjectRoot $ProjectRoot
     
     if (-not $state.requests.ContainsKey($RequestId)) {
-        Write-Warning "Review request not found: $RequestId"
-        return
+        return $null
     }
     
     $request = $state.requests[$RequestId]
     
-    if ($PSCmdlet.ShouldProcess($RequestId, "Remove review request")) {
-        if ($Force -or $request.status -in @('approved', 'rejected', 'expired')) {
-            $state.requests.Remove($RequestId)
-            Save-ReviewState -State $state -ProjectRoot $ProjectRoot
-            Write-Verbose "Removed review request $RequestId"
+    # Add computed properties
+    $request['isExpired'] = $false
+    if ($request.ContainsKey('expiresAt') -and $request.expiresAt) {
+        $expires = [DateTime]::Parse($request.expiresAt)
+        $request['isExpired'] = $expires -lt [DateTime]::UtcNow
+    }
+    
+    return New-Object -TypeName PSObject -Property $request
+}
+
+function Approve-ReviewRequest {
+    <#
+    .SYNOPSIS
+        Approves a review request.
+    
+    .DESCRIPTION
+        Submits an approval decision for a pending review request.
+        Supports multi-level approvals for critical operations.
+    
+    .PARAMETER RequestId
+        The review request ID.
+    
+    .PARAMETER Reviewer
+        Username of the reviewer.
+    
+    .PARAMETER Comments
+        Optional approval comments.
+    
+    .PARAMETER Conditions
+        Optional conditions being imposed with the approval.
+    
+    .PARAMETER ProjectRoot
+        The project root directory.
+    
+    .OUTPUTS
+        PSCustomObject with the updated review request and approval status.
+    
+    .EXAMPLE
+        Approve-ReviewRequest -RequestId "review-xxxxx" -Reviewer "alice" -Comments "Approved after security review"
+    #>
+    [CmdletBinding()]
+    [OutputType([pscustomobject])]
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$RequestId,
+        
+        [Parameter(Mandatory = $true)]
+        [string]$Reviewer,
+        
+        [string]$Comments = "",
+        
+        [hashtable]$Conditions = @{},
+        
+        [string]$ProjectRoot = "."
+    )
+    
+    return Submit-ReviewDecision `
+        -RequestId $RequestId `
+        -Reviewer $Reviewer `
+        -Decision 'approved' `
+        -Comments $Comments `
+        -Conditions $Conditions `
+        -ProjectRoot $ProjectRoot
+}
+
+function Reject-ReviewRequest {
+    <#
+    .SYNOPSIS
+        Rejects a review request with reasons.
+    
+    .DESCRIPTION
+        Submits a rejection decision for a review request with detailed
+        reasons explaining why the request was rejected.
+    
+    .PARAMETER RequestId
+        The review request ID.
+    
+    .PARAMETER Reviewer
+        Username of the reviewer.
+    
+    .PARAMETER Reasons
+        Required array of rejection reasons.
+    
+    .PARAMETER Comments
+        Additional comments explaining the rejection.
+    
+    .PARAMETER ProjectRoot
+        The project root directory.
+    
+    .OUTPUTS
+        PSCustomObject with the updated review request.
+    
+    .EXAMPLE
+        Reject-ReviewRequest -RequestId "review-xxxxx" -Reviewer "alice" `
+            -Reasons @("Security concerns", "Incomplete documentation") `
+            -Comments "Please address the security issues and resubmit"
+    #>
+    [CmdletBinding()]
+    [OutputType([pscustomobject])]
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$RequestId,
+        
+        [Parameter(Mandatory = $true)]
+        [string]$Reviewer,
+        
+        [Parameter(Mandatory = $true)]
+        [array]$Reasons,
+        
+        [string]$Comments = "",
+        
+        [string]$ProjectRoot = "."
+    )
+    
+    if ($null -eq $Reasons -or $Reasons.Count -eq 0) {
+        throw "At least one reason is required when rejecting a review request"
+    }
+    
+    # Build rejection comments with reasons
+    $reasonsText = "Rejection reasons:`n" + ($Reasons | ForEach-Object { "- $_" } | Out-String)
+    $fullComments = if ($Comments) { "$Comments`n`n$reasonsText" } else { $reasonsText }
+    
+    $result = Submit-ReviewDecision `
+        -RequestId $RequestId `
+        -Reviewer $Reviewer `
+        -Decision 'rejected' `
+        -Comments $fullComments `
+        -ProjectRoot $ProjectRoot
+    
+    # Log rejection with reasons
+    Write-ReviewLogEntry -Entry @{
+        eventType = 'request-rejected'
+        requestId = $RequestId
+        reviewer = $Reviewer
+        reasons = $Reasons
+    } -ProjectRoot $ProjectRoot
+    
+    return $result
+}
+
+function Assert-ReviewGate {
+    <#
+    .SYNOPSIS
+        Asserts that a review gate is satisfied, throwing if not.
+    
+    .DESCRIPTION
+        Checks if a review gate is satisfied (approved) and throws an exception
+        if it's not. This is used for enforcing review gates in automated workflows.
+        Supports multi-level approvals for critical operations.
+    
+    .PARAMETER GateName
+        The name of the gate to check.
+    
+    .PARAMETER RequestId
+        Optional specific request ID to check.
+    
+    .PARAMETER Context
+        Context data for the gate check.
+    
+    .PARAMETER AutoApproveIfClean
+        Automatically approve if no review triggers are detected.
+    
+    .PARAMETER Requester
+        Requester identity.
+    
+    .PARAMETER ProjectRoot
+        The project root directory.
+    
+    .OUTPUTS
+        PSCustomObject with success status if assertion passes.
+    
+    .EXAMPLE
+        Assert-ReviewGate -GateName "prod-deploy" -Context $context
+    
+    .NOTES
+        Throws exception if gate is not satisfied.
+    #>
+    [CmdletBinding()]
+    [OutputType([pscustomobject])]
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$GateName,
+        
+        [string]$RequestId = "",
+        
+        [hashtable]$Context = @{},
+        
+        [switch]$AutoApproveIfClean,
+        
+        [string]$Requester = $env:USER,
+        
+        [string]$ProjectRoot = "."
+    )
+    
+    # If specific request ID provided, check that
+    if ($RequestId) {
+        $request = Get-ReviewRequest -RequestId $RequestId -ProjectRoot $ProjectRoot
+        
+        if ($null -eq $request) {
+            throw "ReviewGateAssertionFailed: Request '$RequestId' not found"
+        }
+        
+        if ($request.status -eq 'approved') {
+            return New-Object -TypeName PSObject -Property @{
+                Success = $true
+                RequestId = $RequestId
+                Status = 'approved'
+                Message = "Review gate '$GateName' is satisfied"
+            }
+        }
+        
+        if ($request.status -eq 'rejected') {
+            throw "ReviewGateAssertionFailed: Request '$RequestId' has been rejected"
+        }
+        
+        if ($request.isExpired) {
+            throw "ReviewGateAssertionFailed: Request '$RequestId' has expired"
+        }
+        
+        throw "ReviewGateAssertionFailed: Request '$RequestId' is pending approval (status: $($request.status))"
+    }
+    
+    # Otherwise, perform a gate check
+    $result = Invoke-GateCheck `
+        -GateName $GateName `
+        -Context $Context `
+        -AutoApproveIfClean:$AutoApproveIfClean `
+        -Requester $Requester `
+        -ProjectRoot $ProjectRoot
+    
+    if (-not $result.GateOpen) {
+        if ($result.Status -eq 'pending') {
+            throw "ReviewGateAssertionFailed: Review gate '$GateName' requires approval. Request ID: $($result.RequestId)"
+        }
+        elseif ($result.Status -eq 'rejected') {
+            throw "ReviewGateAssertionFailed: Review gate '$GateName' has been rejected"
         }
         else {
-            Write-Warning "Request $RequestId is still $($request.status). Use -Force to remove pending requests."
+            throw "ReviewGateAssertionFailed: Review gate '$GateName' is not satisfied (status: $($result.Status))"
         }
+    }
+    
+    return New-Object -TypeName PSObject -Property @{
+        Success = $true
+        RequestId = $result.RequestId
+        Status = $result.Status
+        Message = "Review gate '$GateName' is satisfied"
+    }
+}
+
+function Get-ReviewGateStatus {
+    <#
+    .SYNOPSIS
+        Gets statistics and status for review gates.
+    
+    .DESCRIPTION
+        Retrieves comprehensive statistics about review gates including
+        pending requests, approval rates, and gate-specific metrics.
+    
+    .PARAMETER GateName
+        Optional specific gate name to get status for.
+    
+    .PARAMETER ProjectRoot
+        The project root directory.
+    
+    .OUTPUTS
+        PSCustomObject with gate statistics.
+    
+    .EXAMPLE
+        $stats = Get-ReviewGateStatus
+        $gateStats = Get-ReviewGateStatus -GateName "prod-deploy"
+    #>
+    [CmdletBinding()]
+    [OutputType([pscustomobject])]
+    param(
+        [string]$GateName = "",
+        
+        [string]$ProjectRoot = "."
+    )
+    
+    $state = Get-ReviewState -ProjectRoot $ProjectRoot
+    $now = [DateTime]::UtcNow
+    
+    # Calculate overall statistics (ensure arrays for PS 5.1 compatibility)
+    $allRequests = @($state.requests.Values)
+    $total = $allRequests.Count
+    $pending = @($allRequests | Where-Object { $_.status -eq 'pending' }).Count
+    $approved = @($allRequests | Where-Object { $_.status -eq 'approved' }).Count
+    $rejected = @($allRequests | Where-Object { $_.status -eq 'rejected' }).Count
+    $expired = @($allRequests | Where-Object { $_.status -eq 'expired' }).Count
+    $escalated = @($allRequests | Where-Object { $_.status -eq 'escalated' }).Count
+    
+    # Calculate approval rate
+    $decidedCount = $approved + $rejected
+    $approvalRate = if ($decidedCount -gt 0) { $approved / $decidedCount } else { 0 }
+    
+    # Calculate expired pending requests
+    $expiredPending = 0
+    foreach ($req in $allRequests | Where-Object { $_.status -in @('pending', 'needs-work') }) {
+        if ($req.expiresAt) {
+            $expires = [DateTime]::Parse($req.expiresAt)
+            if ($expires -lt $now) {
+                $expiredPending++
+            }
+        }
+    }
+    
+    $stats = @{
+        TotalRequests = $total
+        Pending = $pending
+        Approved = $approved
+        Rejected = $rejected
+        Expired = $expired
+        Escalated = $escalated
+        ExpiredPending = $expiredPending
+        ApprovalRate = [math]::Round($approvalRate * 100, 2)
+        LastUpdated = $state.lastUpdated
+        Gates = @{}
+    }
+    
+    # If specific gate requested, include detailed stats
+    if ($GateName) {
+        $gateRequests = @($allRequests | Where-Object { $_.operation -eq $GateName })
+        
+        $stats.Gates[$GateName] = @{
+            Total = $gateRequests.Count
+            Pending = @($gateRequests | Where-Object { $_.status -eq 'pending' }).Count
+            Approved = @($gateRequests | Where-Object { $_.status -eq 'approved' }).Count
+            Rejected = @($gateRequests | Where-Object { $_.status -eq 'rejected' }).Count
+            Escalated = @($gateRequests | Where-Object { $_.status -eq 'escalated' }).Count
+            AverageResolutionHours = 0
+        }
+        
+        # Calculate average resolution time for approved requests
+        $resolvedRequests = @($gateRequests | Where-Object { $_.status -eq 'approved' -and $_.completedAt })
+        if ($resolvedRequests.Count -gt 0) {
+            $totalHours = 0
+            foreach ($req in $resolvedRequests) {
+                $created = [DateTime]::Parse($req.createdAt)
+                $completed = [DateTime]::Parse($req.completedAt)
+                $totalHours += ($completed - $created).TotalHours
+            }
+            $stats.Gates[$GateName].AverageResolutionHours = [math]::Round($totalHours / $resolvedRequests.Count, 2)
+        }
+        
+        # Include recent pending requests for this gate
+        $stats.Gates[$GateName].RecentPending = @($gateRequests | 
+            Where-Object { $_.status -in @('pending', 'needs-work') } | 
+            Sort-Object createdAt -Descending | 
+            Select-Object -First 5 | 
+            ForEach-Object { $_.requestId })
+    }
+    else {
+        # Include stats for all gates
+        $gateNames = @($allRequests | ForEach-Object { $_.operation } | Select-Object -Unique)
+        
+        foreach ($gName in $gateNames) {
+            $gateRequests = @($allRequests | Where-Object { $_.operation -eq $gName })
+            
+            $stats.Gates[$gName] = @{
+                Total = $gateRequests.Count
+                Pending = @($gateRequests | Where-Object { $_.status -eq 'pending' }).Count
+                Approved = @($gateRequests | Where-Object { $_.status -eq 'approved' }).Count
+                Rejected = @($gateRequests | Where-Object { $_.status -eq 'rejected' }).Count
+            }
+        }
+    }
+    
+    return New-Object -TypeName PSObject -Property $stats
+}
+
+function Test-ReviewPolicy {
+    <#
+    .SYNOPSIS
+        Tests if a review policy passes (no review required).
+    
+    .DESCRIPTION
+        Evaluates a change set against a review policy to determine if
+        the policy passes (no review required) or fails (review required).
+    
+    .PARAMETER PolicyName
+        The name of the policy to test.
+    
+    .PARAMETER ChangeSet
+        The change set to evaluate.
+    
+    .PARAMETER ProjectRoot
+        The project root directory.
+    
+    .OUTPUTS
+        PSCustomObject with Passes (bool), Triggers (array), and Details.
+    
+    .EXAMPLE
+        $result = Test-ReviewPolicy -PolicyName "pack-promotion" -ChangeSet $changes
+        if (-not $result.Passes) { Submit-ReviewRequest ... }
+    #>
+    [CmdletBinding()]
+    [OutputType([pscustomobject])]
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$PolicyName,
+        
+        [Parameter(Mandatory = $true)]
+        [hashtable]$ChangeSet,
+        
+        [string]$ProjectRoot = "."
+    )
+    
+    # Use Test-HumanReviewRequired to check if review is required
+    $result = Test-HumanReviewRequired -Operation $PolicyName -ChangeSet $ChangeSet -ProjectRoot $ProjectRoot
+    
+    # Determine if policy passes (no review required)
+    $passes = -not $result.Required
+    
+    # Build detailed results
+    $details = @{
+        PolicyName = $PolicyName
+        OperationType = $(if ($result.RequestParams.ContainsKey('OperationType')) { $result.RequestParams.OperationType } else { 'unknown' })
+        TriggersMatched = $result.Triggers
+        ReviewRequired = $result.Required
+        RecommendedReviewers = $result.Reviewers
+    }
+    
+    return New-Object -TypeName PSObject -Property @{
+        Passes = $passes
+        Triggers = $result.Triggers
+        Details = $details
+        Message = $result.Reason
     }
 }
 
@@ -1738,30 +3276,51 @@ function Remove-ReviewRequest {
 # Only export if running as a module (not when dot-sourced)
 try {
     Export-ModuleMember -Function @(
-    # Core review functions
-    'Test-HumanReviewRequired',
-    'New-ReviewGateRequest',
-    'Submit-ReviewDecision',
-    'Test-ReviewComplete',
-    'Get-ReviewStatus',
-    'Get-PendingReviews',
-    'Invoke-GateCheck',
-    'New-ReviewPolicy',
-    'Get-ReviewPolicy',
-    
-    # Condition evaluators
-    'Test-LargeSourceDelta',
-    'Test-MajorVersionJump',
-    'Test-TrustTierChange',
-    'Test-VisibilityBoundaryChange',
-    'Test-EvalRegression',
-    
-    # State management
-    'Get-ReviewState',
-    'Save-ReviewState',
-    'Invoke-ReviewEscalation',
-    'Remove-ReviewRequest'
-) -ErrorAction SilentlyContinue
+        # Core review functions (as specified in requirements)
+        'Request-HumanReview'
+        'Test-ReviewGate'
+        'Invoke-ReviewGate'
+        'Approve-Operation'
+        'Deny-Operation'
+        'Get-ReviewHistory'
+        
+        # Additional core functions
+        'Test-HumanReviewRequired'
+        'New-ReviewGateRequest'
+        'Submit-ReviewDecision'
+        'Test-ReviewComplete'
+        'Get-ReviewStatus'
+        'Get-PendingReviews'
+        'Invoke-GateCheck'
+        'New-ReviewPolicy'
+        'Get-ReviewPolicy'
+        
+        # Required Public API Functions (Section 10.3)
+        'New-HumanReviewGate'
+        'Submit-ReviewRequest'
+        'Get-ReviewRequest'
+        'Approve-ReviewRequest'
+        'Reject-ReviewRequest'
+        'Assert-ReviewGate'
+        'Get-ReviewGateStatus'
+        'Test-ReviewPolicy'
+        
+        # Condition evaluators
+        'Test-LargeSourceDelta'
+        'Test-MajorVersionJump'
+        'Test-TrustTierChange'
+        'Test-VisibilityBoundaryChange'
+        'Test-EvalRegression'
+        'Test-SecretPattern'
+        
+        # State management
+        'Get-ReviewState'
+        'Save-ReviewState'
+        'Get-ReviewLogPath'
+        'Write-ReviewLogEntry'
+        'Invoke-ReviewEscalation'
+        'Remove-ReviewRequest'
+    ) -ErrorAction SilentlyContinue
 }
 catch {
     # Silently ignore when dot-sourcing (not running as a module)

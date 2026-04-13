@@ -14,6 +14,7 @@
     - Godot Engine: .gd (GDScript), .tscn (Scene), .tres (Resource), .gdshader/.shader (Shader)
     - RPG Maker MZ: .js (Plugins)
     - Blender Engine: .py (Python scripts/addons), .blend (indirect via scripts)
+    - Unreal Engine: .uplugin (Plugin descriptors), .uproject (Project descriptors)
 
     The pipeline implements:
     - Automatic file type detection based on extension and content
@@ -75,6 +76,10 @@ $script:ExtensionMapping = @{
     
     # Blender Engine
     '.py'       = @{ Parser = 'BlenderPython'; Function = 'Invoke-BlenderPythonParse'; PackType = 'blender-engine'; FileType = 'blender-python' }
+
+    # Unreal Engine
+    '.uplugin'  = @{ Parser = 'UnrealDescriptor'; Function = 'Invoke-UnrealDescriptorParse'; PackType = 'unreal-engine'; FileType = 'unreal-plugin' }
+    '.uproject' = @{ Parser = 'UnrealDescriptor'; Function = 'Invoke-UnrealDescriptorParse'; PackType = 'unreal-engine'; FileType = 'unreal-project' }
 }
 
 # Schema definitions for each extraction type
@@ -229,6 +234,62 @@ $script:SchemaDefinitions = @{
         description = 'Generic shader extraction (delegates to gdshader schema)'
         ref = 'gdshader'
     }
+
+    'unreal-plugin' = @{
+        type = 'object'
+        description = 'Unreal Engine plugin descriptor extraction containing plugin metadata, modules, references, and compatibility hints'
+        requiredProperties = @('descriptorType', 'fileVersion', 'friendlyName', 'modules', 'plugins')
+        properties = @{
+            descriptorType = @{ type = 'string'; enum = @('plugin') }
+            fileVersion = @{ type = 'integer' }
+            version = @{ type = 'integer' }
+            versionName = @{ type = 'string' }
+            friendlyName = @{ type = 'string' }
+            name = @{ type = 'string' }
+            description = @{ type = 'string' }
+            category = @{ type = 'string' }
+            engineAssociation = @{ type = 'string' }
+            createdBy = @{ type = 'string' }
+            createdByUrl = @{ type = 'string' }
+            docsUrl = @{ type = 'string' }
+            marketplaceUrl = @{ type = 'string' }
+            supportUrl = @{ type = 'string' }
+            canContainContent = @{ type = 'boolean' }
+            isBetaVersion = @{ type = 'boolean' }
+            isExperimentalVersion = @{ type = 'boolean' }
+            enabledByDefault = @{ type = 'boolean' }
+            installed = @{ type = 'boolean' }
+            targetPlatforms = @{ type = 'array' }
+            modules = @{ type = 'array' }
+            plugins = @{ type = 'array' }
+            sourceFile = @{ type = 'string' }
+            parsedAt = @{ type = 'string'; format = 'date-time' }
+            compatibility = @{ type = 'object' }
+        }
+    }
+
+    'unreal-project' = @{
+        type = 'object'
+        description = 'Unreal Engine project descriptor extraction containing engine association, plugin references, modules, and target platforms'
+        requiredProperties = @('descriptorType', 'fileVersion', 'name', 'plugins')
+        properties = @{
+            descriptorType = @{ type = 'string'; enum = @('project') }
+            fileVersion = @{ type = 'integer' }
+            version = @{ type = 'integer' }
+            versionName = @{ type = 'string' }
+            friendlyName = @{ type = 'string' }
+            name = @{ type = 'string' }
+            description = @{ type = 'string' }
+            category = @{ type = 'string' }
+            engineAssociation = @{ type = 'string' }
+            targetPlatforms = @{ type = 'array' }
+            modules = @{ type = 'array' }
+            plugins = @{ type = 'array' }
+            sourceFile = @{ type = 'string' }
+            parsedAt = @{ type = 'string'; format = 'date-time' }
+            compatibility = @{ type = 'object' }
+        }
+    }
 }
 
 # ============================================================================
@@ -268,6 +329,7 @@ function Import-ParserModules {
         'GodotSceneParser.ps1'
         'RPGMakerPluginParser.ps1'
         'BlenderPythonParser.ps1'
+        'UnrealDescriptorParser.ps1'
         'ShaderParser.ps1'
         'GeometryNodesParser.ps1'
     )
@@ -651,7 +713,7 @@ function Invoke-StructuredExtraction {
         [string]$FilePath,
         
         [Parameter()]
-        [ValidateSet('rpgmaker-mz', 'godot-engine', 'blender-engine')]
+        [ValidateSet('rpgmaker-mz', 'godot-engine', 'blender-engine', 'unreal-engine')]
         [string]$PackType = '',
         
         [Parameter()]
@@ -792,6 +854,8 @@ function Invoke-StructuredExtraction {
     - godot-resource
     - rpgmaker-plugin
     - blender-python
+    - unreal-plugin
+    - unreal-project
     - geometry-nodes
     - shader
 
@@ -813,7 +877,8 @@ function Get-ExtractionSchema {
     param(
         [Parameter(Mandatory = $true, Position = 0)]
         [ValidateSet('gdscript', 'godot-scene', 'godot-resource', 
-                     'rpgmaker-plugin', 'blender-python', 'geometry-nodes', 'shader')]
+                     'rpgmaker-plugin', 'blender-python', 'unreal-plugin',
+                     'unreal-project', 'geometry-nodes', 'shader')]
         [string]$Type
     )
     

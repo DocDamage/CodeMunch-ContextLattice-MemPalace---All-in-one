@@ -632,34 +632,367 @@
       "lastReviewedUtc": "2026-04-12T20:00:00Z",
       "createdUtc": "2026-04-12T20:00:00Z",
       "updatedUtc": "2026-04-12T20:00:00Z"
+    },
+    "MikeSchulze/gdUnit4": {
+      "sourceId": "MikeSchulze/gdUnit4",
+      "repoUrl": "https://github.com/MikeSchulze/gdUnit4",
+      "selectedRef": "master",
+      "parseMode": "gdscript-plugin",
+      "trustTier": "Medium-High",
+      "authorityRole": "testing-framework",
+      "priority": "P2",
+      "license": "MIT",
+      "collections": ["godot_testing", "godot_plugin_patterns"],
+      "extractionTargets": ["test-suite-structure", "assertions", "mocking-spying-APIs", "scene-runner-patterns", "Godot-version-compatibility"],
+      "refreshCadence": "30-day",
+      "state": "active",
+      "riskNotes": {
+        "note": "Embedded Godot testing framework for Godot 4.x",
+        "scope": "Should dominate testing queries, not gameplay architecture",
+        "versionSensitive": "Version-sensitive across Godot 4.x"
+      },
+      "lastReviewedUtc": "2026-04-13T00:00:00Z",
+      "createdUtc": "2026-04-13T00:00:00Z",
+      "updatedUtc": "2026-04-13T00:00:00Z"
+    },
+    "limbonaut/limboai": {
+      "sourceId": "limbonaut/limboai",
+      "repoUrl": "https://github.com/limbonaut/limboai",
+      "selectedRef": "master",
+      "parseMode": "gdextension",
+      "trustTier": "Medium-High",
+      "authorityRole": "ai-behavior-system",
+      "priority": "P2",
+      "license": "MIT",
+      "collections": ["godot_ai_behavior"],
+      "extractionTargets": ["BT-node-task-patterns", "state-machine-contracts", "visual-debugger-hooks", "demo-tutorial-references", "Godot-version-range"],
+      "refreshCadence": "30-day",
+      "state": "active",
+      "riskNotes": {
+        "note": "AI behavior trees + state machines framework",
+        "scope": "Do not treat as stock Godot AI architecture authority",
+        "framework": "Powerful framework with visual debugger"
+      },
+      "lastReviewedUtc": "2026-04-13T00:00:00Z",
+      "createdUtc": "2026-04-13T00:00:00Z",
+      "updatedUtc": "2026-04-13T00:00:00Z"
+    },
+    "dialogic-godot/dialogic": {
+      "sourceId": "dialogic-godot/dialogic",
+      "repoUrl": "https://github.com/dialogic-godot/dialogic",
+      "selectedRef": "main",
+      "parseMode": "gdscript-plugin",
+      "trustTier": "Medium-High",
+      "authorityRole": "dialogue-system",
+      "priority": "P2",
+      "license": "MIT",
+      "collections": ["godot_dialogue_systems"],
+      "extractionTargets": ["dialogue-resources", "character-timeline-structures", "updater-install-path", "unit-test-references", "public-vs-private-API-rules"],
+      "refreshCadence": "30-day",
+      "state": "active",
+      "riskNotes": {
+        "note": "Dialogue/narrative framework for Godot",
+        "scope": "Should not define stock Godot UI or scene behavior outside dialogue-system questions",
+        "version": "Godot 4.3+ compatibility for Dialogic 2"
+      },
+      "lastReviewedUtc": "2026-04-13T00:00:00Z",
+      "createdUtc": "2026-04-13T00:00:00Z",
+      "updatedUtc": "2026-04-13T00:00:00Z"
+    },
+    "shomykohai/quest-system": {
+      "sourceId": "shomykohai/quest-system",
+      "repoUrl": "https://github.com/shomykohai/quest-system",
+      "selectedRef": "main",
+      "parseMode": "gdscript-plugin",
+      "trustTier": "Medium",
+      "authorityRole": "quest-system",
+      "priority": "P2",
+      "license": "MIT",
+      "collections": ["godot_game_systems"],
+      "extractionTargets": ["quest-resource-schema", "singleton-modular-API", "localization-hooks", "serialization-deserialization-patterns", "GDUnit4-relationship"],
+      "refreshCadence": "30-day",
+      "state": "active",
+      "riskNotes": {
+        "note": "Quest/progression framework for Godot",
+        "scope": "Version-boundary important; avoid treating as generic save-state authority"
+      },
+      "lastReviewedUtc": "2026-04-13T00:00:00Z",
+      "createdUtc": "2026-04-13T00:00:00Z",
+      "updatedUtc": "2026-04-13T00:00:00Z"
+    },
+    "expressobits/inventory-system": {
+      "sourceId": "expressobits/inventory-system",
+      "repoUrl": "https://github.com/expressobits/inventory-system",
+      "selectedRef": "main",
+      "parseMode": "gdscript-plugin",
+      "trustTier": "Medium",
+      "authorityRole": "inventory-system",
+      "priority": "P2",
+      "license": "MIT",
+      "collections": ["godot_game_systems"],
+      "extractionTargets": ["item-resource-schemas", "UI-logic-separation", "crafting-equipment-hotbar-systems", "multiplayer-compatibility", "grid-inventory-patterns"],
+      "refreshCadence": "30-day",
+      "state": "active",
+      "riskNotes": {
+        "note": "Modular inventory/RPG system",
+        "scope": "Broad gameplay-system repo; should not dominate non-inventory gameplay questions"
+      },
+      "lastReviewedUtc": "2026-04-13T00:00:00Z",
+      "createdUtc": "2026-04-13T00:00:00Z",
+      "updatedUtc": "2026-04-13T00:00:00Z"
+    },
+    "maximkulkin/godot-rollback-netcode": {
+      "sourceId": "maximkulkin/godot-rollback-netcode",
+      "repoUrl": "https://github.com/maximkulkin/godot-rollback-netcode",
+      "selectedRef": "master",
+      "parseMode": "gdextension",
+      "trustTier": "Medium",
+      "authorityRole": "networking-system",
+      "priority": "P2",
+      "license": "MIT",
+      "collections": ["godot_networking"],
+      "extractionTargets": ["input-state-save-load-hooks", "mismatch-detection", "sync-manager-API", "rollback-lifecycle", "debugging-tools"],
+      "refreshCadence": "30-day",
+      "state": "active",
+      "riskNotes": {
+        "note": "Rollback/prediction networking implementation",
+        "scope": "Must stay scoped to rollback multiplayer questions; fork lineage matters"
+      },
+      "lastReviewedUtc": "2026-04-13T00:00:00Z",
+      "createdUtc": "2026-04-13T00:00:00Z",
+      "updatedUtc": "2026-04-13T00:00:00Z"
+    },
+    "Ericdowney/SignalVisualizer": {
+      "sourceId": "Ericdowney/SignalVisualizer",
+      "repoUrl": "https://github.com/Ericdowney/SignalVisualizer",
+      "selectedRef": "main",
+      "parseMode": "gdscript-plugin",
+      "trustTier": "Medium",
+      "authorityRole": "debug-visualization",
+      "priority": "P3",
+      "license": "MIT",
+      "collections": ["godot_tooling"],
+      "extractionTargets": ["signal-graph-model", "scene-signal-introspection", "debugger-integration", "tree-graph-navigation-patterns"],
+      "refreshCadence": "90-day",
+      "state": "active",
+      "riskNotes": {
+        "note": "Signal/debugging tooling for visualizing signal connections",
+        "scope": "Useful for signal/debug queries only; not signal API authority"
+      },
+      "lastReviewedUtc": "2026-04-13T00:00:00Z",
+      "createdUtc": "2026-04-13T00:00:00Z",
+      "updatedUtc": "2026-04-13T00:00:00Z"
+    },
+    "AdamKormos/SaveMadeEasy": {
+      "sourceId": "AdamKormos/SaveMadeEasy",
+      "repoUrl": "https://github.com/AdamKormos/SaveMadeEasy",
+      "selectedRef": "main",
+      "parseMode": "gdscript-plugin",
+      "trustTier": "Medium",
+      "authorityRole": "save-system",
+      "priority": "P3",
+      "license": "MIT",
+      "collections": ["godot_game_systems"],
+      "extractionTargets": ["key-path-storage-model", "nested-variable-resource-array-handling", "encryption-behavior", "AutoLoad-requirements"],
+      "refreshCadence": "90-day",
+      "state": "active",
+      "riskNotes": {
+        "note": "Save/load plugin with convenience features",
+        "scope": "Convenience plugin; should not outrank stock save architecture or project-local save logic"
+      },
+      "lastReviewedUtc": "2026-04-13T00:00:00Z",
+      "createdUtc": "2026-04-13T00:00:00Z",
+      "updatedUtc": "2026-04-13T00:00:00Z"
+    },
+    "bitbrain/pandora": {
+      "sourceId": "bitbrain/pandora",
+      "repoUrl": "https://github.com/bitbrain/pandora",
+      "selectedRef": "master",
+      "parseMode": "gdscript-plugin",
+      "trustTier": "Medium-High",
+      "authorityRole": "rpg-data-framework",
+      "priority": "P2",
+      "license": "MIT",
+      "collections": ["godot_game_systems"],
+      "extractionTargets": ["item/inventory/spell/mob/quest/NPC-schemas", "resource-data-model", "editor-workflow", "save-data-boundaries"],
+      "refreshCadence": "30-day",
+      "state": "active",
+      "riskNotes": {
+        "note": "RPG data-management framework for items, spells, mobs, quests, NPCs",
+        "scope": "RPG data-framework authority",
+        "doNotUseAs": "stock engine authority"
+      },
+      "lastReviewedUtc": "2026-04-13T00:00:00Z",
+      "createdUtc": "2026-04-13T00:00:00Z",
+      "updatedUtc": "2026-04-13T00:00:00Z"
+    },
+    "SlashScreen/chunx": {
+      "sourceId": "SlashScreen/chunx",
+      "repoUrl": "https://github.com/SlashScreen/chunx",
+      "selectedRef": "main",
+      "parseMode": "gdscript-plugin",
+      "trustTier": "Medium",
+      "authorityRole": "world-streaming-system",
+      "priority": "P2",
+      "license": "MIT",
+      "collections": ["godot_visual_systems"],
+      "extractionTargets": ["chunk-lifecycle", "streaming-triggers", "world-partition-patterns", "load-unload-contracts", "Godot-4-integration"],
+      "refreshCadence": "manual",
+      "state": "active",
+      "riskNotes": {
+        "note": "Chunk/open-world streaming system",
+        "scope": "chunk/open-world streaming questions only",
+        "doNotUseAs": "generic scene-loading or level-transition authority"
+      },
+      "lastReviewedUtc": "2026-04-13T00:00:00Z",
+      "createdUtc": "2026-04-13T00:00:00Z",
+      "updatedUtc": "2026-04-13T00:00:00Z"
+    },
+    "Syntaxxor/godot-voxel-terrain": {
+      "sourceId": "Syntaxxor/godot-voxel-terrain",
+      "repoUrl": "https://github.com/Syntaxxor/godot-voxel-terrain",
+      "selectedRef": "master",
+      "parseMode": "gdextension",
+      "trustTier": "Medium",
+      "authorityRole": "visual-system",
+      "priority": "P3",
+      "license": "MIT",
+      "collections": ["godot_visual_systems"],
+      "extractionTargets": ["terrain-chunk-model", "editor-tooling", "mesh-generation", "collision", "save-load", "GDExtension-boundaries"],
+      "refreshCadence": "manual",
+      "state": "active",
+      "riskNotes": {
+        "note": "Alternate voxel terrain implementation with in-editor editing",
+        "alternativeTo": "Zylann/godot_voxel",
+        "doNotOutrank": "Zylann/godot_voxel by default unless query matches addon/GDExtension/editor workflow"
+      },
+      "lastReviewedUtc": "2026-04-13T00:00:00Z",
+      "createdUtc": "2026-04-13T00:00:00Z",
+      "updatedUtc": "2026-04-13T00:00:00Z"
+    },
+    "GamePushService/GamePush-Godot-plugin": {
+      "sourceId": "GamePushService/GamePush-Godot-plugin",
+      "repoUrl": "https://github.com/GamePushService/GamePush-Godot-plugin",
+      "selectedRef": "main",
+      "parseMode": "gdscript-plugin",
+      "trustTier": "Medium",
+      "authorityRole": "platform-service-integration",
+      "priority": "P3",
+      "license": "MIT",
+      "collections": ["godot_deployment"],
+      "extractionTargets": ["achievements", "analytics", "ads", "events", "leaderboards", "payments", "storage", "rewards", "service-API-surface"],
+      "refreshCadence": "manual",
+      "state": "active",
+      "riskNotes": {
+        "note": "Backend/platform service integration for achievements, analytics, ads, leaderboards, payments",
+        "scope": "platform-service integration authority",
+        "doNotUseAs": "generic backend or multiplayer authority"
+      },
+      "lastReviewedUtc": "2026-04-13T00:00:00Z",
+      "createdUtc": "2026-04-13T00:00:00Z",
+      "updatedUtc": "2026-04-13T00:00:00Z"
+    },
+    "HexagonNico/Godot-FiniteStateMachine": {
+      "sourceId": "HexagonNico/Godot-FiniteStateMachine",
+      "repoUrl": "https://github.com/HexagonNico/Godot-FiniteStateMachine",
+      "selectedRef": "master",
+      "parseMode": "gdscript-plugin",
+      "trustTier": "Medium",
+      "authorityRole": "ai-behavior-system",
+      "priority": "P3",
+      "license": "MIT",
+      "collections": ["godot_ai_behavior"],
+      "extractionTargets": ["node-based-FSM", "state-structure", "transition-hooks", "editor-integration", "Godot-4-plugin-patterns"],
+      "refreshCadence": "manual",
+      "state": "active",
+      "riskNotes": {
+        "note": "Lightweight FSM framework with node-based editor integration",
+        "alternativeTo": "limbonaut/limboai",
+        "doNotOutrank": "limbonaut/limboai on broad AI architecture unless query is explicitly about lightweight FSM-only patterns"
+      },
+      "lastReviewedUtc": "2026-04-13T00:00:00Z",
+      "createdUtc": "2026-04-13T00:00:00Z",
+      "updatedUtc": "2026-04-13T00:00:00Z"
+    },
+    "hohfchns/DialogueQuest": {
+      "sourceId": "hohfchns/DialogueQuest",
+      "repoUrl": "https://github.com/hohfchns/DialogueQuest",
+      "selectedRef": "main",
+      "parseMode": "gdscript-plugin",
+      "trustTier": "Medium",
+      "authorityRole": "dialogue-system",
+      "priority": "P3",
+      "license": "MIT",
+      "collections": ["godot_dialogue_systems"],
+      "extractionTargets": ["dialogue-file-format", "user-developer-manual", "standalone-tester-workflow", "writer-coder-collaboration"],
+      "refreshCadence": "manual",
+      "state": "active",
+      "riskNotes": {
+        "note": "Lightweight dialogue system with writer/coder collaboration focus",
+        "alternativeTo": "dialogic-godot/dialogic",
+        "doNotOutrank": "dialogic-godot/dialogic by default unless query matches collaboration/tester workflow"
+      },
+      "lastReviewedUtc": "2026-04-13T00:00:00Z",
+      "createdUtc": "2026-04-13T00:00:00Z",
+      "updatedUtc": "2026-04-13T00:00:00Z"
     }
   },
   "sourceFamilies": {
-    "testing": {
-      "familyId": "testing",
-      "description": "Godot testing frameworks and utilities",
-      "sources": ["bitwes/Gut", "mrdunk/HUnit"]
-    },
     "ai_behavior": {
       "familyId": "ai_behavior",
       "description": "AI behavior systems including behavior trees, GOAP, and state machines",
-      "sources": ["libgdx/gdx-ai", "quentincaffeino/godot-console"]
+      "sources": ["libgdx/gdx-ai", "quentincaffeino/godot-console", "limbonaut/limboai"]
     },
     "dialogue": {
       "familyId": "dialogue",
       "description": "Dialogue and narrative systems",
-      "sources": ["nathanhoad/godot_dialogue_manager"]
+      "sources": ["nathanhoad/godot_dialogue_manager", "dialogic-godot/dialogic", "hohfchns/DialogueQuest"]
+    },
+    "rpg_data": {
+      "familyId": "rpg_data",
+      "description": "RPG data management frameworks for items, spells, quests, NPCs",
+      "sources": ["bitbrain/pandora"]
+    },
+    "world_streaming": {
+      "familyId": "world_streaming",
+      "description": "Chunk and open-world streaming systems",
+      "sources": ["SlashScreen/chunx"]
+    },
+    "platform_services": {
+      "familyId": "platform_services",
+      "description": "Platform service integrations for achievements, analytics, ads, payments",
+      "sources": ["GamePushService/GamePush-Godot-plugin"]
     },
     "game_systems": {
       "familyId": "game_systems",
       "description": "Complete game system implementations",
-      "sources": ["QueenOfSquiggles/godot-quest-system", "CraterCrash/godot-orchestrator", "KoBeWi/Godot-Simple-Save", "GDQuest/godot-rpg-framework"]
+      "sources": ["QueenOfSquiggles/godot-quest-system", "CraterCrash/godot-orchestrator", "KoBeWi/Godot-Simple-Save", "GDQuest/godot-rpg-framework", "shomykohai/quest-system", "expressobits/inventory-system", "AdamKormos/SaveMadeEasy"]
     },
     "networking": {
       "familyId": "networking",
       "description": "Multiplayer and networking frameworks",
-      "sources": ["foxssake/netfox"]
+      "sources": ["foxssake/netfox", "maximkulkin/godot-rollback-netcode"]
+    },
+    "testing": {
+      "familyId": "testing",
+      "description": "Testing frameworks and utilities",
+      "sources": ["bitwes/Gut", "mrdunk/HUnit", "MikeSchulze/gdUnit4"]
+    },
+    "debugging": {
+      "familyId": "debugging",
+      "description": "Debugging and visualization tools",
+      "sources": ["Ericdowney/SignalVisualizer"]
+    },
+    "voxel_systems": {
+      "familyId": "voxel_systems",
+      "description": "Voxel terrain implementations and alternatives",
+      "sources": ["Zylann/godot_voxel", "Syntaxxor/godot-voxel-terrain"]
+    },
+    "ai_fsm": {
+      "familyId": "ai_fsm",
+      "description": "Lightweight FSM frameworks for AI behavior",
+      "sources": ["HexagonNico/Godot-FiniteStateMachine"]
     }
   },
-  "updatedUtc": "2026-04-12T20:00:00Z"
+  "updatedUtc": "2026-04-13T00:00:00Z"
 }

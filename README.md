@@ -1,9 +1,9 @@
 # CodeMunch + ContextLattice + MemPalace (All-in-One)
 
-[![Version](https://img.shields.io/badge/version-0.9.5-blue.svg)](https://github.com/yourusername/CodeMunch-ContextLattice-MemPalace)
+[![Version](https://img.shields.io/badge/version-0.9.6-blue.svg)](https://github.com/yourusername/CodeMunch-ContextLattice-MemPalace)
 [![Packs](https://img.shields.io/badge/domain%20packs-10-green.svg)](#domain-packs)
-[![Modules](https://img.shields.io/badge/PowerShell%20modules-84+-purple.svg)](#module-inventory)
-[![MCP](https://img.shields.io/badge/MCP-servers-orange.svg)](#advanced-features)
+[![Modules](https://img.shields.io/badge/PowerShell%20modules-106-purple.svg)](#module-inventory)
+[![MCP](https://img.shields.io/badge/MCP%20tools-15+-orange.svg)](#advanced-features)
 
 Canonical toolkit repo for the integrated workflow:
 
@@ -11,7 +11,7 @@ Canonical toolkit repo for the integrated workflow:
 - `ContextLattice` project bootstrap + connectivity verification
 - `MemPalace -> ContextLattice` incremental bridge
 - **10 Domain Packs** with specialized knowledge extraction
-- **84+ PowerShell Modules** for workflow automation
+- **87+ PowerShell Modules** for workflow automation
 - **MCP Toolkit Servers** for Godot, Blender, and RPG Maker
 - **Inter-Pack Pipelines** for cross-domain asset workflows
 - **Golden Task Evaluations** with 30+ validation scenarios
@@ -102,7 +102,7 @@ graph TB
         A5[llmbenchmark]
     end
     
-    subgraph ModuleLayer["PowerShell Module Layer<br/>84+ Modules"]
+    subgraph ModuleLayer["PowerShell Module Layer<br/>87+ Modules"]
         B1[Invoke-LLMWorkflowUp]
         B2[Test-LLMWorkflowSetup]
         B3[Resolve-ProviderProfile]
@@ -296,7 +296,15 @@ flowchart TD
     style PostAPI fill:#f3e5f5
 ```
 
-For detailed architecture documentation, see [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
+### Current Platform Statistics
+
+| Component | Count | Description |
+|-----------|-------|-------------|
+| **Godot Pack Sources** | 43 | Indexed Godot engine documentation and reference sources |
+| **Source Families** | 11 | Hierarchical source categorization groups |
+| **Extraction Parsers** | 28 | Domain-specific structured extraction parsers |
+
+For detailed architecture documentation, see [docs/ARCHITECTURE.md](docs/architecture/ARCHITECTURE.md).
 
 ## Domain Packs
 
@@ -856,8 +864,8 @@ Model Context Protocol (MCP) servers provide IDE-integrated assistance:
 | Server | Tools | Description |
 |--------|-------|-------------|
 | **Godot MCP** | 15+ | Scene analysis, GDScript linting, signal debugging |
-| **Blender MCP** | 12+ | Operator introspection, geometry nodes, addon dev |
-| **RPG Maker MCP** | 10+ | Plugin conflict detection, notetag extraction |
+| **Blender MCP** | 15+ | Operator introspection, geometry nodes, addon dev |
+| **RPG Maker MCP** | 15+ | Plugin conflict detection, notetag extraction |
 
 ```powershell
 # Start MCP server
@@ -993,6 +1001,13 @@ The platform provides structured extraction and indexing for a wide range of fil
 | `.tres` | Godot | Resource definitions, properties, script references |
 | `.blend` (metadata) | Blender | Scene structure, objects, materials, operator metadata |
 | `.gdshader` | Godot | Uniforms, functions, render modes, varyings |
+| `.uplugin` | Unreal Engine | Plugin descriptor metadata, modules, plugin references, target platforms |
+| `.uproject` | Unreal Engine | Project descriptor metadata, engine association, plugin references, target platforms |
+
+### Project Asset Catalogs
+| Input | Platform | Extraction Capabilities |
+|------|----------|------------------------|
+| RPG Maker project root | RPG Maker MV/MZ | Asset family cataloging for `img/*`, `audio/*`, and `js/plugins` with plugin metadata enrichment |
 
 ### Data & Configuration
 | Extension | Type | Extraction Capabilities |
@@ -1042,6 +1057,17 @@ $result.data.commands               # @command definitions
 $result = Invoke-StructuredExtraction -FilePath "my_addon.py"
 $result.data.addonInfo              # bl_info metadata
 $result.data.operators              # Operator classes
+
+# Extract from Unreal descriptor
+$result = Invoke-StructuredExtraction -FilePath "MyPlugin.uplugin"
+$result.data.modules                # Unreal modules
+$result.data.targetPlatforms        # Supported targets
+
+# Catalog an RPG Maker project
+$catalog = Invoke-RPGMakerAssetCatalogParse -ProjectRoot "./MyRmmzGame" -IncludePluginMetadata
+$catalog.assetFamilies.characters   # Character sheets
+$catalog.assetFamilies.plugins      # Plugin inventory
+$catalog.statistics.totalAssets     # Total cataloged assets
 
 # Extract from Jupyter notebook
 $result = Invoke-StructuredExtraction -FilePath "analysis.ipynb"
@@ -1274,7 +1300,7 @@ llmheal -Force
 ```
 
 Repairs include: creating missing .env files, installing ChromaDB, fixing Python paths,
-creating palace directories, and more. See [docs/SELF_HEALING.md](docs/SELF_HEALING.md) for details.
+creating palace directories, and more. See [docs/SELF_HEALING.md](docs/operations/SELF_HEALING.md) for details.
 
 ## Use in any project
 
@@ -1304,7 +1330,7 @@ llm-workflow-doctor -CheckContext
 
 ## Troubleshooting
 
-See [docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md) for detailed troubleshooting guidance, including:
+See [docs/TROUBLESHOOTING.md](docs/operations/TROUBLESHOOTING.md) for detailed troubleshooting guidance, including:
 
 - Quick diagnostics with `llmcheck` and `llmheal`
 - Common issues (Python, ContextLattice, MemPalace, API keys)
@@ -1703,9 +1729,17 @@ project-root/
 │   └── TASKS.md               # Task board (HacknPlan/Trello/GitHub compatible)
 ├── assets/
 │   ├── ASSET_MANIFEST.json    # Asset tracking with license management
+│   ├── art/                   # Shared visual assets
+│   ├── spritesheets/          # Sprite sheets, atlases, Aseprite sources
+│   ├── tilemaps/              # Tilemaps and tilesets
 │   ├── sfx/                   # Sound effects
 │   ├── music/                 # Background music
-│   └── art/                   # Visual assets
+│   ├── plugins/               # Engine/runtime plugins
+│   ├── engines/
+│   │   ├── rpgmaker/          # RPG Maker assets and js/plugins intake
+│   │   ├── unreal/            # Unreal project-side assets (.uasset, .umap, .uproject)
+│   │   └── epic/              # Fab, Megascans, Epic-distributed content
+│   └── shared/                # Cross-engine packs and archives
 └── .llm-workflow/
     └── game-preset.json       # Game preset configuration
 ```
@@ -1735,6 +1769,7 @@ Export-LLMWorkflowAssetManifest -Format csv -OutputPath "assets/manifest.csv"
 
 Asset manifest tracks:
 - File metadata (name, format, size, dimensions/duration)
+- Asset family classification (spritesheets, tilemaps, plugins, RPG Maker, Unreal, Epic/Fab, shared)
 - Source and license information (CC0, CC-BY, proprietary, etc.)
 - Status (todo, wip, review, done)
 - Assignment and tags

@@ -14,15 +14,17 @@
     - Trend analysis and percentile calculations (P95/P99)
     - Automatic telemetry rotation (30-day retention)
     
-    Supported Telemetry Metrics:
-    - buildSuccessRate: Percentage of successful pack builds
-    - refreshLatencyMs: Time to refresh pack sources (milliseconds)
-    - parserFailureRate: Rate of parser failures
-    - extractionCoverage: Coverage of extraction targets
-    - provenanceCoverage: Coverage of provenance information
-    - answerGroundingRate: Rate of grounded answers
-    - p95RetrievalLatencyMs: P95 latency of retrieval operations
-    - feedbackCategoryCounts: Distribution of feedback categories
+    SLOs tracked:
+    - Query response time < 500ms (p95)
+    - Extraction accuracy > 95%
+    - Pack freshness (hours since last sync)
+    - Answer confidence > 0.8
+    
+    Functions:
+    - Get-PackHealthSLOs - Get SLO definitions for pack
+    - Test-PackSLOCompliance - Check if pack meets SLOs
+    - Get-PackTelemetry - Get telemetry data
+    - Export-SLOReport - Export SLO compliance report
 
 .NOTES
     File Name      : PackSLOs.ps1
@@ -38,31 +40,40 @@ Set-StrictMode -Version Latest
 # Script-level constants
 $script:TelemetryDirectory = ".llm-workflow/telemetry"
 $script:SLOConfigDirectory = ".llm-workflow/config/slos"
+$script:SLOReportsDirectory = ".llm-workflow/reports/slos"
 $script:TelemetryRetentionDays = 30
 $script:ViolationLogFile = ".llm-workflow/telemetry/violations.jsonl"
 
 # Default SLO targets per Section 18.1
 $script:DefaultSLOTargets = @{
     p95RetrievalLatencyMs = 1200
+    queryResponseTimeMs = 500
     answerGroundingRate = 0.95
+    answerConfidence = 0.8
+    extractionAccuracy = 0.95
     parserFailureRate = 0.02
     provenanceCoverage = 0.99
     goldenTaskPassRate = 0.90
     buildSuccessRate = 0.98
     extractionCoverage = 0.95
     refreshLatencyMs = 5000
+    packFreshnessHours = 24
 }
 
 # Default threshold configurations
 $script:DefaultThresholds = @{
     p95RetrievalLatencyMs = @{ warning = 1000; critical = 2000 }
+    queryResponseTimeMs = @{ warning = 400; critical = 800 }
     answerGroundingRate = @{ warning = 0.90; critical = 0.80 }
+    answerConfidence = @{ warning = 0.75; critical = 0.60 }
+    extractionAccuracy = @{ warning = 0.90; critical = 0.85 }
     parserFailureRate = @{ warning = 0.05; critical = 0.10 }
     provenanceCoverage = @{ warning = 0.95; critical = 0.90 }
     goldenTaskPassRate = @{ warning = 0.85; critical = 0.75 }
     buildSuccessRate = @{ warning = 0.95; critical = 0.90 }
     extractionCoverage = @{ warning = 0.90; critical = 0.80 }
     refreshLatencyMs = @{ warning = 3000; critical = 10000 }
+    packFreshnessHours = @{ warning = 48; critical = 72 }
 }
 
 # Time range mappings
@@ -81,17 +92,24 @@ $script:PredefinedSLOs = @{
         version = '1.0'
         targets = @{
             p95RetrievalLatencyMs = 1200
+            queryResponseTimeMs = 500
             answerGroundingRate = 0.95
+            answerConfidence = 0.8
+            extractionAccuracy = 0.95
             parserFailureRate = 0.02
             provenanceCoverage = 0.99
             goldenTaskPassRate = 0.90
             buildSuccessRate = 0.98
             extractionCoverage = 0.95
             refreshLatencyMs = 5000
+            packFreshnessHours = 24
         }
         thresholds = @{
             p95RetrievalLatencyMs = @{ warning = 1000; critical = 2000 }
+            queryResponseTimeMs = @{ warning = 400; critical = 800 }
             answerGroundingRate = @{ warning = 0.90; critical = 0.80 }
+            answerConfidence = @{ warning = 0.75; critical = 0.60 }
+            extractionAccuracy = @{ warning = 0.90; critical = 0.85 }
             parserFailureRate = @{ warning = 0.05; critical = 0.10 }
             provenanceCoverage = @{ warning = 0.95; critical = 0.90 }
         }
@@ -105,17 +123,24 @@ $script:PredefinedSLOs = @{
         version = '1.0'
         targets = @{
             p95RetrievalLatencyMs = 1500
+            queryResponseTimeMs = 600
             answerGroundingRate = 0.93
+            answerConfidence = 0.78
+            extractionAccuracy = 0.92
             parserFailureRate = 0.03
             provenanceCoverage = 0.98
             goldenTaskPassRate = 0.88
             buildSuccessRate = 0.97
             extractionCoverage = 0.92
             refreshLatencyMs = 6000
+            packFreshnessHours = 48
         }
         thresholds = @{
             p95RetrievalLatencyMs = @{ warning = 1200; critical = 2500 }
+            queryResponseTimeMs = @{ warning = 500; critical = 1000 }
             answerGroundingRate = @{ warning = 0.88; critical = 0.78 }
+            answerConfidence = @{ warning = 0.72; critical = 0.55 }
+            extractionAccuracy = @{ warning = 0.87; critical = 0.80 }
             parserFailureRate = @{ warning = 0.06; critical = 0.12 }
             provenanceCoverage = @{ warning = 0.94; critical = 0.88 }
         }
@@ -129,17 +154,24 @@ $script:PredefinedSLOs = @{
         version = '1.0'
         targets = @{
             p95RetrievalLatencyMs = 1800
+            queryResponseTimeMs = 700
             answerGroundingRate = 0.92
+            answerConfidence = 0.75
+            extractionAccuracy = 0.90
             parserFailureRate = 0.04
             provenanceCoverage = 0.97
             goldenTaskPassRate = 0.85
             buildSuccessRate = 0.96
             extractionCoverage = 0.90
             refreshLatencyMs = 8000
+            packFreshnessHours = 72
         }
         thresholds = @{
             p95RetrievalLatencyMs = @{ warning = 1500; critical = 3000 }
+            queryResponseTimeMs = @{ warning = 600; critical = 1200 }
             answerGroundingRate = @{ warning = 0.87; critical = 0.75 }
+            answerConfidence = @{ warning = 0.70; critical = 0.50 }
+            extractionAccuracy = @{ warning = 0.85; critical = 0.75 }
             parserFailureRate = @{ warning = 0.07; critical = 0.15 }
             provenanceCoverage = @{ warning = 0.93; critical = 0.85 }
         }
@@ -149,6 +181,518 @@ $script:PredefinedSLOs = @{
         description = 'Blender Engine pack SLOs with geometry nodes and shader complexity'
     }
 }
+
+#===============================================================================
+# Core SLO Functions
+#===============================================================================
+
+<#
+.SYNOPSIS
+    Gets SLO definitions for a pack.
+
+.DESCRIPTION
+    Retrieves the Service Level Objective definitions for the specified pack,
+    including targets, thresholds, and metadata.
+
+.PARAMETER PackId
+    The unique identifier for the pack (e.g., 'rpgmaker-mz').
+
+.PARAMETER IncludeThresholds
+    Include threshold definitions in the output.
+
+.PARAMETER ProjectRoot
+    The project root directory.
+
+.OUTPUTS
+    System.Collections.Hashtable containing SLO definitions.
+
+.EXAMPLE
+    PS C:\> Get-PackHealthSLOs -PackId "rpgmaker-mz"
+    
+    Gets SLO definitions for the RPG Maker MZ pack.
+
+.EXAMPLE
+    PS C:\> $slos = Get-PackHealthSLOs -PackId "godot-engine" -IncludeThresholds
+    
+    Gets SLOs including thresholds for the Godot Engine pack.
+#>
+function Get-PackHealthSLOs {
+    [CmdletBinding()]
+    [OutputType([hashtable])]
+    param(
+        [Parameter(Mandatory = $true)]
+        [ValidatePattern('^[a-z0-9-]+$')]
+        [string]$PackId,
+
+        [Parameter(Mandatory = $false)]
+        [switch]$IncludeThresholds,
+
+        [Parameter(Mandatory = $false)]
+        [string]$ProjectRoot = '.'
+    )
+
+    process {
+        $sloConfig = Get-SLOConfigInternal -PackId $PackId -ProjectRoot $ProjectRoot
+        
+        if (-not $sloConfig) {
+            Write-Warning "[PackSLOs] No SLO configuration found for pack: $PackId"
+            return $null
+        }
+
+        $result = @{
+            PackId = $PackId
+            Version = $sloConfig.version
+            Targets = $sloConfig.targets
+            ReviewCadence = $sloConfig.reviewCadence
+            LastReviewed = $sloConfig.lastReviewed
+            Owner = $sloConfig.owner
+            Description = $sloConfig.description
+        }
+
+        if ($IncludeThresholds) {
+            $result['Thresholds'] = $sloConfig.thresholds
+        }
+
+        return $result
+    }
+}
+
+<#
+.SYNOPSIS
+    Checks if a pack meets its SLOs.
+
+.DESCRIPTION
+    Evaluates actual telemetry metrics against SLO targets to determine compliance.
+    Can be used for ad-hoc testing or in CI/CD pipelines.
+
+.PARAMETER PackId
+    The unique identifier for the pack.
+
+.PARAMETER TimeRange
+    Time range for evaluation. Valid values: '1h', '24h', '7d', '30d', '90d'.
+
+.PARAMETER SLOConfig
+    Optional SLO configuration. If not provided, loads from file or uses defaults.
+
+.PARAMETER FailOnWarning
+    If specified, treats warnings as failures.
+
+.PARAMETER ProjectRoot
+    The project root directory.
+
+.OUTPUTS
+    System.Collections.Hashtable containing:
+    - isCompliant: Boolean indicating overall compliance
+    - violations: Array of SLO violations
+    - summary: Summary of test results
+    - metrics: Actual metric values evaluated
+
+.EXAMPLE
+    PS C:\> Test-PackSLOCompliance -PackId "rpgmaker-mz" -TimeRange "24h"
+    
+    Tests SLO compliance for the last 24 hours.
+
+.EXAMPLE
+    PS C:\> Test-PackSLOCompliance -PackId "godot-engine" -FailOnWarning
+    
+    Tests compliance and fails on warnings.
+#>
+function Test-PackSLOCompliance {
+    [CmdletBinding()]
+    [OutputType([hashtable])]
+    param(
+        [Parameter(Mandatory = $true)]
+        [ValidatePattern('^[a-z0-9-]+$')]
+        [string]$PackId,
+
+        [Parameter(Mandatory = $false)]
+        [ValidateSet('1h', '24h', '7d', '30d', '90d')]
+        [string]$TimeRange = '24h',
+
+        [Parameter(Mandatory = $false)]
+        [hashtable]$SLOConfig = $null,
+
+        [Parameter(Mandatory = $false)]
+        [switch]$FailOnWarning,
+
+        [Parameter(Mandatory = $false)]
+        [string]$ProjectRoot = '.'
+    )
+
+    process {
+        # Load SLO config if not provided
+        if (-not $SLOConfig) {
+            $SLOConfig = Get-SLOConfigInternal -PackId $PackId -ProjectRoot $ProjectRoot
+        }
+
+        if (-not $SLOConfig) {
+            # Use default SLOs
+            $SLOConfig = @{
+                targets = $script:DefaultSLOTargets
+                thresholds = $script:DefaultThresholds
+            }
+        }
+
+        # Calculate time window
+        $timeSpan = $script:TimeRangeMappings[$TimeRange]
+        $from = [DateTime]::UtcNow - $timeSpan
+        $to = [DateTime]::UtcNow
+
+        $violations = @()
+        $passedCount = 0
+        $failedCount = 0
+        $warningCount = 0
+        $metricValues = @{}
+
+        foreach ($metricName in $SLOConfig.targets.Keys) {
+            $target = $SLOConfig.targets[$metricName]
+            $threshold = $SLOConfig.thresholds[$metricName]
+            
+            # Get actual metric value
+            $actualValue = Get-TelemetryMetricsInternal -PackId $PackId -MetricName $metricName -From $from -To $to -ProjectRoot $ProjectRoot
+            
+            # Store metric value
+            $metricValues[$metricName] = $actualValue
+            
+            if ($null -eq $actualValue) {
+                $metricValues[$metricName] = "No data"
+                continue
+            }
+
+            # Determine if compliant
+            $isLowerBetter = $metricName -match '(?i)(latency|failure|error|hours)'
+            $isCompliant = $true
+            $severity = 'compliant'
+
+            if ($isLowerBetter) {
+                if ($target -and $actualValue -gt $target) {
+                    $isCompliant = $false
+                    $severity = 'violation'
+                }
+                if ($threshold -and $threshold.critical -and $actualValue -gt $threshold.critical) {
+                    $severity = 'critical'
+                }
+                elseif ($threshold -and $threshold.warning -and $actualValue -gt $threshold.warning) {
+                    $severity = 'warning'
+                }
+            }
+            else {
+                if ($target -and $actualValue -lt $target) {
+                    $isCompliant = $false
+                    $severity = 'violation'
+                }
+                if ($threshold -and $threshold.critical -and $actualValue -lt $threshold.critical) {
+                    $severity = 'critical'
+                }
+                elseif ($threshold -and $threshold.warning -and $actualValue -lt $threshold.warning) {
+                    $severity = 'warning'
+                }
+            }
+
+            if ($severity -ne 'compliant') {
+                $violations += @{
+                    metricName = $metricName
+                    expected = $target
+                    actual = $actualValue
+                    severity = $severity
+                    diff = if ($isLowerBetter) { $actualValue - $target } else { $target - $actualValue }
+                }
+                
+                if ($severity -eq 'warning') {
+                    $warningCount++
+                    if ($FailOnWarning) {
+                        $failedCount++
+                    }
+                    else {
+                        $passedCount++
+                    }
+                }
+                else {
+                    $failedCount++
+                }
+            }
+            else {
+                $passedCount++
+            }
+        }
+
+        $isOverallCompliant = ($violations | Where-Object { $_.severity -eq 'critical' }).Count -eq 0
+        if ($FailOnWarning) {
+            $isOverallCompliant = $violations.Count -eq 0
+        }
+
+        return @{
+            PackId = $PackId
+            TimeRange = $TimeRange
+            IsCompliant = $isOverallCompliant
+            Violations = $violations
+            Metrics = $metricValues
+            Summary = @{
+                Total = $passedCount + $failedCount
+                Passed = $passedCount
+                Failed = $failedCount
+                Warnings = $warningCount
+                Critical = ($violations | Where-Object { $_.severity -eq 'critical' }).Count
+            }
+            TestedAt = [DateTime]::UtcNow.ToString('o')
+        }
+    }
+}
+
+<#
+.SYNOPSIS
+    Gets telemetry data for a pack.
+
+.DESCRIPTION
+    Retrieves and aggregates telemetry data for the specified pack and metric.
+    Supports multiple aggregation functions including P95/P99 percentiles.
+
+.PARAMETER PackId
+    The unique identifier for the pack.
+
+.PARAMETER MetricName
+    The name of the metric to retrieve. If not specified, returns all metrics.
+
+.PARAMETER From
+    Start date/time for the query.
+
+.PARAMETER To
+    End date/time for the query.
+
+.PARAMETER TimeRange
+    Predefined time range ('1h', '24h', '7d', '30d', '90d'). Alternative to From/To.
+
+.PARAMETER Aggregation
+    Aggregation function: 'avg', 'p95', 'p99', 'sum', 'count', 'min', 'max'.
+
+.PARAMETER ProjectRoot
+    The project root directory.
+
+.OUTPUTS
+    System.Collections.Hashtable containing telemetry data.
+
+.EXAMPLE
+    PS C:\> Get-PackTelemetry -PackId "rpgmaker-mz" -TimeRange "24h"
+    
+    Gets all telemetry for the last 24 hours.
+
+.EXAMPLE
+    PS C:\> Get-PackTelemetry -PackId "godot-engine" -MetricName "refreshLatencyMs" -TimeRange "7d" -Aggregation "p95"
+    
+    Gets the P95 refresh latency over the last 7 days.
+#>
+function Get-PackTelemetry {
+    [CmdletBinding()]
+    [OutputType([hashtable])]
+    param(
+        [Parameter(Mandatory = $true)]
+        [ValidatePattern('^[a-z0-9-]+$')]
+        [string]$PackId,
+
+        [Parameter(Mandatory = $false)]
+        [string]$MetricName = '',
+
+        [Parameter(Mandatory = $false)]
+        [DateTime]$From = [DateTime]::MinValue,
+
+        [Parameter(Mandatory = $false)]
+        [DateTime]$To = [DateTime]::MaxValue,
+
+        [Parameter(Mandatory = $false)]
+        [ValidateSet('1h', '24h', '7d', '30d', '90d')]
+        [string]$TimeRange = '',
+
+        [Parameter(Mandatory = $false)]
+        [ValidateSet('avg', 'p95', 'p99', 'sum', 'count', 'min', 'max', 'latest')]
+        [string]$Aggregation = 'avg',
+
+        [Parameter(Mandatory = $false)]
+        [string]$ProjectRoot = '.'
+    )
+
+    process {
+        # Calculate time window if TimeRange specified
+        if ($TimeRange) {
+            $timeSpan = $script:TimeRangeMappings[$TimeRange]
+            $From = [DateTime]::UtcNow - $timeSpan
+            $To = [DateTime]::UtcNow
+        }
+        elseif ($From -eq [DateTime]::MinValue) {
+            # Default to 24 hours
+            $From = [DateTime]::UtcNow.AddHours(-24)
+            $To = [DateTime]::UtcNow
+        }
+
+        # If specific metric requested
+        if ($MetricName) {
+            $value = Get-TelemetryMetricsInternal -PackId $PackId -MetricName $MetricName -From $From -To $To -Aggregation $Aggregation -ProjectRoot $ProjectRoot
+            
+            return @{
+                PackId = $PackId
+                MetricName = $MetricName
+                From = $From.ToString('o')
+                To = $To.ToString('o')
+                Aggregation = $Aggregation
+                Value = $value
+            }
+        }
+
+        # Get all metrics
+        $allMetrics = @{}
+        $telemetryDir = Join-Path $ProjectRoot $script:TelemetryDirectory $PackId
+        
+        if (Test-Path -LiteralPath $telemetryDir) {
+            $files = Get-ChildItem -Path $telemetryDir -Filter "*.jsonl" -ErrorAction SilentlyContinue
+            
+            foreach ($file in $files) {
+                $metric = $file.BaseName
+                $value = Get-TelemetryMetricsInternal -PackId $PackId -MetricName $metric -From $From -To $To -Aggregation $Aggregation -ProjectRoot $ProjectRoot
+                if ($null -ne $value) {
+                    $allMetrics[$metric] = $value
+                }
+            }
+        }
+
+        return @{
+            PackId = $PackId
+            From = $From.ToString('o')
+            To = $To.ToString('o')
+            Aggregation = $Aggregation
+            Metrics = $allMetrics
+            MetricCount = $allMetrics.Count
+        }
+    }
+}
+
+<#
+.SYNOPSIS
+    Exports an SLO compliance report.
+
+.DESCRIPTION
+    Generates and exports a comprehensive SLO compliance report
+    in multiple formats (JSON, HTML, Markdown, CSV).
+
+.PARAMETER PackId
+    The pack identifier.
+
+.PARAMETER OutputPath
+    Path to save the report.
+
+.PARAMETER Format
+    Report format: json, html, markdown, csv.
+
+.PARAMETER TimeRange
+    Time range for report data.
+
+.PARAMETER ProjectRoot
+    The project root directory.
+
+.OUTPUTS
+    System.String. The path to the exported file.
+
+.EXAMPLE
+    PS C:\> Export-SLOReport -PackId "rpgmaker-mz" -OutputPath "./slo-report.html" -Format html
+    
+    Exports an HTML SLO report.
+
+.EXAMPLE
+    PS C:\> Export-SLOReport -PackId "godot-engine" -Format json -TimeRange "7d"
+    
+    Exports a JSON SLO report for the last 7 days.
+#>
+function Export-SLOReport {
+    [CmdletBinding()]
+    [OutputType([string])]
+    param(
+        [Parameter(Mandatory = $true)]
+        [ValidatePattern('^[a-z0-9-]+$')]
+        [string]$PackId,
+
+        [Parameter(Mandatory = $false)]
+        [string]$OutputPath = '',
+
+        [Parameter(Mandatory = $false)]
+        [ValidateSet('json', 'html', 'markdown', 'csv')]
+        [string]$Format = 'json',
+
+        [Parameter(Mandatory = $false)]
+        [ValidateSet('1h', '24h', '7d', '30d', '90d')]
+        [string]$TimeRange = '7d',
+
+        [Parameter(Mandatory = $false)]
+        [string]$ProjectRoot = '.'
+    )
+
+    process {
+        # Get SLO config
+        $sloConfig = Get-SLOConfigInternal -PackId $PackId -ProjectRoot $ProjectRoot
+        
+        # Get compliance check
+        $compliance = Test-PackSLOCompliance -PackId $PackId -TimeRange $TimeRange -ProjectRoot $ProjectRoot
+        
+        # Get telemetry data
+        $telemetry = Get-PackTelemetry -PackId $PackId -TimeRange $TimeRange -ProjectRoot $ProjectRoot
+        
+        # Get violations
+        $violations = Get-SLOViolations -PackId $PackId -TimeRange $TimeRange -ProjectRoot $ProjectRoot
+        
+        # Build report
+        $report = @{
+            ReportMetadata = @{
+                Title = "SLO Compliance Report - $PackId"
+                PackId = $PackId
+                GeneratedAt = [DateTime]::UtcNow.ToString('o')
+                TimeRange = $TimeRange
+                Format = $Format
+                Version = '1.0.0'
+            }
+            SLOConfiguration = @{
+                Targets = $sloConfig.targets
+                Thresholds = $sloConfig.thresholds
+                Owner = $sloConfig.owner
+                ReviewCadence = $sloConfig.reviewCadence
+            }
+            Compliance = $compliance
+            Telemetry = $telemetry
+            Violations = $violations
+        }
+
+        # Set default output path if not specified
+        if ([string]::IsNullOrEmpty($OutputPath)) {
+            $reportsDir = Join-Path $ProjectRoot $script:SLOReportsDirectory
+            if (-not (Test-Path -LiteralPath $reportsDir)) {
+                New-Item -ItemType Directory -Path $reportsDir -Force | Out-Null
+            }
+            $timestamp = [DateTime]::UtcNow.ToString('yyyyMMddTHHmmss')
+            $extension = switch ($Format) { 'markdown' { 'md' } default { $Format } }
+            $OutputPath = Join-Path $reportsDir "$PackId-slo-report-$timestamp.$extension"
+        }
+
+        # Ensure output directory exists
+        $outputDir = Split-Path -Parent $OutputPath
+        if (-not (Test-Path -LiteralPath $outputDir)) {
+            New-Item -ItemType Directory -Path $outputDir -Force | Out-Null
+        }
+
+        # Generate content based on format
+        $content = switch ($Format) {
+            'json' { $report | ConvertTo-Json -Depth 15 -Compress:$false }
+            'html' { ConvertTo-SLOHtmlReport -Report $report }
+            'markdown' { ConvertTo-SLOMarkdownReport -Report $report }
+            'csv' { ConvertTo-SLOCsvReport -Report $report }
+        }
+
+        # Write report
+        $content | Out-File -FilePath $OutputPath -Encoding UTF8
+
+        Write-Verbose "[PackSLOs] SLO report exported to: $OutputPath"
+        return $OutputPath
+    }
+}
+
+#===============================================================================
+# Additional SLO Functions
+#===============================================================================
 
 <#
 .SYNOPSIS
@@ -162,19 +706,10 @@ $script:PredefinedSLOs = @{
     The unique identifier for the pack (e.g., 'rpgmaker-mz').
 
 .PARAMETER Targets
-    Hashtable of SLO targets. Supported keys:
-    - p95RetrievalLatencyMs: Target P95 retrieval latency in milliseconds
-    - answerGroundingRate: Target rate of grounded answers (0.0-1.0)
-    - parserFailureRate: Maximum acceptable parser failure rate (0.0-1.0)
-    - provenanceCoverage: Target provenance coverage (0.0-1.0)
-    - goldenTaskPassRate: Target golden task pass rate (0.0-1.0)
-    - buildSuccessRate: Target build success rate (0.0-1.0)
-    - extractionCoverage: Target extraction coverage (0.0-1.0)
-    - refreshLatencyMs: Target refresh latency in milliseconds
+    Hashtable of SLO targets.
 
 .PARAMETER Thresholds
     Hashtable of warning and critical thresholds for each metric.
-    Format: @{ metricName = @{ warning = value; critical = value } }
 
 .PARAMETER ReviewCadence
     How often to review SLOs. Valid values: 'daily', 'weekly', 'bi-weekly', 'monthly'.
@@ -195,13 +730,6 @@ $script:PredefinedSLOs = @{
     PS C:\> New-PackSLO -PackId "custom-pack" -Targets @{ p95RetrievalLatencyMs = 1000 } -ReviewCadence "weekly"
     
     Creates a basic SLO configuration with default thresholds.
-
-.EXAMPLE
-    PS C:\> $targets = @{ answerGroundingRate = 0.97; parserFailureRate = 0.01 }
-    PS C:\> $thresholds = @{ answerGroundingRate = @{ warning = 0.95; critical = 0.90 } }
-    PS C:\> New-PackSLO -PackId "high-accuracy-pack" -Targets $targets -Thresholds $thresholds -Owner "ai-team"
-    
-    Creates an SLO configuration with custom targets and thresholds.
 #>
 function New-PackSLO {
     [CmdletBinding(SupportsShouldProcess = $true)]
@@ -315,33 +843,24 @@ function New-PackSLO {
     The pack identifier.
 
 .PARAMETER MetricName
-    The name of the metric to record. Supported values:
-    - buildSuccessRate, refreshLatencyMs, parserFailureRate
-    - extractionCoverage, provenanceCoverage, answerGroundingRate
-    - p95RetrievalLatencyMs, feedbackCategoryCounts
-    - Or any custom metric name
+    The name of the metric to record.
 
 .PARAMETER Value
     The numeric value to record.
 
 .PARAMETER Dimensions
-    Optional hashtable of additional context (e.g., @{ sourceId = 'abc'; operation = 'extract' }).
+    Optional hashtable of additional context.
 
 .PARAMETER RunId
-    Optional run ID for correlation. Defaults to current run ID or 'unknown'.
+    Optional run ID for correlation.
 
 .OUTPUTS
     System.Boolean. True if the telemetry was recorded successfully.
 
 .EXAMPLE
-    PS C:\> Record-Telemetry -PackId "rpgmaker-mz" -MetricName "refreshLatencyMs" -Value 2500 -Dimensions @{ sourceCount = 5 }
+    PS C:\> Record-Telemetry -PackId "rpgmaker-mz" -MetricName "refreshLatencyMs" -Value 2500
     
     Records a refresh latency measurement.
-
-.EXAMPLE
-    PS C:\> Record-Telemetry -PackId "godot-engine" -MetricName "buildSuccessRate" -Value 1.0 -Dimensions @{ buildId = "20260412-1"; durationMs = 45000 }
-    
-    Records a successful build event.
 #>
 function Record-Telemetry {
     [CmdletBinding()]
@@ -366,19 +885,6 @@ function Record-Telemetry {
 
     process {
         try {
-            # Get run ID if not provided
-            if ($RunId -eq 'unknown') {
-                try {
-                    $runIdCmd = Get-Command Get-CurrentRunId -ErrorAction SilentlyContinue
-                    if ($runIdCmd) {
-                        $RunId = & $runIdCmd -ErrorAction SilentlyContinue
-                    }
-                }
-                catch {
-                    $RunId = 'unknown'
-                }
-            }
-
             # Ensure telemetry directory exists
             $packTelemetryDir = Join-Path $script:TelemetryDirectory $PackId
             if (-not (Test-Path -LiteralPath $packTelemetryDir)) {
@@ -398,13 +904,9 @@ function Record-Telemetry {
             # Convert to JSON line
             $jsonLine = ($entry | ConvertTo-Json -Compress -Depth 5)
             
-            # Ensure ASCII-safe output
-            $bytes = [System.Text.Encoding]::UTF8.GetBytes($jsonLine)
-            $safeLine = [System.Text.Encoding]::UTF8.GetString($bytes)
-
             # Write to file (append)
             $metricFile = Join-Path $packTelemetryDir "$MetricName.jsonl"
-            $safeLine | Out-File -FilePath $metricFile -Encoding UTF8 -Append
+            $jsonLine | Out-File -FilePath $metricFile -Encoding UTF8 -Append
 
             Write-Verbose "[PackSLOs] Recorded telemetry: $PackId/$MetricName = $Value"
             return $true
@@ -491,7 +993,7 @@ function Get-PackSLOStatus {
             $status = 'compliant'
             if ($threshold) {
                 # For metrics where lower is better (latency, failure rate)
-                $isLowerBetter = $metricName -match '(?i)(latency|failure|error)'
+                $isLowerBetter = $metricName -match '(?i)(latency|failure|error|hours)'
                 
                 if ($isLowerBetter) {
                     if ($threshold.critical -and $actualValue -gt $threshold.critical) {
@@ -548,142 +1050,6 @@ function Get-PackSLOStatus {
 
 <#
 .SYNOPSIS
-    Tests if a pack's SLOs are being met.
-
-.DESCRIPTION
-    Compares actual metrics against SLO configuration to determine compliance.
-    Can be used for ad-hoc testing or in CI/CD pipelines.
-
-.PARAMETER PackId
-    The pack identifier.
-
-.PARAMETER SLOConfig
-    Optional SLO configuration. If not provided, loads from file or uses defaults.
-
-.PARAMETER ActualMetrics
-    Hashtable of actual metric values to test against targets.
-
-.PARAMETER FailOnWarning
-    If specified, treats warnings as failures.
-
-.OUTPUTS
-    System.Collections.Hashtable containing:
-    - isCompliant: Boolean indicating overall compliance
-    - violations: Array of SLO violations
-    - summary: Summary of test results
-
-.EXAMPLE
-    PS C:\> $metrics = @{ p95RetrievalLatencyMs = 1100; answerGroundingRate = 0.96 }
-    PS C:\> Test-SLOCompliance -PackId "rpgmaker-mz" -ActualMetrics $metrics
-    
-    Tests SLO compliance with provided metrics.
-#>
-function Test-SLOCompliance {
-    [CmdletBinding()]
-    [OutputType([hashtable])]
-    param(
-        [Parameter(Mandatory = $true)]
-        [ValidatePattern('^[a-z0-9-]+$')]
-        [string]$PackId,
-
-        [Parameter()]
-        [hashtable]$SLOConfig = $null,
-
-        [Parameter(Mandatory = $true)]
-        [hashtable]$ActualMetrics,
-
-        [Parameter()]
-        [switch]$FailOnWarning
-    )
-
-    process {
-        # Load SLO config if not provided
-        if (-not $SLOConfig) {
-            $SLOConfig = Get-SLOConfigInternal -PackId $PackId
-        }
-
-        if (-not $SLOConfig) {
-            # Use default SLOs
-            $SLOConfig = @{
-                targets = $script:DefaultSLOTargets
-                thresholds = $script:DefaultThresholds
-            }
-        }
-
-        $violations = @()
-        $passedCount = 0
-        $failedCount = 0
-
-        foreach ($metricName in $SLOConfig.targets.Keys) {
-            $target = $SLOConfig.targets[$metricName]
-            $threshold = $SLOConfig.thresholds[$metricName]
-            $actualValue = $ActualMetrics[$metricName]
-
-            if ($null -eq $actualValue) {
-                continue
-            }
-
-            # Determine if compliant
-            $isLowerBetter = $metricName -match '(?i)(latency|failure|error)'
-            $isCompliant = $true
-            $severity = 'compliant'
-
-            if ($isLowerBetter) {
-                if ($target -and $actualValue -gt $target) {
-                    $isCompliant = $false
-                    $severity = 'violation'
-                }
-                if ($threshold -and $threshold.critical -and $actualValue -gt $threshold.critical) {
-                    $severity = 'critical'
-                }
-                elseif ($threshold -and $threshold.warning -and $actualValue -gt $threshold.warning) {
-                    $severity = 'warning'
-                }
-            }
-            else {
-                if ($target -and $actualValue -lt $target) {
-                    $isCompliant = $false
-                    $severity = 'violation'
-                }
-                if ($threshold -and $threshold.critical -and $actualValue -lt $threshold.critical) {
-                    $severity = 'critical'
-                }
-                elseif ($threshold -and $threshold.warning -and $actualValue -lt $threshold.warning) {
-                    $severity = 'warning'
-                }
-            }
-
-            if (-not $isCompliant -or ($FailOnWarning -and $severity -ne 'compliant')) {
-                $violations += @{
-                    metricName = $metricName
-                    expected = $target
-                    actual = $actualValue
-                    severity = $severity
-                    diff = if ($isLowerBetter) { $actualValue - $target } else { $target - $actualValue }
-                }
-                $failedCount++
-            }
-            else {
-                $passedCount++
-            }
-        }
-
-        return @{
-            packId = $PackId
-            isCompliant = ($violations.Count -eq 0)
-            violations = $violations
-            summary = @{
-                total = $passedCount + $failedCount
-                passed = $passedCount
-                failed = $failedCount
-            }
-            testedAt = [DateTime]::UtcNow.ToString('o')
-        }
-    }
-}
-
-<#
-.SYNOPSIS
     Gets aggregated telemetry metrics for a pack.
 
 .DESCRIPTION
@@ -712,11 +1078,6 @@ function Test-SLOCompliance {
     PS C:\> Get-TelemetryMetrics -PackId "rpgmaker-mz" -MetricName "refreshLatencyMs" -From (Get-Date).AddDays(-7) -To (Get-Date) -Aggregation "p95"
     
     Gets the P95 refresh latency over the last 7 days.
-
-.EXAMPLE
-    PS C:\> Get-TelemetryMetrics -PackId "godot-engine" -MetricName "buildSuccessRate" -From (Get-Date).AddHours(-24) -To (Get-Date) -Aggregation "avg"
-    
-    Gets the average build success rate over the last 24 hours.
 #>
 function Get-TelemetryMetrics {
     [CmdletBinding()]
@@ -747,116 +1108,6 @@ function Get-TelemetryMetrics {
 
 <#
 .SYNOPSIS
-    Internal function to get aggregated telemetry metrics.
-#>
-function Get-TelemetryMetricsInternal {
-    [CmdletBinding()]
-    [OutputType([double])]
-    param(
-        [Parameter(Mandatory = $true)]
-        [string]$PackId,
-
-        [Parameter(Mandatory = $true)]
-        [string]$MetricName,
-
-        [Parameter(Mandatory = $true)]
-        [DateTime]$From,
-
-        [Parameter(Mandatory = $true)]
-        [DateTime]$To,
-
-        [Parameter()]
-        [string]$Aggregation = 'avg'
-    )
-
-    process {
-        $metricFile = Join-Path $script:TelemetryDirectory "$PackId/$MetricName.jsonl"
-
-        if (-not (Test-Path -LiteralPath $metricFile)) {
-            return $null
-        }
-
-        try {
-            # Read and filter entries
-            $entries = @()
-            $lines = Get-Content -LiteralPath $metricFile -Encoding UTF8
-
-            foreach ($line in $lines) {
-                if ([string]::IsNullOrWhiteSpace($line)) { continue }
-
-                try {
-                    $entry = $line | ConvertFrom-Json
-                    $entryTime = [DateTime]::Parse($entry.timestamp)
-
-                    if ($entryTime -ge $From -and $entryTime -le $To) {
-                        $entries += $entry.value
-                    }
-                }
-                catch {
-                    Write-Verbose "[PackSLOs] Failed to parse telemetry line: $_"
-                }
-            }
-
-            if ($entries.Count -eq 0) {
-                return $null
-            }
-
-            # Calculate aggregation
-            switch ($Aggregation.ToLower()) {
-                'avg' { return ($entries | Measure-Object -Average).Average }
-                'sum' { return ($entries | Measure-Object -Sum).Sum }
-                'count' { return $entries.Count }
-                'min' { return ($entries | Measure-Object -Minimum).Minimum }
-                'max' { return ($entries | Measure-Object -Maximum).Maximum }
-                'p95' { return Get-Percentile -Values $entries -Percentile 95 }
-                'p99' { return Get-Percentile -Values $entries -Percentile 99 }
-                default { return ($entries | Measure-Object -Average).Average }
-            }
-        }
-        catch {
-            Write-Warning "[PackSLOs] Failed to read telemetry: $_"
-            return $null
-        }
-    }
-}
-
-<#
-.SYNOPSIS
-    Calculates the specified percentile of a value array.
-#>
-function Get-Percentile {
-    [CmdletBinding()]
-    [OutputType([double])]
-    param(
-        [Parameter(Mandatory = $true)]
-        [double[]]$Values,
-
-        [Parameter(Mandatory = $true)]
-        [int]$Percentile
-    )
-
-    process {
-        $sorted = $Values | Sort-Object
-        $count = $sorted.Count
-        
-        if ($count -eq 0) { return 0 }
-        if ($count -eq 1) { return $sorted[0] }
-        
-        $index = ($Percentile / 100) * ($count - 1)
-        $lower = [math]::Floor($index)
-        $upper = [math]::Ceiling($index)
-        $weight = $index - $lower
-        
-        if ($lower -eq $upper) {
-            return $sorted[$lower]
-        }
-        
-        return $sorted[$lower] * (1 - $weight) + $sorted[$upper] * $weight
-    }
-}
-
-<#
-.SYNOPSIS
     Gets pack health dashboard data.
 
 .DESCRIPTION
@@ -867,15 +1118,7 @@ function Get-Percentile {
     The pack identifier.
 
 .OUTPUTS
-    System.Collections.Hashtable containing dashboard data:
-    - packId: Pack identifier
-    - generatedAt: Timestamp
-    - sloConfig: Current SLO configuration
-    - currentMetrics: Current metric values (24h avg)
-    - sloStatus: Current SLO compliance status
-    - trends: Trend indicators for key metrics
-    - recentViolations: Recent SLO violations
-    - recommendations: Recommended actions
+    System.Collections.Hashtable containing dashboard data.
 
 .EXAMPLE
     PS C:\> Get-PackHealthDashboard -PackId "rpgmaker-mz"
@@ -1401,105 +1644,6 @@ function Import-PackSLO {
 
 <#
 .SYNOPSIS
-    Internal function to get SLO configuration for a pack.
-#>
-function Get-SLOConfigInternal {
-    [CmdletBinding()]
-    [OutputType([hashtable])]
-    param(
-        [Parameter(Mandatory = $true)]
-        [string]$PackId
-    )
-
-    process {
-        # Check for predefined SLOs
-        if ($script:PredefinedSLOs.ContainsKey($PackId)) {
-            return $script:PredefinedSLOs[$PackId]
-        }
-
-        # Check for saved SLO configuration
-        $sloPath = Join-Path $script:SLOConfigDirectory "$PackId.json"
-        if (Test-Path -LiteralPath $sloPath) {
-            try {
-                return Get-Content -LiteralPath $sloPath -Raw | ConvertFrom-Json -AsHashtable
-            }
-            catch {
-                Write-Warning "[PackSLOs] Failed to load SLO config from $sloPath`: $_"
-            }
-        }
-
-        # Return default configuration
-        return @{
-            packId = $PackId
-            version = '1.0'
-            targets = $script:DefaultSLOTargets.Clone()
-            thresholds = $script:DefaultThresholds.Clone()
-            reviewCadence = 'weekly'
-            lastReviewed = [DateTime]::UtcNow.ToString('yyyy-MM-ddTHH:mm:ssZ')
-            owner = 'unspecified'
-            description = 'Default SLO configuration'
-        }
-    }
-}
-
-<#
-.SYNOPSIS
-    Internal function to get metric trends.
-#>
-function Get-MetricTrends {
-    [CmdletBinding()]
-    [OutputType([hashtable])]
-    param(
-        [Parameter(Mandatory = $true)]
-        [string]$PackId,
-
-        [Parameter()]
-        [hashtable]$SLOConfig = $null
-    )
-
-    process {
-        if (-not $SLOConfig -or -not $SLOConfig.targets) {
-            return @{}
-        }
-
-        $trends = @{}
-        $now = [DateTime]::UtcNow
-        $recentFrom = $now.AddHours(-24)
-        $previousFrom = $now.AddHours(-48)
-        $previousTo = $now.AddHours(-24)
-
-        foreach ($metricName in $SLOConfig.targets.Keys) {
-            $recentValue = Get-TelemetryMetricsInternal -PackId $PackId -MetricName $metricName -From $recentFrom -To $now -Aggregation 'avg'
-            $previousValue = Get-TelemetryMetricsInternal -PackId $PackId -MetricName $metricName -From $previousFrom -To $previousTo -Aggregation 'avg'
-
-            if ($null -eq $recentValue -or $null -eq $previousValue) {
-                $trends[$metricName] = 'unknown'
-                continue
-            }
-
-            $diff = $recentValue - $previousValue
-            $percentChange = if ($previousValue -ne 0) { ($diff / $previousValue) * 100 } else { 0 }
-
-            # For metrics where lower is better
-            $isLowerBetter = $metricName -match '(?i)(latency|failure|error)'
-
-            if ([math]::Abs($percentChange) -lt 5) {
-                $trends[$metricName] = 'stable'
-            }
-            elseif ($percentChange -gt 0) {
-                $trends[$metricName] = if ($isLowerBetter) { 'degrading' } else { 'improving' }
-            }
-            else {
-                $trends[$metricName] = if ($isLowerBetter) { 'improving' } else { 'degrading' }
-            }
-        }
-
-        return $trends
-    }
-}
-
-<#
-.SYNOPSIS
     Rotates telemetry files older than the retention period.
 
 .DESCRIPTION
@@ -1607,18 +1751,421 @@ function Invoke-TelemetryRotation {
     }
 }
 
+#===============================================================================
+# Internal Helper Functions
+#===============================================================================
+
+<#
+.SYNOPSIS
+    Internal function to get aggregated telemetry metrics.
+#>
+function Get-TelemetryMetricsInternal {
+    [CmdletBinding()]
+    [OutputType([double])]
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$PackId,
+
+        [Parameter(Mandatory = $true)]
+        [string]$MetricName,
+
+        [Parameter(Mandatory = $true)]
+        [DateTime]$From,
+
+        [Parameter(Mandatory = $true)]
+        [DateTime]$To,
+
+        [Parameter()]
+        [string]$Aggregation = 'avg',
+
+        [Parameter()]
+        [string]$ProjectRoot = '.'
+    )
+
+    process {
+        $telemetryDir = Join-Path $ProjectRoot $script:TelemetryDirectory
+        $metricFile = Join-Path $telemetryDir "$PackId/$MetricName.jsonl"
+
+        if (-not (Test-Path -LiteralPath $metricFile)) {
+            return $null
+        }
+
+        try {
+            # Read and filter entries
+            $entries = @()
+            $lines = Get-Content -LiteralPath $metricFile -Encoding UTF8
+
+            foreach ($line in $lines) {
+                if ([string]::IsNullOrWhiteSpace($line)) { continue }
+
+                try {
+                    $entry = $line | ConvertFrom-Json
+                    $entryTime = [DateTime]::Parse($entry.timestamp)
+
+                    if ($entryTime -ge $From -and $entryTime -le $To) {
+                        $entries += $entry.value
+                    }
+                }
+                catch {
+                    Write-Verbose "[PackSLOs] Failed to parse telemetry line: $_"
+                }
+            }
+
+            if ($entries.Count -eq 0) {
+                return $null
+            }
+
+            # Calculate aggregation
+            switch ($Aggregation.ToLower()) {
+                'avg' { return ($entries | Measure-Object -Average).Average }
+                'sum' { return ($entries | Measure-Object -Sum).Sum }
+                'count' { return $entries.Count }
+                'min' { return ($entries | Measure-Object -Minimum).Minimum }
+                'max' { return ($entries | Measure-Object -Maximum).Maximum }
+                'p95' { return Get-Percentile -Values $entries -Percentile 95 }
+                'p99' { return Get-Percentile -Values $entries -Percentile 99 }
+                'latest' { return $entries[-1] }
+                default { return ($entries | Measure-Object -Average).Average }
+            }
+        }
+        catch {
+            Write-Warning "[PackSLOs] Failed to read telemetry: $_"
+            return $null
+        }
+    }
+}
+
+<#
+.SYNOPSIS
+    Internal function to get SLO configuration for a pack.
+#>
+function Get-SLOConfigInternal {
+    [CmdletBinding()]
+    [OutputType([hashtable])]
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$PackId,
+
+        [Parameter()]
+        [string]$ProjectRoot = '.'
+    )
+
+    process {
+        # Check for predefined SLOs
+        if ($script:PredefinedSLOs.ContainsKey($PackId)) {
+            return $script:PredefinedSLOs[$PackId]
+        }
+
+        # Check for saved SLO configuration
+        $sloDir = Join-Path $ProjectRoot $script:SLOConfigDirectory
+        $sloPath = Join-Path $sloDir "$PackId.json"
+        if (Test-Path -LiteralPath $sloPath) {
+            try {
+                return Get-Content -LiteralPath $sloPath -Raw | ConvertFrom-Json -AsHashtable
+            }
+            catch {
+                Write-Warning "[PackSLOs] Failed to load SLO config from $sloPath`: $_"
+            }
+        }
+
+        # Return default configuration
+        return @{
+            packId = $PackId
+            version = '1.0'
+            targets = $script:DefaultSLOTargets.Clone()
+            thresholds = $script:DefaultThresholds.Clone()
+            reviewCadence = 'weekly'
+            lastReviewed = [DateTime]::UtcNow.ToString('yyyy-MM-ddTHH:mm:ssZ')
+            owner = 'unspecified'
+            description = 'Default SLO configuration'
+        }
+    }
+}
+
+<#
+.SYNOPSIS
+    Calculates the specified percentile of a value array.
+#>
+function Get-Percentile {
+    [CmdletBinding()]
+    [OutputType([double])]
+    param(
+        [Parameter(Mandatory = $true)]
+        [double[]]$Values,
+
+        [Parameter(Mandatory = $true)]
+        [int]$Percentile
+    )
+
+    process {
+        $sorted = $Values | Sort-Object
+        $count = $sorted.Count
+        
+        if ($count -eq 0) { return 0 }
+        if ($count -eq 1) { return $sorted[0] }
+        
+        $index = ($Percentile / 100) * ($count - 1)
+        $lower = [math]::Floor($index)
+        $upper = [math]::Ceiling($index)
+        $weight = $index - $lower
+        
+        if ($lower -eq $upper) {
+            return $sorted[$lower]
+        }
+        
+        return $sorted[$lower] * (1 - $weight) + $sorted[$upper] * $weight
+    }
+}
+
+<#
+.SYNOPSIS
+    Internal function to get metric trends.
+#>
+function Get-MetricTrends {
+    [CmdletBinding()]
+    [OutputType([hashtable])]
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$PackId,
+
+        [Parameter()]
+        [hashtable]$SLOConfig = $null
+    )
+
+    process {
+        if (-not $SLOConfig -or -not $SLOConfig.targets) {
+            return @{}
+        }
+
+        $trends = @{}
+        $now = [DateTime]::UtcNow
+        $recentFrom = $now.AddHours(-24)
+        $previousFrom = $now.AddHours(-48)
+        $previousTo = $now.AddHours(-24)
+
+        foreach ($metricName in $SLOConfig.targets.Keys) {
+            $recentValue = Get-TelemetryMetricsInternal -PackId $PackId -MetricName $metricName -From $recentFrom -To $now -Aggregation 'avg'
+            $previousValue = Get-TelemetryMetricsInternal -PackId $PackId -MetricName $metricName -From $previousFrom -To $previousTo -Aggregation 'avg'
+
+            if ($null -eq $recentValue -or $null -eq $previousValue) {
+                $trends[$metricName] = 'unknown'
+                continue
+            }
+
+            $diff = $recentValue - $previousValue
+            $percentChange = if ($previousValue -ne 0) { ($diff / $previousValue) * 100 } else { 0 }
+
+            # For metrics where lower is better
+            $isLowerBetter = $metricName -match '(?i)(latency|failure|error|hours)'
+
+            if ([math]::Abs($percentChange) -lt 5) {
+                $trends[$metricName] = 'stable'
+            }
+            elseif ($percentChange -gt 0) {
+                $trends[$metricName] = if ($isLowerBetter) { 'degrading' } else { 'improving' }
+            }
+            else {
+                $trends[$metricName] = if ($isLowerBetter) { 'improving' } else { 'degrading' }
+            }
+        }
+
+        return $trends
+    }
+}
+
+<#
+.SYNOPSIS
+    Internal: Converts report to HTML format.
+#>
+function ConvertTo-SLOHtmlReport {
+    param([hashtable]$Report)
+
+    $html = @"
+<!DOCTYPE html>
+<html>
+<head>
+    <title>$($Report.ReportMetadata.Title)</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 40px; background: #f5f5f5; }
+        h1 { color: #333; border-bottom: 2px solid #333; padding-bottom: 10px; }
+        .status-compliant { color: green; font-weight: bold; }
+        .status-warning { color: orange; font-weight: bold; }
+        .status-critical { color: red; font-weight: bold; }
+        .card { background: white; padding: 20px; margin: 20px 0; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        table { width: 100%; border-collapse: collapse; margin: 15px 0; }
+        th, td { padding: 12px; text-align: left; border-bottom: 1px solid #ddd; }
+        th { background: #333; color: white; }
+        tr:hover { background: #f9f9f9; }
+        .metric-value { font-family: monospace; font-size: 14px; }
+        .summary-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin: 20px 0; }
+        .metric-card { background: white; padding: 15px; border-radius: 8px; text-align: center; }
+        .metric-number { font-size: 32px; font-weight: bold; }
+        .metric-label { color: #666; font-size: 12px; }
+    </style>
+</head>
+<body>
+    <h1>$($Report.ReportMetadata.Title)</h1>
+    <p><strong>Generated:</strong> $($Report.ReportMetadata.GeneratedAt)</p>
+    <p><strong>Time Range:</strong> $($Report.ReportMetadata.TimeRange)</p>
+    
+    <div class="card">
+        <h2>Compliance Status</h2>
+        <p>Overall Status: <span class="status-$($Report.Compliance.Summary.Status.ToLower())">$($Report.Compliance.Summary.Status)</span></p>
+        <div class="summary-grid">
+            <div class="metric-card">
+                <div class="metric-number">$($Report.Compliance.Summary.Total)</div>
+                <div class="metric-label">Metrics Evaluated</div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-number" style="color: green;">$($Report.Compliance.Summary.Passed)</div>
+                <div class="metric-label">Passed</div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-number" style="color: orange;">$($Report.Compliance.Summary.Warnings)</div>
+                <div class="metric-label">Warnings</div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-number" style="color: red;">$($Report.Compliance.Summary.Critical)</div>
+                <div class="metric-label">Critical</div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="card">
+        <h2>Metric Details</h2>
+        <table>
+            <tr>
+                <th>Metric</th>
+                <th>Target</th>
+                <th>Actual</th>
+                <th>Status</th>
+            </tr>
+"@
+
+    foreach ($metric in $Report.SLOConfiguration.Targets.Keys) {
+        $target = $Report.SLOConfiguration.Targets[$metric]
+        $actual = $Report.Telemetry.Metrics[$metric]
+        $status = if ($Report.Compliance.Violations | Where-Object { $_.metricName -eq $metric }) { 
+            $violation = $Report.Compliance.Violations | Where-Object { $_.metricName -eq $metric }
+            $violation.severity 
+        } else { 'compliant' }
+        
+        $html += @"
+            <tr>
+                <td>$metric</td>
+                <td>$target</td>
+                <td class="metric-value">$actual</td>
+                <td><span class="status-$status">$status</span></td>
+            </tr>
+"@
+    }
+
+    $html += @"
+        </table>
+    </div>
+</body>
+</html>
+"@
+
+    return $html
+}
+
+<#
+.SYNOPSIS
+    Internal: Converts report to Markdown format.
+#>
+function ConvertTo-SLOMarkdownReport {
+    param([hashtable]$Report)
+
+    $md = @"
+# $($Report.ReportMetadata.Title)
+
+**Generated:** $($Report.ReportMetadata.GeneratedAt)  
+**Time Range:** $($Report.ReportMetadata.TimeRange)  
+**Pack:** $($Report.ReportMetadata.PackId)
+
+## Compliance Summary
+
+| Metric | Value |
+|--------|-------|
+| Overall Status | $($Report.Compliance.Summary.Status) |
+| Total Metrics | $($Report.Compliance.Summary.Total) |
+| Passed | $($Report.Compliance.Summary.Passed) |
+| Warnings | $($Report.Compliance.Summary.Warnings) |
+| Critical | $($Report.Compliance.Summary.Critical) |
+
+## SLO Targets vs Actual
+
+| Metric | Target | Actual | Status |
+|--------|--------|--------|--------|
+"@
+
+    foreach ($metric in $Report.SLOConfiguration.Targets.Keys) {
+        $target = $Report.SLOConfiguration.Targets[$metric]
+        $actual = $Report.Telemetry.Metrics[$metric]
+        $status = if ($Report.Compliance.Violations | Where-Object { $_.metricName -eq $metric }) { 
+            ($Report.Compliance.Violations | Where-Object { $_.metricName -eq $metric }).severity 
+        } else { 'compliant' }
+        
+        $md += "| $metric | $target | $actual | $status |`n"
+    }
+
+    $md += "`n## Violations`n`n"
+    
+    if ($Report.Compliance.Violations.Count -eq 0) {
+        $md += "No SLO violations detected." +
+
+ "`n"
+    }
+    else {
+        foreach ($v in $Report.Compliance.Violations) {
+            $md += "- **$($v.metricName)** ($($v.severity)): Expected $($v.expected), Actual $($v.actual)`n"
+        }
+    }
+
+    return $md
+}
+
+<#
+.SYNOPSIS
+    Internal: Converts report to CSV format.
+#>
+function ConvertTo-SLOCsvReport {
+    param([hashtable]$Report)
+
+    $csv = "Metric,Target,Actual,Status,Severity`n"
+
+    foreach ($metric in $Report.SLOConfiguration.Targets.Keys) {
+        $target = $Report.SLOConfiguration.Targets[$metric]
+        $actual = $Report.Telemetry.Metrics[$metric]
+        $violation = $Report.Compliance.Violations | Where-Object { $_.metricName -eq $metric }
+        $status = if ($violation) { $violation.severity } else { 'compliant' }
+        $severity = if ($violation) { $violation.severity } else { 'none' }
+        
+        $csv += "$metric,$target,$actual,$status,$severity`n"
+    }
+
+    return $csv
+}
+
 # Export module members
 Export-ModuleMember -Function @(
-    'New-PackSLO',
-    'Record-Telemetry',
-    'Get-PackSLOStatus',
-    'Test-SLOCompliance',
-    'Get-TelemetryMetrics',
-    'Get-PackHealthDashboard',
-    'Get-SLOViolations',
-    'Register-SLOViolation',
-    'Get-TelemetrySummary',
-    'Export-PackSLO',
-    'Import-PackSLO',
+    # Core SLO functions as specified
+    'Get-PackHealthSLOs'
+    'Test-PackSLOCompliance'
+    'Get-PackTelemetry'
+    'Export-SLOReport'
+    
+    # Additional SLO management functions
+    'New-PackSLO'
+    'Record-Telemetry'
+    'Get-PackSLOStatus'
+    'Get-TelemetryMetrics'
+    'Get-PackHealthDashboard'
+    'Get-SLOViolations'
+    'Register-SLOViolation'
+    'Get-TelemetrySummary'
+    'Export-PackSLO'
+    'Import-PackSLO'
     'Invoke-TelemetryRotation'
 )

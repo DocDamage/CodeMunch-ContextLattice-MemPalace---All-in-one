@@ -1,0 +1,95 @@
+﻿{
+    "policies":  {
+                     "test-gate":  {
+                                       "operationType":  "high-value",
+                                       "description":  "Human review gate for test-gate",
+                                       "createdAt":  "2026-04-13T10:23:45Z",
+                                       "version":  1,
+                                       "name":  "test-gate",
+                                       "triggers":  {
+                                                        "test":  {
+                                                                     "enabled":  true
+                                                                 }
+                                                    },
+                                       "defaultReviewers":  "alice",
+                                       "conditions":  {
+                                                          "requireOwnerApproval":  false,
+                                                          "minApprovers":  1,
+                                                          "autoExpireHours":  72
+                                                      }
+                                   }
+                 },
+    "stats":  {
+                  "expiredCount":  0,
+                  "approvedCount":  2,
+                  "pendingCount":  0,
+                  "rejectedCount":  1,
+                  "totalRequests":  3
+              },
+    "lastUpdated":  "2026-04-13T10:23:45Z",
+    "requests":  {
+                     "review-20260413T102345-a8caf3":  {
+                                                           "notificationsSent":  [
+                                                                                     {
+                                                                                         "timestamp":  "2026-04-13T10:23:45Z",
+                                                                                         "channels":  {
+
+                                                                                                      },
+                                                                                         "eventType":  "created"
+                                                                                     },
+                                                                                     {
+                                                                                         "timestamp":  "2026-04-13T10:23:45Z",
+                                                                                         "channels":  [
+
+                                                                                                      ],
+                                                                                         "eventType":  "decision-submitted"
+                                                                                     }
+                                                                                 ],
+                                                           "conditions":  {
+                                                                              "requireOwnerApproval":  false,
+                                                                              "minApprovers":  1,
+                                                                              "autoExpireHours":  72
+                                                                          },
+                                                           "operation":  "test-gate",
+                                                           "priority":  "normal",
+                                                           "operationType":  "high-value",
+                                                           "escalatedAt":  null,
+                                                           "requestId":  "review-20260413T102345-a8caf3",
+                                                           "justification":  "",
+                                                           "completedAt":  "2026-04-13T10:23:45Z",
+                                                           "updatedAt":  "2026-04-13T10:23:45Z",
+                                                           "runId":  "20260413T102345-0ee1",
+                                                           "createdAt":  "2026-04-13T10:23:45Z",
+                                                           "changeSet":  {
+                                                                             "content":  {
+                                                                                             "d":  1
+                                                                                         },
+                                                                             "context":  {
+
+                                                                                         }
+                                                                         },
+                                                           "status":  "approved",
+                                                           "metadata":  {
+                                                                            "host":  "docdamage",
+                                                                            "pid":  23848,
+                                                                            "version":  1
+                                                                        },
+                                                           "decisions":  [
+                                                                             {
+                                                                                 "comments":  "",
+                                                                                 "conditions":  {
+
+                                                                                                },
+                                                                                 "submittedAt":  "2026-04-13T10:23:45Z",
+                                                                                 "reviewer":  "alice",
+                                                                                 "decision":  "approved"
+                                                                             }
+                                                                         ],
+                                                           "reviewers":  "alice",
+                                                           "requester":  "tester",
+                                                           "expiresAt":  "2026-04-16T10:23:45Z"
+                                                       }
+                 },
+    "schemaName":  "human-review-gates",
+    "schemaVersion":  1
+}
