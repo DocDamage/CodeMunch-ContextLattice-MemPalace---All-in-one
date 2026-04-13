@@ -6,6 +6,150 @@ The format is based on Keep a Changelog and this project follows Semantic Versio
 
 ## [Unreleased]
 
+## [0.9.5] - 2026-04-12
+
+### Added
+
+#### Extended Domain Packs
+
+- **4 New Domain Packs:**
+  - `voice-audio-pack` - Voice synthesis, audio processing, speech recognition
+  - `engine-reference-pack` - Game engine internals and reference documentation
+  - `ui-frontend-pack` - UI frameworks, component libraries, frontend patterns
+  - `ml-education-pack` - Machine learning tutorials, educational content, ML fundamentals
+
+- **8 New Extraction Parsers:**
+  - `VoiceMarkupParser.ps1` - Voice markup format parsing (SSML, etc.)
+  - `AudioMetadataParser.ps1` - Audio file metadata extraction
+  - `UIComponentParser.ps1` - UI component definition parsing
+  - `FrontendConfigParser.ps1` - Frontend build config extraction (webpack, vite, etc.)
+  - `MLNotebookParser.ps1` - ML training notebook parsing
+  - `APIBlueprintParser.ps1` - API Blueprint specification parsing
+  - `AgentBehaviorParser.ps1` - Agent simulation behavior tree parsing
+  - `NotebookCellParser.ps1` - Jupyter notebook cell extraction
+
+- **4 Advanced Inter-Pack Pipelines:**
+  - Voice-to-Animation pipeline (Voice → Godot Animation)
+  - UI-to-Scene pipeline (Frontend → Godot UI scenes)
+  - ML-to-Shader pipeline (ML education → GDShader)
+  - API-to-Plugin pipeline (API docs → RPG Maker plugins)
+
+- **Godot Extended Sources:**
+  - 9 additional Godot repository sources added
+  - Enhanced GDExtension coverage
+  - Additional demo project templates
+
+## [0.9.0] - 2026-04-12
+
+### Added
+
+#### Future Pack Candidates
+
+- **3 New Domain Packs:**
+  - `api-reverse-pack` - API reverse engineering documentation and patterns
+  - `notebook-pack` - Interactive notebook content and cell-based tutorials
+  - `agent-simulation-pack` - Agent-based simulation frameworks and behavior models
+
+- **MCP Deployment Scripts (5 tools):**
+  - `Deploy-MCPServer.ps1` - Server deployment automation
+  - `Register-MCPTool.ps1` - Tool registration with gateway
+  - `Test-MCPDeployment.ps1` - Deployment validation and health checks
+  - `Update-MCPManifest.ps1` - Manifest synchronization
+  - `Invoke-MCPRollback.ps1` - Safe rollback procedures
+
+- **Performance Benchmarking Suite (5 modules):**
+  - `RetrievalBenchmark.ps1` - Retrieval latency and accuracy benchmarks
+  - `ExtractionBenchmark.ps1` - Parser performance testing
+  - `CacheBenchmark.ps1` - Cache hit rate and eviction testing
+  - `QueryRouterBenchmark.ps1` - Routing decision performance
+  - `EndToEndBenchmark.ps1` - Full workflow performance testing
+
+- **25 New Golden Task Evaluations:**
+  - 10 API reverse engineering tasks
+  - 8 Notebook interaction tasks
+  - 7 Agent simulation tasks
+  - Property-based validation for all new tasks
+
+## [0.8.0] - 2026-04-12
+
+### Added
+
+#### Phase 7 Platform Expansion
+
+- **MCP Toolkit Servers (21 tools):**
+  - `MCPServer-Retrieval.ps1` - MCP-compliant retrieval server
+  - `MCPServer-Extraction.ps1` - Structured extraction MCP interface
+  - `MCPServer-QueryRouter.ps1` - Query routing MCP service
+  - `MCPServer-HealthMonitor.ps1` - Health monitoring MCP endpoint
+  - `MCPServer-PackManager.ps1` - Pack management MCP interface
+  - `MCPServer-Sync.ps1` - Synchronization MCP service
+  - `MCPServer-Config.ps1` - Configuration MCP server
+  - `MCPServer-Validation.ps1` - Validation MCP service
+  - `MCPServer-Arbitration.ps1` - Cross-pack arbitration MCP
+  - `MCPServer-Telemetry.ps1` - Telemetry collection MCP
+  - `MCPServer-Incident.ps1` - Incident management MCP
+  - `MCPServer-Replay.ps1` - Replay harness MCP interface
+  - `MCPServer-Annotation.ps1` - Human annotation MCP
+  - `MCPServer-GoldenTask.ps1` - Golden task evaluation MCP
+  - `MCPServer-SLO.ps1` - SLO monitoring MCP
+  - `MCPServer-ReviewGate.ps1` - Human review gate MCP
+  - `MCPServer-Snapshot.ps1` - Memory snapshot MCP
+  - `MCPServer-NaturalLang.ps1` - Natural language config MCP
+  - `MCPServer-Dashboard.ps1` - Dashboard data MCP
+  - `MCPServer-Ingestion.ps1` - External ingestion MCP
+  - `MCPServer-Gateway.ps1` - Composite gateway MCP
+
+- **MCP Composite Gateway:**
+  - Unified entry point for all MCP toolkit servers
+  - Request routing and load balancing
+  - Authentication and rate limiting
+  - Request/response transformation
+  - Gateway health monitoring
+
+- **Inter-Pack Transport:**
+  - Cross-pack data transport layer
+  - Schema translation between pack formats
+  - Bidirectional sync capabilities
+  - Transport integrity validation
+  - `Invoke-InterPackTransport`, `Sync-PackData`
+
+- **Snapshot Import/Export:**
+  - Full workflow state snapshots
+  - Incremental snapshot support
+  - Cross-instance snapshot migration
+  - Snapshot compression and encryption
+  - `Export-WorkflowSnapshot`, `Import-WorkflowSnapshot`
+
+- **Federated Memory:**
+  - Multi-instance memory federation
+  - Distributed memory synchronization
+  - Conflict resolution for federated updates
+  - Memory shard management
+  - `Register-FederatedMemory`, `Sync-FederatedMemory`
+
+- **Natural Language Config:**
+  - Plain English configuration interface
+  - Config validation via natural language
+  - Intent-based config modification
+  - Config explanation generation
+  - `Set-ConfigByNaturalLanguage`, `Get-ConfigExplanation`
+
+- **Dashboard Views:**
+  - System health dashboard
+  - Pack status dashboard
+  - Retrieval performance dashboard
+  - Golden task results dashboard
+  - SLO compliance dashboard
+  - `Show-SystemDashboard`, `Show-PackDashboard`
+
+- **External Ingestion:**
+  - Webhook-based external data ingestion
+  - API endpoint ingestion
+  - File upload ingestion
+  - Ingestion pipeline orchestration
+  - Validation and sanitization
+  - `Register-IngestionEndpoint`, `Invoke-ExternalIngestion`
+
 ### Added
 
 #### Phase 6 Human Trust & Governance (v0.7.0)

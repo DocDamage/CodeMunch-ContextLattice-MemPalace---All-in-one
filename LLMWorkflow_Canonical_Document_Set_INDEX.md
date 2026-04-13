@@ -55,9 +55,25 @@ It exists so that:
 | Phase 6 | Human Trust & Governance | ✅ Complete | `module/LLMWorkflow/governance/` (5 files, 85+ functions) |
 | Phase 7 | Platform Expansion (MCP, Inter-Pack) | ✅ Complete | `module/LLMWorkflow/mcp/`, `module/LLMWorkflow/interpack/`, `module/LLMWorkflow/snapshot/` (11 files, 250+ functions) |
 
-**Current Version:** 0.8.0  
-**Total Functions:** 725+  
+**Current Version:** 0.9.5  
+**Total Functions:** 800+  
+**Total Domain Packs:** 10 implemented  
 **Last Updated:** 2026-04-12
+
+### Domain Packs Implemented
+
+| Pack ID | Domain | Status | Collections |
+|---------|--------|--------|-------------|
+| `rpgmaker-mz` | game-dev | ✅ Complete | 8 collections |
+| `godot-engine` | game-dev | ✅ Complete | 7 collections |
+| `blender-engine` | 3d-graphics | ✅ Complete | 6 collections |
+| `api-reverse-tooling` | security-dev | ✅ Complete | 5 collections |
+| `notebook-data-workflow` | data-science | ✅ Complete | 6 collections |
+| `agent-simulation` | ai-agents | ✅ Complete | 5 collections |
+| `voice-audio-generation` | audio-ai | ✅ Complete | 4 collections |
+| `engine-reference` | reference | ✅ Complete | 4 collections |
+| `ui-frontend-framework` | frontend | ✅ Complete | 5 collections |
+| `ml-educational-reference` | ml-education | ✅ Complete | 4 collections |
 
 ### Phase 4 Extraction Parsers
 
@@ -69,6 +85,9 @@ It exists so that:
 | Blender Python Parser | `.py` (addons) | 12 | ✅ Implemented |
 | Geometry Nodes Parser | Node trees | 8 | ✅ Implemented |
 | Shader Parser | `.gdshader`, `.shader` | 20 | ✅ Implemented |
+| API Reverse Parser | `.http`, `.rest` | 10 | ✅ Implemented |
+| Notebook Parser | `.ipynb`, `.nb` | 8 | ✅ Implemented |
+| Agent Simulation Parser | `.agent`, `.sim` | 6 | ✅ Implemented |
 | Pipeline Orchestrator | All types | 8 | ✅ Implemented |
 
 ### Phase 5 Retrieval & Answer Integrity
@@ -95,9 +114,21 @@ It exists so that:
 | PackSLOs.ps1 | SLOs and telemetry | 12 | ✅ Implemented |
 | HumanReviewGates.ps1 | Review gates and approvals | 22 | ✅ Implemented |
 
+### Phase 7 MCP & Inter-Pack Integration
+
+| Module | Purpose | Functions | Status |
+|--------|---------|-----------|--------|
+| McpToolkitServer.ps1 | MCP-native toolkit server | 25 | ✅ Implemented |
+| McpCompositeGateway.ps1 | MCP composite gateway | 20 | ✅ Implemented |
+| InterPackTransport.ps1 | Inter-pack transport layer | 18 | ✅ Implemented |
+| ProvenanceTracker.ps1 | Cross-pack provenance tracking | 15 | ✅ Implemented |
+| SnapshotManager.ps1 | Snapshot and rollback | 22 | ✅ Implemented |
+
 ## Current note
 
-Appendage A currently contains the extended Godot candidate set, including testing, AI behavior, dialogue, quest, inventory, rollback networking, editor VCS, signal visualization, save convenience, RPG data frameworks, chunk streaming, alternate voxel terrain, platform-service integration, and lightweight FSM sources.
+**All Phases Complete (1-7):** The platform now supports 10 domain packs with 84 PowerShell modules and 800+ functions. MCP integration is fully deployed with `godot-mcp` and `blender-mcp` servers operational. Inter-pack pipelines are active for Blender→Godot, AI generation workflows, voice animation pipelines, and ML deployment chains.
+
+Appendage A contains the extended Godot candidate set, including testing, AI behavior, dialogue, quest, inventory, rollback networking, editor VCS, signal visualization, save convenience, RPG data frameworks, chunk streaming, alternate voxel terrain, platform-service integration, and lightweight FSM sources.
 
 **Phase 5 & 6 Complete:** Retrieval, answer integrity, human trust, and governance modules are now fully implemented. The platform now supports:
 - Query routing with 7 retrieval profiles
@@ -110,3 +141,9 @@ Appendage A currently contains the extended Godot candidate set, including testi
 - Replay harness for regression testing
 - Pack SLOs and telemetry tracking
 - Human review gates for sensitive operations
+
+**Phase 7 Complete:** MCP-native toolkit servers and inter-pack pipelines are operational:
+- MCP toolkit server deployment (`godot-mcp`, `blender-mcp`)
+- Composite gateway for multi-tool orchestration
+- Inter-pack transport with provenance preservation
+- Snapshot management and rollback across packs

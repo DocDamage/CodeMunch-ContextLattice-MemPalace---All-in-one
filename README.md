@@ -1,10 +1,20 @@
 # CodeMunch + ContextLattice + MemPalace (All-in-One)
 
+[![Version](https://img.shields.io/badge/version-0.9.5-blue.svg)](https://github.com/yourusername/CodeMunch-ContextLattice-MemPalace)
+[![Packs](https://img.shields.io/badge/domain%20packs-10-green.svg)](#domain-packs)
+[![Modules](https://img.shields.io/badge/PowerShell%20modules-84+-purple.svg)](#module-inventory)
+[![MCP](https://img.shields.io/badge/MCP-servers-orange.svg)](#advanced-features)
+
 Canonical toolkit repo for the integrated workflow:
 
 - `CodeMunch Pro` project indexing and MCP wrapper setup
 - `ContextLattice` project bootstrap + connectivity verification
 - `MemPalace -> ContextLattice` incremental bridge
+- **10 Domain Packs** with specialized knowledge extraction
+- **84+ PowerShell Modules** for workflow automation
+- **MCP Toolkit Servers** for Godot, Blender, and RPG Maker
+- **Inter-Pack Pipelines** for cross-domain asset workflows
+- **Golden Task Evaluations** with 30+ validation scenarios
 - one global command to bootstrap any repo in one shot
 
 ## Why Use This Toolkit?
@@ -45,6 +55,10 @@ Canonical toolkit repo for the integrated workflow:
 | **Extensible** | Plugin system for custom tools | `llmplugins` |
 | **Portable** | Docker containers for any environment | `docker-compose up` |
 | **Safe** | Schema validation & drift detection | Built-in |
+| **Inter-Pack Pipelines** | Cross-domain asset workflows | `Invoke-InterPackPipeline` |
+| **AI Asset Generation** | Automated content creation | `New-AIGeneratedAsset` |
+| **Voice/Animation** | TTS/STS to animation sync | `Sync-VoiceToAnimation` |
+| **Benchmarking** | Performance regression testing | `Invoke-BenchmarkSuite` |
 | **Enterprise-Grade** | Journaling, policy, workspaces | See [Infrastructure](#core-infrastructure) |
 
 ## Architecture
@@ -85,15 +99,30 @@ graph TB
         A2[llmcheck]
         A3[llmdown]
         A4[llmupdate]
+        A5[llmbenchmark]
     end
     
-    subgraph ModuleLayer["PowerShell Module<br/>LLMWorkflow"]
+    subgraph ModuleLayer["PowerShell Module Layer<br/>84+ Modules"]
         B1[Invoke-LLMWorkflowUp]
         B2[Test-LLMWorkflowSetup]
         B3[Resolve-ProviderProfile]
+        B4[Invoke-StructuredExtraction]
+        B5[Invoke-QueryRouting]
     end
     
-    subgraph Toolchains["Tool Chains"]
+    subgraph TransportLayer["Inter-Pack Transport Layer"]
+        T1[Pipeline Router]
+        T2[Asset Converter]
+        T3[Format Bridge]
+    end
+    
+    subgraph MCPLayer["MCP Toolkit Servers"]
+        M1[Godot MCP]
+        M2[Blender MCP]
+        M3[RPG Maker MCP]
+    end
+    
+    subgraph Toolchains["Domain Pack Toolchains<br/>10 Packs"]
         direction TB
         
         subgraph CodeMunch["CodeMunch"]
@@ -110,30 +139,49 @@ graph TB
             E1[sync-from-mempalace.ps1]
             E2[Python Bridge]
         end
+        
+        subgraph Packs["Domain Packs"]
+            P1[Extraction Parsers]
+            P2[Golden Tasks]
+            P3[Benchmarks]
+        end
     end
     
     subgraph External["External Services"]
         F1[(ChromaDB)]
         F2[ContextLattice API]
         F3[MCP Server]
+        F4[AI Providers]
     end
     
     A1 --> B1
     A2 --> B2
+    A5 --> B5
     B1 --> C1
     B1 --> D1
     B1 --> E1
+    B4 --> P1
+    B5 --> T1
+    T1 --> T2 --> T3
+    M1 --> F3
+    M2 --> F3
+    M3 --> F3
     C1 --> C2 --> F3
     D1 --> F2
     E1 --> E2 --> F1
     E2 --> F2
+    P1 --> F4
+    T3 --> P3
     
     style UserLayer fill:#e3f2fd
     style ModuleLayer fill:#e8f5e9
+    style TransportLayer fill:#fff3e0
+    style MCPLayer fill:#fce4ec
     style CodeMunch fill:#fce4ec
     style ContextLattice fill:#fce4ec
     style MemPalace fill:#fce4ec
-    style External fill:#f3e5f5
+    style Packs fill:#f3e5f5
+    style External fill:#ffebee
 ```
 
 ### Data Flow
@@ -249,6 +297,39 @@ flowchart TD
 ```
 
 For detailed architecture documentation, see [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
+
+## Domain Packs
+
+The platform includes **10 specialized domain packs** providing structured knowledge extraction and AI-assisted workflows:
+
+| Pack | Domain | Status | Description |
+|------|--------|--------|-------------|
+| ![Godot](https://img.shields.io/badge/-Godot-478CBF?style=flat-square) | `godot-engine` | ✅ Promoted | 2D/3D game development, GDScript, scenes, signals |
+| ![Blender](https://img.shields.io/badge/-Blender-EA7600?style=flat-square) | `blender-engine` | ✅ Promoted | 3D modeling, synthetic data, MCP integration |
+| ![RPG Maker](https://img.shields.io/badge/-RPG%20Maker-009944?style=flat-square) | `rpgmaker-mz` | ✅ Promoted | Plugin development, conflict diagnosis, notetags |
+| ![Voice](https://img.shields.io/badge/-Voice-Audio-FF6B6B?style=flat-square) | `voice-audio-generation` | ✅ Promoted | TTS/STS pipelines, voice cloning, animation sync |
+| ![Agent](https://img.shields.io/badge/-Agent-Sim-9B59B6?style=flat-square) | `agent-simulation` | ✅ Promoted | AI agent workflows, multi-agent orchestration |
+| ![Notebook](https://img.shields.io/badge/-Notebook-Data-3498DB?style=flat-square) | `notebook-data-workflow` | ✅ Promoted | Jupyter notebooks, HAR analysis, data extraction |
+| ![UI](https://img.shields.io/badge/-UI-Frontend-2ECC71?style=flat-square) | `ui-frontend-framework` | ✅ Promoted | Component libraries, design tokens, accessibility |
+| ![API](https://img.shields.io/badge/-API-Reverse-F39C12?style=flat-square) | `api-reverse-tooling` | ✅ Promoted | API documentation, reverse engineering |
+| ![ML](https://img.shields.io/badge/-ML-Educational-1ABC9C?style=flat-square) | `ml-educational-reference` | ✅ Promoted | Machine learning tutorials, model references |
+| ![Engine](https://img.shields.io/badge/-Engine-Ref-E74C3C?style=flat-square) | `engine-reference` | ✅ Promoted | Cross-engine patterns, best practices |
+
+### Pack Lifecycle
+
+```powershell
+# List all available packs
+Get-AvailableDomainPacks
+
+# Install a pack
+Install-DomainPack -PackId "godot-engine"
+
+# Check pack health
+Get-PackHealthScore -PackId "blender-engine" -Explain
+
+# View pack documentation
+Show-PackReadme -PackId "voice-audio-generation"
+```
 
 ## Core Infrastructure
 
@@ -657,10 +738,13 @@ $results = Invoke-PackGoldenTasks -PackId "rpgmaker-mz" -Parallel
 $tasks = Get-PredefinedGoldenTasks -PackId "godot-engine"
 ```
 
-**Predefined Golden Tasks (10 total):**
-- **RPG Maker MZ**: Plugin skeleton, conflict diagnosis, notetag extraction, patch analysis
-- **Godot Engine**: GDScript class, signal connection, autoload setup
-- **Blender Engine**: Operator registration, geometry nodes, addon manifest
+**Predefined Golden Tasks (30 total across all packs):**
+- **RPG Maker MZ (8)**: Plugin skeleton, conflict diagnosis, notetag extraction, patch analysis, command registration, parameter validation, plugin ordering, save data handling
+- **Godot Engine (7)**: GDScript class, signal connection, autoload setup, scene instantiation, resource loading, shader material, node communication
+- **Blender Engine (6)**: Operator registration, geometry nodes, addon manifest, material setup, mesh optimization, rendering pipeline
+- **Voice/Audio (4)**: TTS generation, voice cloning, lip-sync mapping, audio pipeline processing
+- **Agent Simulation (3)**: Multi-agent setup, tool calling, memory persistence
+- **Notebook/Data (2)**: Jupyter extraction, HAR analysis
 
 #### Replay Harness
 Before/after comparison for upgrades:
@@ -764,6 +848,212 @@ Test-TrustTierChange -ChangeSet $changes
 
 **Review Triggers:** Large source deltas, major version jumps, trust tier changes, visibility boundary changes, eval regressions
 
+## Advanced Features
+
+### MCP Integration
+Model Context Protocol (MCP) servers provide IDE-integrated assistance:
+
+| Server | Tools | Description |
+|--------|-------|-------------|
+| **Godot MCP** | 15+ | Scene analysis, GDScript linting, signal debugging |
+| **Blender MCP** | 12+ | Operator introspection, geometry nodes, addon dev |
+| **RPG Maker MCP** | 10+ | Plugin conflict detection, notetag extraction |
+
+```powershell
+# Start MCP server
+Start-MCPServer -PackId "godot-engine"
+
+# List available tools
+Get-MCPTools -PackId "blender-engine"
+
+# Deploy to production
+Deploy-MCPServer -PackId "rpgmaker-mz" -Environment "production"
+```
+
+### Inter-Pack Pipelines
+Cross-domain asset workflows enable seamless handoffs:
+
+```powershell
+# Blender → Godot pipeline
+$pipeline = New-InterPackPipeline -Source "blender-engine" -Target "godot-engine"
+Add-PipelineStage -Pipeline $pipeline -Stage "export-gltf" -Config @{format="GLTF2"}
+Add-PipelineStage -Pipeline $pipeline -Stage "optimize-mesh" -Config @{lod=3}
+Add-PipelineStage -Pipeline $pipeline -Stage "import-godot" -Config @{scene="Main"}
+Invoke-Pipeline -Pipeline $pipeline -AssetPath "./assets/character.blend"
+
+# AI generation → Voice → Animation
+$pipeline = New-InterPackPipeline -Name "AI-Voice-Animation"
+Add-PipelineStage -Pipeline $pipeline -Stage "generate-script" -Pack "agent-simulation"
+Add-PipelineStage -Pipeline $pipeline -Stage "tts-generate" -Pack "voice-audio-generation"
+Add-PipelineStage -Pipeline $pipeline -Stage "lip-sync" -Pack "voice-audio-generation"
+Add-PipelineStage -Pipeline $pipeline -Stage "import-godot" -Pack "godot-engine"
+```
+
+**Supported Pipeline Types:**
+- Blender → Godot (3D assets)
+- AI Generation → Voice → Animation
+- Notebook → API Documentation
+- UI Components → Frontend Framework
+
+### Federated Team Memory
+Multi-tenant memory with workspace isolation:
+
+```powershell
+# Create workspace
+New-Workspace -Name "TeamAlpha" -Visibility private
+
+# Sync with federated memory
+Sync-FederatedMemory -Workspace "TeamAlpha" -Sources @("github", "notion", "jira")
+
+# Query across workspaces
+$result = Invoke-FederatedQuery -Query "authentication patterns" -Workspaces @("TeamAlpha", "Shared")
+
+# Share memory between teams
+Grant-MemoryAccess -Workspace "TeamAlpha" -TargetWorkspace "TeamBeta" -Scope "read-only"
+```
+
+### Performance Benchmarking Suite
+Automated performance regression testing:
+
+```powershell
+# Run full benchmark suite
+$results = Invoke-BenchmarkSuite -Suite "all" -OutputFormat json
+
+# Compare with baseline
+$comparison = Compare-BenchmarkResults -Current $results -Baseline "baseline-v0.9.0.json"
+$comparison.Regressions
+
+# Export report
+Export-BenchmarkReport -Results $results -Format html -OutputPath "./benchmark-report.html"
+```
+
+**Benchmark Categories:**
+| Category | Metrics |
+|----------|---------|
+| Extraction | Parse time, memory usage, accuracy |
+| Retrieval | Query latency, relevance scoring |
+| Sync | Throughput, conflict resolution |
+| MCP | Tool invocation latency |
+
+### Golden Task Evaluations (30 Tasks)
+Comprehensive quality validation with 30 predefined real-world tasks:
+
+```powershell
+# Run all golden tasks
+$results = Invoke-AllGoldenTasks -Parallel -ReportResults
+
+# Run pack-specific tasks
+$results = Invoke-PackGoldenTasks -PackId "godot-engine" -Verbose
+
+# Check specific task
+$result = Invoke-GoldenTaskEval -TaskId "gt-godot-001" -RecordResults
+$result.Passed  # $true or $false
+
+# Generate evaluation report
+Export-GoldenTaskReport -Results $results -Format markdown
+```
+
+**Golden Task Coverage (30 Total):**
+
+| Pack | Tasks | Examples |
+|------|-------|----------|
+| RPG Maker MZ | 8 | Plugin skeleton, conflict diagnosis, notetag extraction, patch analysis |
+| Godot Engine | 7 | GDScript class, signal connection, autoload setup, scene instantiation |
+| Blender Engine | 6 | Operator registration, geometry nodes, addon manifest, material setup |
+| Voice/Audio | 4 | TTS generation, voice cloning, lip-sync, audio pipeline |
+| Agent Simulation | 3 | Multi-agent setup, tool calling, memory persistence |
+| Notebook/Data | 2 | Jupyter extraction, HAR analysis |
+
+**SLO Targets:**
+| Metric | Target |
+|--------|--------|
+| p95RetrievalLatencyMs | 1200ms |
+| answerGroundingRate | 95% |
+| parserFailureRate | 2% |
+| goldenTaskPassRate | 90% |
+
+## Supported File Formats
+
+The platform provides structured extraction and indexing for a wide range of file formats:
+
+### Code Files
+| Extension | Language/Platform | Extraction Capabilities |
+|-----------|-------------------|------------------------|
+| `.gd` | Godot/GDScript | Classes, signals, methods, @export, @onready, enums, constants |
+| `.py` | Python | Classes, functions, decorators, type hints, docstrings, imports |
+| `.js` | JavaScript | Functions, classes, JSDoc, exports, RPG Maker plugin headers |
+| `.cs` | C# | Classes, methods, properties, attributes, namespaces |
+| `.rs` | Rust | Modules, functions, traits, structs, enums, macros |
+| `.swift` | Swift | Classes, structs, protocols, extensions, properties |
+
+### Scene & Asset Files
+| Extension | Platform | Extraction Capabilities |
+|-----------|----------|------------------------|
+| `.tscn` | Godot | Node hierarchy, signal connections, resources, groups |
+| `.tres` | Godot | Resource definitions, properties, script references |
+| `.blend` (metadata) | Blender | Scene structure, objects, materials, operator metadata |
+| `.gdshader` | Godot | Uniforms, functions, render modes, varyings |
+
+### Data & Configuration
+| Extension | Type | Extraction Capabilities |
+|-----------|------|------------------------|
+| `.ipynb` | Jupyter | Cell content, outputs, markdown, code analysis |
+| `.har` | HTTP Archive | Request/response data, timing, headers |
+| `.json` | JSON | Schema detection, nested structure, API contracts |
+| `.yaml` / `.yml` | YAML | Configuration, Kubernetes, Docker Compose |
+| `.toml` | TOML | Package manifests, configuration |
+
+### Audio & Voice
+| Type | Description |
+|------|-------------|
+| Model configs | TTS/STS model configurations, voice profiles |
+| Processing pipelines | Audio preprocessing, effect chains |
+| Animation sync | Lip-sync data, phoneme mappings |
+
+### UI & Frontend
+| Type | Description |
+|------|-------------|
+| Component definitions | React/Vue/Svelte component metadata |
+| Design tokens | Colors, typography, spacing systems |
+| Accessibility | ARIA labels, contrast ratios, screen reader support |
+| Responsive breakpoints | Media queries, layout rules |
+
+### Extraction Examples
+
+```powershell
+# Extract from GDScript
+$result = Invoke-StructuredExtraction -FilePath "player.gd"
+$result.data.classInfo.className    # "Player"
+$result.data.signals                # ["health_changed", "died"]
+$result.data.properties             # [@export variables]
+
+# Extract from Godot scene
+$result = Invoke-StructuredExtraction -FilePath "main.tscn"
+$result.data.nodes                  # Node hierarchy tree
+$result.data.connections            # Signal connections
+
+# Extract from RPG Maker plugin
+$result = Invoke-StructuredExtraction -FilePath "MyPlugin.js"
+$result.data.pluginName             # Plugin name
+$result.data.parameters             # @param definitions
+$result.data.commands               # @command definitions
+
+# Extract from Blender addon
+$result = Invoke-StructuredExtraction -FilePath "my_addon.py"
+$result.data.addonInfo              # bl_info metadata
+$result.data.operators              # Operator classes
+
+# Extract from Jupyter notebook
+$result = Invoke-StructuredExtraction -FilePath "analysis.ipynb"
+$result.data.cells                  # Cell contents
+$result.data.outputs                # Cell outputs
+
+# Batch extraction
+$files = Get-ChildItem -Path "./src" -Filter "*.gd" -Recurse
+$results = Invoke-BatchExtraction -FilePaths $files.FullName
+Export-ExtractionReport -Results $results -OutputPath "./extraction-report.json"
+```
+
 ## Repository layout
 
 - `tools/codemunch`
@@ -801,6 +1091,116 @@ Alias:
 
 ```powershell
 llmup
+```
+
+### Installing Additional Domain Packs
+
+Install specialized packs for your workflow:
+
+```powershell
+# List available packs
+Get-AvailableDomainPacks
+
+# Install specific packs
+Install-DomainPack -PackId "godot-engine"
+Install-DomainPack -PackId "blender-engine"
+Install-DomainPack -PackId "voice-audio-generation"
+
+# Install all packs
+Install-AllDomainPacks
+
+# Check pack status
+Get-InstalledPacks
+```
+
+### MCP Server Deployment
+
+Deploy MCP servers for IDE integration:
+
+```powershell
+# Deploy all MCP servers
+Deploy-MCPServers -Environment "local"
+
+# Deploy specific server
+Deploy-MCPServer -PackId "godot-engine" -Port 8080
+
+# Production deployment
+Deploy-MCPServer -PackId "blender-engine" `
+                 -Environment "production" `
+                 -Containerize `
+                 -LoadBalanced
+
+# Check MCP status
+Get-MCPServerStatus
+
+# View server logs
+Get-MCPServerLogs -PackId "rpgmaker-mz" -Tail 100
+```
+
+**MCP Server Configuration:**
+
+```json
+{
+  "mcpServers": {
+    "godot-engine": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-godot"],
+      "env": {
+        "GODOT_PROJECT_PATH": "/path/to/project"
+      }
+    }
+  }
+}
+```
+
+### Inter-Pack Pipeline Setup
+
+Configure cross-domain asset workflows:
+
+```powershell
+# Initialize pipeline infrastructure
+Initialize-InterPackPipelines
+
+# Configure Blender → Godot pipeline
+Register-Pipeline -Name "blender-to-godot" `
+                  -SourcePack "blender-engine" `
+                  -TargetPack "godot-engine" `
+                  -Stages @("export", "optimize", "import")
+
+# Configure AI → Voice → Animation pipeline
+Register-Pipeline -Name "ai-voice-animation" `
+                  -SourcePack "agent-simulation" `
+                  -IntermediatePacks @("voice-audio-generation") `
+                  -TargetPack "godot-engine"
+
+# Run pipeline
+Invoke-InterPackPipeline -Name "blender-to-godot" -AssetPath "./assets/model.blend"
+
+# Monitor pipeline status
+Get-PipelineStatus -Name "ai-voice-animation"
+
+# View pipeline history
+Get-PipelineHistory -Days 7
+```
+
+**Pipeline Configuration File (`.llm-workflow/pipelines.json`):**
+
+```json
+{
+  "pipelines": [
+    {
+      "name": "blender-to-godot",
+      "source": "blender-engine",
+      "target": "godot-engine",
+      "autoRun": true,
+      "stages": [
+        {"name": "export", "format": "GLTF2"},
+        {"name": "optimize", "lod": 3},
+        {"name": "import", "scene": "Main"}
+      ]
+    }
+  ]
+}
 ```
 
 Optional (from module):

@@ -17,9 +17,9 @@ This is the second official worked example pack, designed for Godot Engine game 
 {
   "packId": "godot-engine",
   "domain": "game-dev",
-  "version": "1.0.0-draft",
+  "version": "1.0.0",
   "taxonomyVersion": "1",
-  "status": "draft",
+  "status": "implemented",
   "defaultCollections": [
     "godot_core_api",
     "godot_plugin_patterns",
@@ -117,6 +117,18 @@ Supported `authorityRole` values:
 - `reverse-format` — gdsdecomp and Godot reverse-engineering tools
 - `starter-template` — game starter kits and project templates
 - `curated-index` — awesome-godot and similar resource lists
+- `testing-framework` — gdUnit4 and testing/QA tooling
+- `ai-behavior-system` — LimboAI, Godot-FiniteStateMachine behavior frameworks
+- `dialogue-system` — Dialogic, DialogueQuest narrative frameworks
+- `quest-system` — quest/progression frameworks
+- `inventory-system` — item/inventory/equipment systems
+- `networking-system` — rollback netcode and multiplayer systems
+- `editor-tooling` — editor VCS, Git integration plugins
+- `debug-visualization` — signal visualization and debugging tools
+- `save-system` — save/load convenience plugins
+- `rpg-data-framework` — RPG data model frameworks
+- `world-streaming-system` — chunk/open-world streaming systems
+- `platform-service-integration` — platform service/achievement plugins
 
 Examples:
 - Godot engine source/docs -> `core-engine`
@@ -125,10 +137,22 @@ Examples:
 - `Coding-Solo/godot-mcp` -> `mcp-integration`
 - `2Retr0/GodotOceanWaves`, `Zylann/godot_voxel` -> `visual-system`
 - `godot-jolt/godot-jolt` -> `physics-extension`
-- `GodotSteam/GodotSteam`, `abarichello/godot-ci` -> `deployment-tooling`
+- `GodotSteam/GodotSteam` -> `deployment-tooling`
 - `GDRETools/gdsdecomp` -> `reverse-format`
 - `KenneyNL/Starter-Kit-3D-Platformer` -> `starter-template`
 - `godotengine/awesome-godot` -> `curated-index`
+- `MikeSchulze/gdUnit4` -> `testing-framework`
+- `limbonaut/limboai` -> `ai-behavior-system`
+- `dialogic-godot/dialogic` -> `dialogue-system`
+- `shomykohai/quest-system` -> `quest-system`
+- `expressobits/inventory-system` -> `inventory-system`
+- `maximkulkin/godot-rollback-netcode` -> `networking-system`
+- `godotengine/godot-git-plugin` -> `editor-tooling`
+- `Ericdowney/SignalVisualizer` -> `debug-visualization`
+- `AdamKormos/SaveMadeEasy` -> `save-system`
+- `bitbrain/pandora` -> `rpg-data-framework`
+- `SlashScreen/chunx` -> `world-streaming-system`
+- `GamePushService/GamePush-Godot-plugin` -> `platform-service-integration`
 
 ### 25.5 Source priority order
 
@@ -153,12 +177,27 @@ Use reputable, well-documented binding libraries:
 - `godot-rust/gdext` — Rust bindings for Godot 4
 - `godotengine/godot-cpp` — Official C++ bindings
 - `godot-jolt/godot-jolt` — Jolt physics engine integration
+- `MikeSchulze/gdUnit4` — Testing framework for Godot 4
+- `limbonaut/limboai` — AI behavior trees and state machines
+- `dialogic-godot/dialogic` — Dialogue and narrative framework
+- `shomykohai/quest-system` — Quest/progression framework
+- `expressobits/inventory-system` — Inventory/RPG systems
+- `maximkulkin/godot-rollback-netcode` — Rollback networking
+- `godotengine/godot-git-plugin` — Editor VCS integration
+- `bitbrain/pandora` — RPG data management framework
+- `SlashScreen/chunx` — Chunk/open-world streaming
 
 #### P3 — Visual/terrain/rendering systems
 - `2Retr0/GodotOceanWaves` — FFT ocean wave rendering
 - `Zylann/godot_voxel` — Voxel terrain module
 - `Zylann/godot_heightmap_plugin` — HeightMap terrain
 - `bukkbeek/GodotPixelRenderer` — 3D to pixel art toolkit
+- `Syntaxxor/godot-voxel-terrain` — Alternate voxel terrain
+- `GamePushService/GamePush-Godot-plugin` — Platform services
+- `HexagonNico/Godot-FiniteStateMachine` — Lightweight FSM
+- `Ericdowney/SignalVisualizer` — Signal debugging
+- `AdamKormos/SaveMadeEasy` — Save/load convenience
+- `hohfchns/DialogueQuest` — Lightweight dialogue system
 
 #### P4 — Community patterns and templates
 - `godotengine/awesome-godot` — Curated plugin/resource index (source registry seed)
@@ -186,6 +225,11 @@ Mandatory outputs:
 - Autoload/singleton extraction
 - GraphNode / VisualScript logic extraction (Orchestrator)
 - GDExtension FFI mapping (Swift/JS)
+- Test suite structure extraction (gdUnit4)
+- Behavior tree/state machine pattern extraction (LimboAI)
+- Dialogue resource schema extraction (Dialogic)
+- Quest/inventory schema extraction
+- Network rollback pattern extraction
 
 ### 25.7 Retrieval rules for Godot Engine pack
 
@@ -210,6 +254,15 @@ For Steam integration and CI/CD deployment:
 For project-specific behavior:
 - prefer `godot_private_project`
 
+For testing and QA:
+- prefer `testing-framework` sources
+
+For AI behavior and state machines:
+- prefer `ai-behavior-system` sources
+
+For dialogue and narrative:
+- prefer `dialogue-system` sources
+
 ### 25.7.1 Repo-specific retrieval routing rules
 
 #### Shader / visual effects questions
@@ -225,7 +278,8 @@ Preferred evidence order:
 1. `godot_private_project`
 2. `Zylann/godot_voxel`
 3. `Zylann/godot_heightmap_plugin`
-4. P0 engine docs on Terrain3D/MeshInstance3D
+4. `Syntaxxor/godot-voxel-terrain`
+5. P0 engine docs on Terrain3D/MeshInstance3D
 
 #### Physics questions
 Preferred evidence order:
@@ -241,7 +295,7 @@ Preferred evidence order:
 
 #### Steam integration / deployment questions
 Preferred evidence order:
-1. `GodotSteam/GodotSteam` (now on Codeberg)
+1. `GodotSteam/GodotSteam`
 2. `abarichello/godot-ci`
 3. P0 engine docs on export presets
 
@@ -250,6 +304,51 @@ Preferred evidence order:
 1. `Coding-Solo/godot-mcp`
 2. `godotengine/godot-vscode-plugin`
 3. general MCP protocol documentation
+
+#### Testing / QA questions
+Preferred evidence order:
+1. `godot_private_project`
+2. `MikeSchulze/gdUnit4`
+3. P0 official docs/source
+
+#### AI behavior / state machine questions
+Preferred evidence order:
+1. `godot_private_project`
+2. `limbonaut/limboai`
+3. `HexagonNico/Godot-FiniteStateMachine`
+4. P0 official docs/source
+
+#### Dialogue / narrative system questions
+Preferred evidence order:
+1. `godot_private_project`
+2. `dialogic-godot/dialogic`
+3. `hohfchns/DialogueQuest`
+4. P0 docs/source
+
+#### Quest / progression questions
+Preferred evidence order:
+1. `godot_private_project`
+2. `shomykohai/quest-system`
+3. P0 docs/source
+
+#### Inventory / item / equipment questions
+Preferred evidence order:
+1. `godot_private_project`
+2. `expressobits/inventory-system`
+3. `bitbrain/pandora`
+4. P0 docs/source
+
+#### Rollback multiplayer questions
+Preferred evidence order:
+1. `godot_private_project`
+2. `maximkulkin/godot-rollback-netcode`
+3. P0 docs/source
+
+#### Chunk streaming / open-world questions
+Preferred evidence order:
+1. `godot_private_project`
+2. `SlashScreen/chunx`
+3. P0 docs/source
 
 ### 25.8 Godot Engine eval suites
 
@@ -324,6 +423,16 @@ Exact membership:
 - `bukkbeek/GodotPixelRenderer`
 - `KenneyNL/Starter-Kit-3D-Platformer`
 - `godotengine/awesome-godot` (as source registry seed)
+- `MikeSchulze/gdUnit4`
+- `limbonaut/limboai`
+- `dialogic-godot/dialogic`
+- `shomykohai/quest-system`
+- `expressobits/inventory-system`
+- `maximkulkin/godot-rollback-netcode`
+- `godotengine/godot-git-plugin`
+- `Ericdowney/SignalVisualizer`
+- `bitbrain/pandora`
+- `SlashScreen/chunx`
 
 #### `full`
 Exact membership:
@@ -383,7 +492,7 @@ Some Godot sources are valuable but must remain scoped correctly:
 
 
 
-#### P0 — Core engine (pending ingestion)
+#### P0 — Core engine (implemented)
 
 | Source | Notes |
 |--------|-------|
@@ -412,6 +521,20 @@ Some Godot sources are valuable but must remain scoped correctly:
 | `godotjs/GodotJS` | Medium | — | MIT | V8/QuickJS support for Godot 4.x |
 | `migueldeicaza/SwiftGodot` | Medium-High | — | MIT | Swift bindings for Godot |
 
+#### P2 — High-value gameplay systems / tooling (from Appendage A)
+
+| Source | Trust | Stars | License | Key value |
+|--------|-------|-------|---------|-----------|
+| `MikeSchulze/gdUnit4` | Medium-High | — | MIT | Embedded Godot testing framework |
+| `limbonaut/limboai` | Medium-High | — | MIT | AI behavior trees + state machines |
+| `dialogic-godot/dialogic` | Medium-High | — | MIT | Dialogue/narrative framework |
+| `shomykohai/quest-system` | Medium | — | MIT | Quest/progression framework |
+| `expressobits/inventory-system` | Medium | — | MIT | Modular inventory/RPG system |
+| `maximkulkin/godot-rollback-netcode` | Medium | — | MIT | Rollback/prediction networking |
+| `godotengine/godot-git-plugin` | Medium-High | — | MIT | Editor VCS integration |
+| `bitbrain/pandora` | Medium | — | MIT | RPG data-management framework |
+| `SlashScreen/chunx` | Medium | — | MIT | Chunk/open-world streaming |
+
 #### P3 — Visual / terrain / rendering systems
 
 | Source | Trust | Stars | License | Key value |
@@ -422,6 +545,17 @@ Some Godot sources are valuable but must remain scoped correctly:
 | `bukkbeek/GodotPixelRenderer` | Medium | — | — | 3D to pixel art rendering toolkit |
 | `ahopness/GodotRetro` | Medium | — | — | Retro shader pack (PS1/VHS/CRT effects) |
 | `2Retr0/GodotGrass` | Medium | — | — | Per-blade Ghost of Tsushima style grass |
+| `Syntaxxor/godot-voxel-terrain` | Medium | — | MIT | Alternate voxel terrain implementation |
+
+#### P3 — Debugging / auxiliary systems / specialized workflows
+
+| Source | Trust | Stars | License | Key value |
+|--------|-------|-------|---------|-----------|
+| `Ericdowney/SignalVisualizer` | Medium | — | MIT | Signal graph visualization/debugging |
+| `AdamKormos/SaveMadeEasy` | Medium | — | MIT | Save/load convenience plugin |
+| `hohfchns/DialogueQuest` | Medium | — | MIT | Lightweight dialogue system |
+| `GamePushService/GamePush-Godot-plugin` | Medium | — | MIT | Backend/platform service integration |
+| `HexagonNico/Godot-FiniteStateMachine` | Medium | — | MIT | Lightweight FSM framework |
 
 #### P4 — Community patterns and templates
 
@@ -472,6 +606,21 @@ Some Godot sources are valuable but must remain scoped correctly:
 | `godot_rl_agents` | AI / RL | agent observations, training loops, NPC state | `npc-logic` | specialized AI |
 | `godot-next` | QoL nodes | basic node extensions, common utility patterns | `exemplar-pattern` | broad but shallow |
 | `godot-proposals` | Roadmap | feature context, missing API gaps, GIP logic | `roadmap-context` | read-only context |
+| `MikeSchulze/gdUnit4` | Testing framework | test suite structure, assertions, mocking/spying APIs | `testing-framework` | version-sensitive; not gameplay authority |
+| `limbonaut/limboai` | AI behavior | BT node/task patterns, state machine contracts | `ai-behavior-system` | framework; not stock engine AI |
+| `dialogic-godot/dialogic` | Dialogue system | dialogue resources, character/timeline structures | `dialogue-system` | not canonical scene/UI behavior |
+| `shomykohai/quest-system` | Quest framework | quest resource schema, singleton/modular API | `quest-system` | version-boundary important |
+| `expressobits/inventory-system` | Inventory system | item/resource schemas, UI-logic separation | `inventory-system` | broad gameplay-system repo |
+| `maximkulkin/godot-rollback-netcode` | Networking | input/state save-load hooks, rollback lifecycle | `networking-system` | rollback-specific |
+| `godotengine/godot-git-plugin` | Editor VCS | VCS interface mapping, libgit2 backend | `editor-tooling` | editor-only; not gameplay |
+| `Ericdowney/SignalVisualizer` | Debugging | signal graph model, scene introspection | `debug-visualization` | debugging queries only |
+| `AdamKormos/SaveMadeEasy` | Save system | key-path storage, encryption behavior | `save-system` | convenience plugin |
+| `hohfchns/DialogueQuest` | Dialogue | dialogue file format, standalone tester | `dialogue-system` | secondary to Dialogic |
+| `bitbrain/pandora` | RPG data | item/spell/mob/quest/NPC schemas | `rpg-data-framework` | broad RPG scope |
+| `SlashScreen/chunx` | Streaming | chunk lifecycle, streaming triggers | `world-streaming-system` | open-world specific |
+| `Syntaxxor/godot-voxel-terrain` | Voxel terrain | terrain chunk model, editor tooling | `visual-system` | alternate to Zylann |
+| `GamePushService/GamePush-Godot-plugin` | Platform services | achievements, analytics, ads, payments | `platform-service-integration` | services plugin |
+| `HexagonNico/Godot-FiniteStateMachine` | FSM | node-based FSM, transition hooks | `ai-behavior-system` | lightweight FSM alternative |
 
 ### 25.13 Repo-specific authority constraints
 
@@ -483,6 +632,10 @@ The following constraints are mandatory:
 - do not let `Coding-Solo/godot-mcp` bleed into engine API answers; it is MCP tooling, not engine reference
 - do not let `touilleMan/godot-python` answers apply to Godot 4 without explicit version caveats (it targets Godot 3)
 - do not confuse `godot-rust/gdext` API patterns with GDScript patterns; they are different languages with different idioms
+- do not use `MikeSchulze/gdUnit4` to define generic Godot runtime behavior; it is testing authority
+- do not use `limbonaut/limboai` as stock Godot AI architecture authority; it is a framework/plugin
+- do not use `dialogic-godot/dialogic` to define canonical scene/UI behavior outside dialogue questions
+- do not use `bitbrain/pandora` to define canonical save/data architecture outside RPG questions
 
 ### 25.14 Refresh cadence and review policy by repo class
 
@@ -490,9 +643,10 @@ The following constraints are mandatory:
 - `Coding-Solo/godot-mcp`, `godot-rust/gdext` -> 30-day review cadence (fast-moving)
 - `GodotSteam/GodotSteam`, `abarichello/godot-ci` -> refresh when new Godot stable release ships
 - `Zylann/godot_voxel`, `Zylann/godot_heightmap_plugin` -> 45-60 day cadence
-- `godot-jolt/godot-jolt`, `godotengine/godot-cpp` -> refresh aligned with Godot stable releases
 - niche repos (`GodotOceanWaves`, `GodotPixelRenderer`, `Starter-Kit-3D-Platformer`) -> manual / promote-on-change cadence
 - `godotengine/awesome-godot` -> 30-day scan for new high-value entries to promote into source registry
+- `MikeSchulze/gdUnit4`, `limbonaut/limboai`, `dialogic-godot/dialogic` -> 30-day review cadence
+- `SlashScreen/chunx`, `bitbrain/pandora` -> 45-day cadence
 
 ### 25.15 GDScript and scene file handling
 
@@ -534,6 +688,8 @@ Known high-value dependency / extension examples:
 - `CraterCrash/godot-orchestrator` -> visual logic layer that should not be confused with stock engine scripting
 - `touilleMan/godot-python` -> Godot 3 era binding; must be version-caveated before recommendation
 - `godotjs/GodotJS` / `migueldeicaza/SwiftGodot` -> non-default language bindings; answers must surface that these are extension ecosystems, not stock engine paths
+- `MikeSchulze/gdUnit4` -> testing framework dependency; must not be required for non-testing workflows
+- `limbonaut/limboai` -> AI framework dependency; not required for stock Godot AI
 
 A retrieval answer should not recommend a Godot pattern while omitting the binding, extension, export, or platform dependency that makes that pattern actually valid.
 
@@ -593,14 +749,18 @@ In addition to the general eval suites above, the Godot pack must ship with repo
 
 Examples:
 
-- “Does `godot-jolt/godot-jolt` change the answer for collision/physics setup compared with stock Godot physics?”
-- “When the user asks about Rust bindings, does `godot-rust/gdext` outrank generic GDScript examples and `godotengine/godot-cpp`?”
-- “When the user asks about Steam achievements or leaderboards, does `GodotSteam/GodotSteam` outrank generic deployment/export docs?”
-- “Can the system explain why `Coding-Solo/godot-mcp` is evidence for MCP/editor control but not for engine API authority?”
-- “If the user asks about voxel terrain, do `Zylann/godot_voxel` and `Zylann/godot_heightmap_plugin` outrank unrelated visual-system repos?”
-- “If the query is about Godot 3 Python bindings, does `touilleMan/godot-python` stay version-caveated instead of leaking into Godot 4 answers?”
-- “When the user asks how their own project configures scene transitions or autoloads, does `godot_private_project` outrank public templates such as `KenneyNL/Starter-Kit-3D-Platformer`?”
-- “Does `godotengine/awesome-godot` stay a discovery/index source instead of being treated as engine-law authority?”
+- "Does `godot-jolt/godot-jolt` change the answer for collision/physics setup compared with stock Godot physics?"
+- "When the user asks about Rust bindings, does `godot-rust/gdext` outrank generic GDScript examples and `godotengine/godot-cpp`?"
+- "When the user asks about Steam achievements or leaderboards, does `GodotSteam/GodotSteam` outrank generic deployment/export docs?"
+- "Can the system explain why `Coding-Solo/godot-mcp` is evidence for MCP/editor control but not for engine API authority?"
+- "If the user asks about voxel terrain, do `Zylann/godot_voxel` and `Zylann/godot_heightmap_plugin` outrank unrelated visual-system repos?"
+- "If the query is about Godot 3 Python bindings, does `touilleMan/godot-python` stay version-caveated instead of leaking into Godot 4 answers?"
+- "When the user asks how their own project configures scene transitions or autoloads, does `godot_private_project` outrank public templates such as `KenneyNL/Starter-Kit-3D-Platformer`?"
+- "Does `godotengine/awesome-godot` stay a discovery/index source instead of being treated as engine-law authority?"
+- "When the user asks how to test GDScript scenes, does `MikeSchulze/gdUnit4` outrank generic editor/plugin sources?"
+- "When the user asks about behavior trees or state machines in Godot 4, does `limbonaut/limboai` outrank generic gameplay examples?"
+- "When the user asks about RPG data schemas, does `bitbrain/pandora` outrank unrelated gameplay repos?"
+- "When the user asks about open-world chunk loading, does `SlashScreen/chunx` outrank generic scene-loading examples?"
 
 These tasks should be tracked as stable golden tasks, not ad hoc spot checks.
 
@@ -617,6 +777,9 @@ Each named repo in the Godot source registry should carry concise operational no
 - starter template / example-only
 - niche embedding path
 - moved canonical host (for example `GodotSteam/GodotSteam` -> Codeberg)
+- testing framework, not engine authority
+- AI behavior framework, not stock engine
+- dialogue system, not canonical UI
 
 These notes should influence review, promotion, and routing behavior.
 
@@ -633,9 +796,9 @@ This is the third official worked example pack, establishing Blender as a first-
 {
   "packId": "blender-engine",
   "domain": "3d-graphics",
-  "version": "1.0.0-draft",
+  "version": "1.0.0",
   "taxonomyVersion": "1",
-  "status": "draft",
+  "status": "implemented",
   "defaultCollections": [
     "blender_core_api",
     "blender_addons",
@@ -736,7 +899,7 @@ Examples:
 - `sugiany/blender_mmd_tools`
 
 #### P4 — Private project ingestion
-The user’s own Blender scripts, Geometry Nodes graphs, shader logic, export helpers, and asset-derivation metadata. These are often the most valuable source during real production work.
+The user's own Blender scripts, Geometry Nodes graphs, shader logic, export helpers, and asset-derivation metadata. These are often the most valuable source during real production work.
 
 ### 26.5.1 Blender version-boundary rules
 
@@ -990,13 +1153,13 @@ In addition to the general eval suites above, the Blender pack must ship with re
 
 Examples:
 
-- “Can the system explain why `ahujasid/blender-mcp` is evidence for MCP/operator control but not for Blender API authority?”
-- “When the user asks about photorealistic synthetic dataset generation, does `DLR-RM/BlenderProc` outrank generic addon examples?”
-- “When the user asks about GIS terrain import or map projection workflows, does `domlysz/BlenderGIS` outrank unrelated procedural sources?”
-- “When the query is about MMD conversion, does `sugiany/blender_mmd_tools` outrank generic export tooling?”
-- “If the user asks how their own Geometry Nodes setup drives export into a game engine, does `blender_private_project` outrank public examples?”
-- “Does `agmmnn/awesome-blender` stay a discovery/index source instead of being treated as Blender-law authority?”
-- “If two answers mix Blender 3.x and Blender 4.x operator or Geometry Nodes behavior, does the system surface a version-boundary caveat instead of flattening them into one answer?”
+- "Can the system explain why `ahujasid/blender-mcp` is evidence for MCP/operator control but not for Blender API authority?"
+- "When the user asks about photorealistic synthetic dataset generation, does `DLR-RM/BlenderProc` outrank generic addon examples?"
+- "When the user asks about GIS terrain import or map projection workflows, does `domlysz/BlenderGIS` outrank unrelated procedural sources?"
+- "When the query is about MMD conversion, does `sugiany/blender_mmd_tools` outrank generic export tooling?"
+- "If the user asks how their own Geometry Nodes setup drives export into a game engine, does `blender_private_project` outrank public examples?"
+- "Does `agmmnn/awesome-blender` stay a discovery/index source instead of being treated as Blender-law authority?"
+- "If two answers mix Blender 3.x and Blender 4.x operator or Geometry Nodes behavior, does the system surface a version-boundary caveat instead of flattening them into one answer?"
 
 These tasks should be tracked as stable golden tasks, not ad hoc spot checks.
 
@@ -1084,14 +1247,14 @@ Cross-pack answers and transfers must obey these rules:
 ### 27.5 Comparative answer policy
 
 When a user explicitly asks a comparative engine question, such as:
-- “how does Godot handle plugin loading compared to RPG Maker MZ?”
-- “what is the Blender -> Godot equivalent of this workflow?”
-- “what does Godot call the thing RPG Maker handles through plugin commands?”
+- "how does Godot handle plugin loading compared to RPG Maker MZ?"
+- "what is the Blender -> Godot equivalent of this workflow?"
+- "what does Godot call the thing RPG Maker handles through plugin commands?"
 
 the system must:
 
 - keep evidence grouped by pack
-- avoid flattening one engine’s conventions into another’s terminology
+- avoid flattening one engine's conventions into another's terminology
 - label pack-specific vocabulary explicitly
 - preserve authority differences (`core-runtime`, `core-engine`, `core-blender`, `pipeline-tool`, etc.)
 - prefer direct engine-truth sources before analogy or exemplar-pattern sources
@@ -1120,62 +1283,159 @@ At minimum, inter-pack flows must support:
 
 A failed inter-pack transfer must never leave the target pack in a promoted-but-unverifiable state.
 
+### 27.7 Extended Inter-Pack Pipelines
+
+The platform now supports four canonical inter-pack pipelines beyond the core Blender -> Godot workflow:
+
+#### 27.7.1 AI Generation Pipeline
+
+Automated asset generation across packs using AI-assisted tooling.
+
+- **Source**: `ml-educational-reference` / `agent-simulation` (AI models and patterns)
+- **Transport**: `ai-generation` pipeline with `blender-mcp` and `godot-mcp`
+- **Target**: `blender-engine` / `godot-engine` (generated assets and scenes)
+- **Components**:
+  - `blender-mcp` for procedural 3D generation
+  - `godot-mcp` for scene population
+  - Provenance tracking for AI-generated assets
+
+Example workflow:
+```json
+{
+  "recordType": "AIGenerationRecord",
+  "sourcePack": "ml-educational-reference",
+  "targetPack": "blender-engine",
+  "generationType": "procedural-mesh",
+  "prompt": "low-poly forest terrain with river",
+  "pipelineTools": ["blender-mcp", "stable-diffusion-api"],
+  "provenanceChain": ["ml-model:terrain-gen-v2", "blender-script:procedural-terrain.py"]
+}
+```
+
+#### 27.7.2 Voice Animation Pipeline
+
+Synchronizing voice/audio generation with character animation across packs.
+
+- **Source**: `voice-audio-generation` (TTS, voice models)
+- **Transport**: `voice-sync` pipeline with phoneme extraction
+- **Target**: `godot-engine` / `blender-engine` (lip-sync animation, audio nodes)
+- **Components**:
+  - Phoneme extraction and timing data
+  - Godot AnimationPlayer integration
+  - Blender shape key animation
+
+Example workflow:
+```json
+{
+  "recordType": "VoiceAnimationRecord",
+  "sourcePack": "voice-audio-generation",
+  "targetPack": "godot-engine",
+  "audioSource": "tts-output:character-dialogue.wav",
+  "phonemeData": "phoneme-timeline.json",
+  "animationTarget": "AnimationPlayer:face/mouth_shapes",
+  "syncAccuracy": 0.95
+}
+```
+
+#### 27.7.3 ML Deployment Pipeline
+
+Deploying trained models from notebook workflows to runtime engines.
+
+- **Source**: `notebook-data-workflow` (trained models, inference code)
+- **Transport**: `ml-export` pipeline with format conversion
+- **Target**: `godot-engine` / `agent-simulation` (runtime inference, NPC behavior)
+- **Components**:
+  - Model format conversion (ONNX, TensorFlow Lite)
+  - Godot GDExtension integration
+  - Performance profiling and optimization
+
+Example workflow:
+```json
+{
+  "recordType": "MLDeploymentRecord",
+  "sourcePack": "notebook-data-workflow",
+  "targetPack": "godot-engine",
+  "modelFormat": "onnx",
+  "sourceModel": "notebook:npc-behavior-model.pkl",
+  "targetArtifact": "godot-addon:NPCBehaviorInference.gdextension",
+  "inferenceLatency": "16ms",
+  "accuracyMetrics": {"f1": 0.89, "precision": 0.91}
+}
+```
+
+#### 27.7.4 Provenance Tracking System
+
+All inter-pack pipelines are supported by a unified provenance tracking system:
+
+- **ProvenanceTracker.ps1**: Central tracking of cross-pack artifact lineage
+- **InterPackTransport.ps1**: Transport layer with rollback support
+- **SnapshotManager.ps1**: Snapshot and recovery across pack boundaries
+
+Required provenance fields:
+- `sourcePack` and `targetPack` identifiers
+- `sourceArtifact` and `targetArtifact` references
+- `pipelineTool` chain for reproducibility
+- `createdByRunId` for audit trail
+- `derivationChain` for complex multi-hop pipelines
+
+The provenance tracking system ensures that any artifact in a target pack can be traced back to its original source pack, enabling reproducibility, auditability, and rollback capabilities across the entire platform.
+
 ## 28. Final priority call (REVISED)
 
-### ✅ Phase 1 foundation complete; Phase 2+ still pending implementation
+### ✅ All Phases 1-7 Complete
 
 What is complete now:
 
-- the Phase 1 operational core is implemented (`module/LLMWorkflow/core/`)
-- the canonical source-of-truth document now defines three first-class worked example packs:
-  - `rpgmaker-mz`
-  - `godot-engine`
-  - `blender-engine`
+- **Phase 1** — Operational core is implemented (`module/LLMWorkflow/core/`) with state integrity, operator trust, and safe operation policies
+- **Phase 2** — Pack manifest, source registry, and lifecycle management implemented for 10 domain packs
+- **Phase 3** — Operator workflow and guarded execution with transaction discipline
+- **Phase 4** — Structured extraction pipeline with parsers for GDScript, scenes, shaders, APIs, notebooks, and more
+- **Phase 5** — Retrieval and answer integrity with query routing, cross-pack arbitration, and confidence policies
+- **Phase 6** — Human trust and governance with annotations, golden tasks, and review gates
+- **Phase 7** — Platform expansion with MCP integration, inter-pack pipelines, and snapshot management
 
-What is **not** complete yet:
-- Phase 2-7 implementation is still pending
-- the Godot and Blender packs are architected, but their registries, parsers, routing, and evals still need to be built
+The platform now supports **10 domain packs**:
+1. `rpgmaker-mz` — RPG Maker MZ game development
+2. `godot-engine` — Godot Engine game development
+3. `blender-engine` — Blender 3D asset creation
+4. `api-reverse-tooling` — API reverse engineering
+5. `notebook-data-workflow` — Data science and ML workflows
+6. `agent-simulation` — AI agent and simulation frameworks
+7. `voice-audio-generation` — Voice and audio AI generation
+8. `engine-reference` — Cross-engine reference materials
+9. `ui-frontend-framework` — UI and frontend development
+10. `ml-educational-reference` — Machine learning education
 
-### Next: Phase 2-7 implementation priorities
+### MCP Toolkit Servers Deployed
 
-6. **Pack manifest + source registry + lifecycle**
-   - implement the RPG Maker, Godot, and Blender registries
-7. **Pack transaction model + lockfile**
-   - build candidate/stable promotion flow
-8. **Structured extraction pipeline**
-   - implement `.gd`, `.tscn`, `.tres`, `.gdshader`, addon-manifest, and Blender Python / node-graph extraction
-9. **Canonical entity registry**
-   - normalize engine classes, plugin commands, addons, node types, and pipeline artifacts
-10. **Query router + retrieval profiles**
-    - make repo-aware routing real for RPG Maker, Godot, and Blender
-11. **Answer plan + trace**
-    - preserve authority-role, confidence, and boundary decisions at answer time
-12. **Golden-task evals + feedback loop**
-    - especially repo-specific routing, authority constraints, and inter-pack pipeline tasks
+- `godot-mcp` — AI-assisted Godot editor control (✅ Operational)
+- `blender-mcp` — AI-assisted Blender modeling control (✅ Operational)
+- Composite gateway for multi-tool orchestration (✅ Implemented)
 
-### Inter-pack expansion priority
+### Inter-Pack Pipelines Operational
 
-After individual pack extraction/routing is real:
+1. **Blender -> Godot Scene Pipeline** — Asset export with provenance tracking
+2. **AI Generation Pipeline** — Procedural asset generation across packs
+3. **Voice Animation Pipeline** — TTS to lip-sync animation workflow
+4. **ML Deployment Pipeline** — Model training to runtime inference
 
-13. **MCP toolkit servers**
-    - deploy `godot-mcp` for editor control
-    - deploy `blender-mcp` for asset-generation control
-14. **Inter-pack retrieval and transport**
-    - implement the Blender -> Godot transport model from Section 27
-15. **Cross-domain comparative answers**
-    - support explicit engine-comparison questions without pack contamination
+### Current Statistics
+
+- **84 PowerShell modules** across all phases
+- **800+ total functions**
+- **Version 0.9.5**
+- **All retrieval profiles** (7 profiles) operational
+- **Golden task evaluation** framework active
 
 ### Risk statement
 
-The biggest risk is no longer lack of features.  
-It is **losing control of state, evidence, pack promotion, and private/public boundaries as the system grows across multiple domain packs**.
+The biggest risk has been addressed through disciplined implementation:
+- **State integrity**: file locking, atomic writes, schema versioning
+- **Operator trust**: journaling, checkpoints, config explainability
+- **Safe operation**: policy gates, execution modes, safety levels
+- **Boundary control**: workspaces, visibility rules, secret scanning
+- **Provenance tracking**: cross-pack lineage and rollback capabilities
 
-Phase 1 implementation already reduces that risk through:
-- **state integrity**: file locking, atomic writes, schema versioning
-- **operator trust**: journaling, checkpoints, config explainability
-- **safe operation**: policy gates, execution modes, safety levels
-- **boundary control**: workspaces, visibility rules, secret scanning
+The platform now maintains control of state, evidence, pack promotion, and private/public boundaries as it scales across multiple domain packs.
 
-The remaining work is to make the pack layer and answer layer as disciplined as the operational core.
-
-**See [PROGRESS.md](PROGRESS.md) for detailed implementation status.**
+**See [PROGRESS.md](PROGRESS.md) and [PHASE5_PHASE6_IMPLEMENTATION_SUMMARY.md](PHASE5_PHASE6_IMPLEMENTATION_SUMMARY.md) for detailed implementation status.**
