@@ -1,0 +1,15 @@
+﻿{
+    "packId":  "test-save",
+    "sources":  [
+
+                ],
+    "packVersion":  "1.0.0",
+    "builtUtc":  "2026-04-13T22:29:02.6845750Z",
+    "buildMetadata":  {
+
+                      },
+    "createdByRunId":  "20260413T222902Z-0295",
+    "taxonomyVersion":  "1",
+    "schemaVersion":  1,
+    "toolkitVersion":  "0.4.0"
+}

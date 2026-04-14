@@ -1,0 +1,282 @@
+=================== LARGE MONOLITHIC FILES (>1000 lines) ===================
+MLModelDeploymentPipeline.ps1 (2787 lines)
+ExternalIngestion.ps1 (2732 lines)
+AIGenerationPipeline.ps1 (2701 lines)
+GodotQuestExtractor.ps1 (2613 lines)
+GoldenTasks.ps1 (2545 lines)
+GodotAIBehaviorExtractor.ps1 (2495 lines)
+SnapshotManager.ps1 (2431 lines)
+ReplayHarness.ps1 (2253 lines)
+PackSLOs.ps1 (2171 lines)
+FederatedMemory.ps1 (2168 lines)
+MCPCompositeGateway.ps1 (2166 lines)
+DashboardViews.ps1 (2147 lines)
+MCPToolkitServer.ps1 (2124 lines)
+GodotTestFrameworkExtractor.ps1 (2105 lines)
+GodotInventoryExtractor.ps1 (2101 lines)
+ShaderParser.ps1 (2046 lines)
+NaturalLanguageConfig.ps1 (2026 lines)
+OpenAPIExtractor.ps1 (2000 lines)
+Journal.ps1 (1942 lines)
+IncidentBundle.ps1 (1905 lines)
+HumanAnnotations.ps1 (1845 lines)
+RPGMakerPluginParser.ps1 (1784 lines)
+GoldenTaskDefinitions.ps1 (1747 lines)
+GodotNetworkingExtractor.ps1 (1688 lines)
+CaveatRegistry.ps1 (1683 lines)
+RetrievalCache.ps1 (1677 lines)
+HumanReviewGates.ps1 (1636 lines)
+Compatibility.ps1 (1605 lines)
+GDScriptParser.ps1 (1549 lines)
+LLMWorkflow.HealFunctions.ps1 (1544 lines)
+InterPackTransport.ps1 (1516 lines)
+NotebookParser.ps1 (1482 lines)
+Planner.ps1 (1455 lines)
+QueryRouter.ps1 (1413 lines)
+ExtractionPipeline.ps1 (1405 lines)
+GodotDialogueExtractor.ps1 (1388 lines)
+MCPToolkitGodot.ps1 (1361 lines)
+CrossPackArbitration.ps1 (1351 lines)
+TrafficCaptureParser.ps1 (1347 lines)
+EvidencePolicy.ps1 (1331 lines)
+AnswerPlan.ps1 (1329 lines)
+AtomicWrite.ps1 (1288 lines)
+GitHooks.ps1 (1287 lines)
+Filters.ps1 (1277 lines)
+BlenderPythonParser.ps1 (1276 lines)
+GeometryNodesParser.ps1 (1255 lines)
+ConfidencePolicy.ps1 (1237 lines)
+Notifications.ps1 (1218 lines)
+LLMWorkflow.GameFunctions.ps1 (1197 lines)
+MCPToolkitBlender.ps1 (1158 lines)
+RetrievalProfiles.ps1 (1145 lines)
+HealthScore.ps1 (1139 lines)
+DataFramePatternExtractor.ps1 (1107 lines)
+StateFile.ps1 (1088 lines)
+FileLock.ps1 (1080 lines)
+HumanReviewRules.ps1 (1070 lines)
+VectorStoreExtractor.ps1 (1024 lines)
+ProvenanceTracker.ps1 (1001 lines)
+
+=================== MISSING STRICT MODE ===================
+LLMWorkflow.Dashboard.ps1
+LLMWorkflow.GameFunctions.ps1
+LLMWorkflow.PluginFunctions.ps1
+Config.ps1
+ConfigCLI.ps1
+ConfigPath.ps1
+ConfigSchema.ps1
+NaturalLanguageConfig.ps1
+TypeConverters.ps1
+Policy.Tests.ps1
+GoldenTaskDefinitions.ps1
+GoldenTaskHelpers.ps1
+GoldenTasks.ps1
+GodotSceneParser.ps1
+AIGenerationPipeline.ps1
+ExampleUsage.ps1
+MLModelDeploymentPipeline.ps1
+ProvenanceTracker.ps1
+VoiceAnimationPipeline.ps1
+PackManifest.ps1
+PackTransaction.ps1
+SourceRegistry.ps1
+bootstrap-llm-workflow.ps1
+install-global-llm-workflow.ps1
+bootstrap.ps1
+check.ps1
+bootstrap-project.ps1
+index-project.ps1
+bootstrap-project.ps1
+verify.ps1
+bootstrap-project.ps1
+sync-from-mempalace.ps1
+Compatibility.ps1
+Filters.ps1
+
+=================== DUPLICATE FUNCTION NAMES ===================
+Test-AnsiSupport defined in: DashboardViews.ps1, LLMWorkflow.Dashboard.ps1
+Import-EnvFile defined in: LLMWorkflow.Dashboard.ps1, bootstrap-llm-workflow.ps1
+ConvertTo-Hashtable defined in: AtomicWrite.ps1, ConfigPath.ps1, FileLock.ps1, Journal.ps1, TypeConverters.ps1, GoldenTaskHelpers.ps1, HumanAnnotations.ps1, HumanReviewStorage.ps1, ReplayHarness.ps1, ExternalIngestion.ps1, CaveatRegistry.ps1, Filters.ps1
+Get-ConfigValue defined in: Config.ps1, VoiceModelExtractor.ps1
+Set-NestedValue defined in: Config.ps1, ConfigCLI.ps1
+Convert-PSObjectToHashtable defined in: TypeConverters.ps1, RetrievalProfiles.ps1
+New-IncludeExcludeFilter defined in: ExternalIngestion.ps1, Filters.ps1
+Test-PathAgainstFilter defined in: ExternalIngestion.ps1, Filters.ps1
+Get-FileChecksum defined in: ExtractionPipeline.ps1, ProvenanceTracker.ps1
+Get-FileMetadata defined in: ExtractionPipeline.ps1, GodotAIBehaviorExtractor.ps1, GodotInventoryExtractor.ps1
+ConvertTo-NormalizedType defined in: ComponentLibraryExtractor.ps1, GDScriptParser.ps1, RPGMakerPluginParser.ps1
+Get-DocCommentForLine defined in: ComponentLibraryExtractor.ps1, GDScriptParser.ps1
+New-ProvenanceMetadata defined in: GodotAIBehaviorExtractor.ps1, GodotDialogueExtractor.ps1, GodotInventoryExtractor.ps1, GodotNetworkingExtractor.ps1, GodotQuestExtractor.ps1, GodotTestFrameworkExtractor.ps1, NotebookParser.ps1, OpenAPIExtractor.ps1
+Register-MCPTool defined in: MCPToolkitServer.ps1, MCPToolRegistry.ps1
+Get-MCPTool defined in: MCPToolkitServer.ps1, MCPToolRegistry.ps1
+ConvertTo-LLMHashtable defined in: PackManifest.ps1, PackTransaction.ps1, SourceRegistry.ps1
+ConvertFrom-LLMJsonToHashtable defined in: PackManifest.ps1, PackTransaction.ps1, SourceRegistry.ps1
+Write-Step defined in: bootstrap-llm-workflow.ps1, install-global-llm-workflow.ps1
+Write-PluginLog defined in: bootstrap.ps1, check.ps1
+
+=================== POTENTIAL MISSING TESTS (Heuristic) ===================
+Modules without direct matching *.Tests.ps1 files:
+LLMWorkflow.GameFunctions.ps1
+LLMWorkflow.PluginFunctions.ps1
+AtomicWrite.ps1
+CommandContract.ps1
+ExecutionMode.ps1
+FileLock.ps1
+Journal.ps1
+Logging.ps1
+PackVisibility.ps1
+Policy.ps1
+RunId.ps1
+StateFile.ps1
+TypeConverters.ps1
+Visibility.ps1
+Workspace.ps1
+...and 100 more
+
+=================== SILENTLYCONTINUE ABUSE ===================
+Found 219 instances of ErrorAction SilentlyContinue
+
+=================== TODO/FIXME/HACK COUNTS (Top 20) ===================
+LLMWorkflow.GameFunctions.ps1: 8
+MLModelDeploymentPipeline.ps1: 1
+
+=================== WRITE-HOST USAGE IN MODULES (Top 20) ===================
+DashboardViews.ps1: 82
+LLMWorkflow.HealFunctions.ps1: 62
+MLModelDeploymentPipeline.ps1: 53
+LLMWorkflow.Dashboard.ps1: 50
+ExampleUsage.ps1: 46
+GoldenTasks.ps1: 24
+AIGenerationPipeline.ps1: 24
+LLMWorkflow.GameFunctions.ps1: 20
+ProvenanceTracker.ps1: 17
+Planner.ps1: 15
+ConfigCLI.ps1: 13
+Policy.ps1: 7
+InterPackTransport.ps1: 6
+HumanReviewRules.ps1: 6
+GitHooks.ps1: 4
+Journal.ps1: 3
+ExecutionMode.ps1: 2
+FileLock.ps1: 2
+RetrievalCache.ps1: 2
+VoiceAnimationPipeline.ps1: 2
+
+=================== GLOBAL STATE ($global:) ===================
+
+=================== EMPTY CATCH BLOCKS ===================
+GoldenTasks.ps1: 3
+DoclingAdapter.ps1: 2
+GeometryNodesParser.ps1: 2
+ExternalIngestion.ps1: 1
+
+=================== OVERUSED $args (Missing explicit parameters) ===================
+GitHooks.ps1: 3
+BlenderPythonParser.ps1: 3
+CommandContract.ps1: 2
+AIGenerationPipeline.ps1: 1
+
+=================== ALIAS USAGE (% or ?) IN MODULES ===================
+
+=================== MISSING [CmdletBinding()] (Top 20) ===================
+AIGenerationPipeline.ps1: 19 missing out of 34 functions
+DashboardViews.ps1: 11 missing out of 30 functions
+entrypoint.ps1: 11 missing out of 11 functions
+NaturalLanguageConfig.ps1: 10 missing out of 26 functions
+ProvenanceTracker.ps1: 7 missing out of 13 functions
+Planner.ps1: 7 missing out of 17 functions
+ExampleUsage.ps1: 7 missing out of 7 functions
+GoldenTaskHelpers.ps1: 5 missing out of 6 functions
+AnswerPlan.ps1: 5 missing out of 16 functions
+ExternalIngestion.ps1: 4 missing out of 36 functions
+LLMWorkflow.psm1: 4 missing out of 21 functions
+PackSLOs.ps1: 3 missing out of 22 functions
+EducationalContentExtractor.ps1: 3 missing out of 10 functions
+HumanReviewStorage.ps1: 2 missing out of 8 functions
+LLMWorkflow.HealFunctions.ps1: 2 missing out of 16 functions
+SpriteSheetParser.ps1: 2 missing out of 6 functions
+AtlasMetadataParser.ps1: 2 missing out of 6 functions
+TelemetryHelpers.ps1: 2 missing out of 3 functions
+CommandContract.ps1: 2 missing out of 9 functions
+MLConceptExtractor.ps1: 1 missing out of 7 functions
+
+=================== MISSING .SYNOPSIS HELP (Top 20) ===================
+BlenderPythonParser.ps1: 22 missing out of 23 functions
+AIGenerationPipeline.ps1: 18 missing out of 34 functions
+LLMWorkflow.GameFunctions.ps1: 18 missing out of 22 functions
+bootstrap-llm-workflow.ps1: 18 missing out of 18 functions
+LLMWorkflow.psm1: 16 missing out of 21 functions
+LLMWorkflow.Dashboard.ps1: 16 missing out of 17 functions
+MCPGatewayRouting.ps1: 13 missing out of 13 functions
+MCPGatewayResilience.ps1: 13 missing out of 13 functions
+entrypoint.ps1: 11 missing out of 11 functions
+UnrealDescriptorParser.ps1: 11 missing out of 12 functions
+deploy-composite-gateway.ps1: 11 missing out of 12 functions
+mcp-server-manager.ps1: 10 missing out of 11 functions
+VoiceAnimationPipeline.ps1: 10 missing out of 10 functions
+DashboardViews.ps1: 9 missing out of 30 functions
+NaturalLanguageConfig.ps1: 9 missing out of 26 functions
+doctor-llm-workflow.ps1: 9 missing out of 9 functions
+RPGMakerAssetCatalogParser.ps1: 9 missing out of 10 functions
+GeometryNodesParser.ps1: 8 missing out of 16 functions
+deploy-blender-mcp.ps1: 8 missing out of 9 functions
+test-mcp-connection.ps1: 8 missing out of 9 functions
+
+=================== HARDCODED SECRETS (HEURISTIC) ===================
+NaturalLanguageConfig.ps1: 1 matches
+LLMWorkflow.HealFunctions.ps1: 1 matches
+
+=================== SILENT OUTPUT SUPPRESSION ($null = or | Out-Null) (Top 20) ===================
+MLModelDeploymentPipeline.ps1: 25 instances
+ProvenanceTracker.ps1: 24 instances
+GitHooks.ps1: 15 instances
+HumanAnnotations.ps1: 13 instances
+AIGenerationPipeline.ps1: 12 instances
+InterPackTransport.ps1: 11 instances
+deploy-composite-gateway.ps1: 9 instances
+SnapshotManager.ps1: 8 instances
+ExternalIngestion.ps1: 7 instances
+PackSLOs.ps1: 7 instances
+AnswerPlan.ps1: 7 instances
+VoiceAnimationPipeline.ps1: 7 instances
+Notifications.ps1: 7 instances
+LLMWorkflow.psm1: 5 instances
+entrypoint.ps1: 5 instances
+AtomicWrite.ps1: 5 instances
+LLMWorkflow.HealFunctions.ps1: 5 instances
+GoldenTasks.ps1: 5 instances
+Journal.ps1: 4 instances
+bootstrap-llm-workflow.ps1: 4 instances
+
+=================== UNAPPROVED POWERSHELL VERBS ===================
+NaturalLanguageConfig.ps1: 11 unapproved (Build-ConfigFromIntent, Build-PackInitConfig, Build-PackUpdateConfig, Build-PackRemoveConfig, Build-ModeChangeConfig, Build-ProfileSwitchConfig, Build-TrustUpdateConfig, Build-ProviderConfig, Build-NotificationConfig, Build-FilterConfig, Build-GenericConfig)
+GeometryNodesParser.ps1: 8 unapproved (Detect-GeometryNodesInputType, Parse-GeometryNodesFromJson, Parse-GeometryNodesFromPython, Parse-GeometryNodesFromBlendText, Extract-NodesFromPythonContent, Extract-LinksFromPythonContent, Extract-GroupInputsFromPythonContent, Extract-GroupOutputsFromPythonContent)
+ExampleUsage.ps1: 7 unapproved (Example-VoiceAnimationPipeline, Example-AIGenerationPipeline, Example-AIGenerationWorkflowOrchestrator, Example-MLModelDeploymentPipeline, Example-ProvenanceTracker, Example-CombinedWorkflow, Run-AllExamples)
+ConfidencePolicy.ps1: 6 unapproved (Calculate-RelevanceComponent, Calculate-AuthorityComponent, Calculate-ConsistencyComponent, Calculate-CoverageComponent, Calculate-OverallConfidence, Build-ConfidenceReasoning)
+bootstrap-llm-workflow.ps1: 5 unapproved (Ensure-ToolFolder, Ensure-PythonImport, Ensure-CodemunchCommand, Ensure-PythonCommand, Ensure-CodemunchRuntime)
+MLModelDeploymentPipeline.ps1: 5 unapproved (Deploy-ToGodot, Deploy-ToTarget, Package-MLModelForRuntime, Deploy-MLModelToGodot, Deploy-MLModelToBlender)
+BlenderPythonParser.ps1: 4 unapproved (Parse-OperatorClass, Parse-PanelClass, Parse-PropertyArguments, Parse-OperatorParameters)
+GodotTestFrameworkExtractor.ps1: 4 unapproved (Extract-TestSuites, Extract-TestCases, Extract-TestFixtures, Extract-TestAssertions)
+GodotDialogueExtractor.ps1: 4 unapproved (Extract-DialogueResources, Extract-DialogueCharacters, Extract-DialogueTimelines, Extract-DialogueVariables)
+GodotAIBehaviorExtractor.ps1: 4 unapproved (Extract-BehaviorTreeNodes, Extract-StateMachineStates, Extract-AIActionDefinitions, Extract-BlackboardSchema)
+PolicyAdapter.ps1: 4 unapproved (Evaluate-ExecutionModePolicy, Evaluate-McpExposurePolicy, Evaluate-InterpackTransferPolicy, Evaluate-WorkspaceBoundaryPolicy)
+MCPGatewayResilience.ps1: 4 unapproved (Record-MCPSuccess, Record-MCPFailure, Record-CircuitBreakerSuccess, Record-CircuitBreakerFailure)
+RetrievalCache.ps1: 3 unapproved (Acquire-CacheLock, Release-CacheLock, Perform-LRUEviction)
+QueryRouter.ps1: 3 unapproved (Route-QueryToPacks, Calculate-PackRelevance, Apply-ProfileBoosts)
+NotebookParser.ps1: 3 unapproved (Extract-NotebookCells, Extract-NotebookOutputs, Extract-NotebookMetadata)
+ExternalIngestion.ps1: 3 unapproved (Parse-GitHubUrl, Extract-LinksFromHtml, Parse-GitLabUrl)
+OpenAPIExtractor.ps1: 3 unapproved (Extract-OpenAPIPaths, Extract-OpenAPISchemas, Extract-OpenAPISecurity)
+MCPToolkitServer.ps1: 2 unapproved (Process-MCPHttpRequest, Process-MCPRequest)
+Config.ps1: 2 unapproved (Track-Source, Flatten-Config)
+install-global-llm-workflow.ps1: 2 unapproved (Ensure-Dir, llm-workflow)
+HumanAnnotations.ps1: 2 unapproved (Apply-Annotations, Vote-Annotation)
+EvidencePolicy.ps1: 2 unapproved (Filter-EvidenceByPolicy, Sort-BySourceAuthority)
+MCPCompositeGateway.ps1: 2 unapproved (Process-MCPGatewayRequest, Ensure-GatewayRunning)
+ProvenanceTracker.ps1: 2 unapproved (Load-ProvenanceRecord, Validate-ProvenanceIntegrity)
+HumanReviewGates.ps1: 1 unapproved (Reject-ReviewRequest)
+GoldenTaskHelpers.ps1: 1 unapproved (Extract-ResponseProperties)
+ConfigCLI.ps1: 1 unapproved (Flatten-ConfigForOutput)
+FileLock.ps1: 1 unapproved (Release-AllLocks)
+Journal.ps1: 1 unapproved (Rotate-Journal)
+Logging.ps1: 1 unapproved (Should-Redact)

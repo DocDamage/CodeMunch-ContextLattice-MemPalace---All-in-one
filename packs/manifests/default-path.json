@@ -1,0 +1,15 @@
+{
+  "schemaVersion": 1,
+  "packId": "default-path",
+  "updatedUtc": "2026-04-14T00:24:30.0357599Z",
+  "channel": "draft",
+  "owners": {},
+  "defaultCollections": [],
+  "createdByRunId": "20260414T002430Z-e8dc",
+  "taxonomyVersion": "1",
+  "installProfiles": {},
+  "domain": "test",
+  "createdUtc": "2026-04-14T00:24:30.0316003Z",
+  "status": "draft",
+  "version": "1.0.0"
+}
