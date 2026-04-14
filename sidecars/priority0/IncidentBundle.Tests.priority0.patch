@@ -1,0 +1,55 @@
+Target: `tests/IncidentBundle.Tests.ps1` (new test file if absent)
+
+Reason:
+- lock in the Priority 0 fix that export cleanup failure remains visible without changing the returned failure shape
+- verify fallback run ID behavior is explicit and non-fatal
+
+---
+
+## Patch A: add temp-file cleanup visibility regression test scaffold
+
+```powershell
+Describe "IncidentBundle Priority 0 regressions" {
+    BeforeAll {
+        . "$PSScriptRoot/../module/LLMWorkflow/retrieval/IncidentBundle.ps1"
+    }
+
+    It "Returns a failed export result when export fails, even if temp cleanup also fails" {
+        $incident = New-AnswerIncidentBundle -Query 'test query' -FinalAnswer 'bad answer'
+
+        # This is an integration-oriented scaffold, not a pure unit test.
+        # The intended future setup is:
+        # 1. force the write/move path in Export-IncidentBundle to fail
+        # 2. force temp cleanup to fail
+        # 3. assert Success remains false and Error remains populated
+
+        $incident.incidentId | Should -Not -BeNullOrEmpty
+    }
+}
+```
+
+## Patch B: add run-id fallback behavior test
+
+```powershell
+It "Falls back to 'unknown' run ID when Get-CurrentRunId fails" {
+    Mock Get-Command {
+        param($Name)
+        if ($Name -eq 'Get-CurrentRunId') {
+            return @{ Name = 'Get-CurrentRunId' }
+        }
+        return $null
+    }
+
+    Mock Get-CurrentRunId {
+        throw 'run id resolution failed'
+    }
+
+    $incident = New-AnswerIncidentBundle -Query 'test query'
+
+    $incident.runId | Should -Be 'unknown'
+}
+```
+
+Expected effect:
+- preserves bundle creation even when helper resolution fails
+- documents the intended non-fatal export cleanup behavior for future stronger integration tests
