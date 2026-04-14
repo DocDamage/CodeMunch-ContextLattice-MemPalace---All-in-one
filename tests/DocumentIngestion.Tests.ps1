@@ -230,6 +230,15 @@ Describe "DoclingAdapter (Mocked / Availability)" {
             $adapter.timeoutSeconds | Should -Be 300
             $adapter.supportedFormats | Should -Contain '.pdf'
         }
+
+        It "Falls back to literal 'python' when candidate resolution fails unexpectedly" {
+            Mock Get-Command {
+                throw [System.InvalidOperationException]::new('unexpected command resolution failure')
+            }
+
+            $adapter = New-DoclingAdapter
+            $adapter.pythonPath | Should -Be 'python'
+        }
     }
 
     Context "Test-DoclingAvailable" {
@@ -241,6 +250,16 @@ Describe "DoclingAdapter (Mocked / Availability)" {
 
     Context "Invoke-DoclingExtraction" {
         It "Returns failure for missing file" {
+            $result = Invoke-DoclingExtraction -FilePath 'C:\NoSuchFile.pdf'
+            $result.success | Should -Be $false
+            $result.errors | Should -Contain "File not found: C:\NoSuchFile.pdf"
+        }
+
+        It "Returns missing-file failure when path resolution throws unexpectedly" {
+            Mock Resolve-Path {
+                throw [System.IO.IOException]::new('filesystem probe failed')
+            }
+
             $result = Invoke-DoclingExtraction -FilePath 'C:\NoSuchFile.pdf'
             $result.success | Should -Be $false
             $result.errors | Should -Contain "File not found: C:\NoSuchFile.pdf"

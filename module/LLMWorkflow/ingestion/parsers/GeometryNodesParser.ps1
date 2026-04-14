@@ -37,6 +37,52 @@ function Write-GeometryNodesSuppressedException {
     Write-Verbose "[GeometryNodesParser] $($Context): $($ErrorRecord.Exception.Message)"
 }
 
+function Test-GeometryNodesLiteralPathCandidate {
+    [CmdletBinding()]
+    [OutputType([bool])]
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$LiteralPath,
+
+        [Parameter()]
+        [string]$Context = 'Geometry Nodes path probe'
+    )
+
+    try {
+        return (Test-Path -LiteralPath $LiteralPath -PathType Leaf -ErrorAction Stop)
+    }
+    catch [System.Management.Automation.ItemNotFoundException] {
+        return $false
+    }
+    catch {
+        Write-GeometryNodesSuppressedException -Context "$Context for '$LiteralPath'" -ErrorRecord $_
+        return $false
+    }
+}
+
+function Resolve-GeometryNodesLiteralPath {
+    [CmdletBinding()]
+    [OutputType([string])]
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$LiteralPath,
+
+        [Parameter()]
+        [string]$Context = 'Geometry Nodes path resolution'
+    )
+
+    try {
+        return (Resolve-Path -LiteralPath $LiteralPath -ErrorAction Stop | Select-Object -ExpandProperty Path -First 1)
+    }
+    catch [System.Management.Automation.ItemNotFoundException] {
+        return $null
+    }
+    catch {
+        Write-GeometryNodesSuppressedException -Context "$Context for '$LiteralPath'" -ErrorRecord $_
+        return $null
+    }
+}
+
 # ============================================================================
 # Script-level Constants and Node Type Definitions
 # ============================================================================
@@ -145,12 +191,16 @@ function Invoke-GeometryNodesParse {
                 Write-Verbose "[GeometryNodesParser] Auto-detected input type: $detectedType"
             }
 
-            if ($detectedType -eq 'File' -or ($content -match '\.(py|json|txt|blend)$' -and (Test-Path -LiteralPath $content -ErrorAction SilentlyContinue))) {
-                if (Test-Path -LiteralPath $content -PathType Leaf) {
-                    $actualSourceFile = Resolve-Path -LiteralPath $content | Select-Object -ExpandProperty Path
-                    $content = Get-Content -LiteralPath $actualSourceFile -Raw -Encoding UTF8
-                    $detectedType = Detect-GeometryNodesInputType -Content $content
+            $looksLikeFilePath = ($detectedType -eq 'File') -or ($content -match '\.(py|json|txt|blend)$')
+            if ($looksLikeFilePath -and (Test-GeometryNodesLiteralPathCandidate -LiteralPath $content -Context 'Geometry Nodes input file probe')) {
+                $resolvedSourcePath = Resolve-GeometryNodesLiteralPath -LiteralPath $content -Context 'Geometry Nodes input file resolution'
+                if ([string]::IsNullOrWhiteSpace($resolvedSourcePath)) {
+                    throw "Failed to resolve Geometry Nodes source file path: $content"
                 }
+
+                $actualSourceFile = $resolvedSourcePath
+                $content = Get-Content -LiteralPath $actualSourceFile -Raw -Encoding UTF8 -ErrorAction Stop
+                $detectedType = Detect-GeometryNodesInputType -Content $content
             }
 
             $parsedData = switch ($detectedType) {
@@ -1267,4 +1317,3 @@ if ($MyInvocation.InvocationName -ne ".") { Export-ModuleMember -Function @(
 )
 
 }
-

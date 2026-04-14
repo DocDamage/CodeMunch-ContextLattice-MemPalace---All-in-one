@@ -152,11 +152,11 @@ Describe "Repair-LLMWorkflowIssue" {
             try {
                 $result = Repair-LLMWorkflowIssue -IssueType CorruptedSyncState -ProjectRoot $testDir -Force
                 $result.Success | Should -Be $true
-                $result.Changes | Should -ContainMatch "backup"
+                ($result.Changes -join "`n") | Should -Match "backup"
                 
                 # Verify backup was created
                 $backups = Get-ChildItem -Path $bridgeDir -Filter "sync-state.json.backup.*"
-                $backups.Count | Should -BeGreaterThan 0
+                @($backups).Count | Should -BeGreaterThan 0
                 
                 # Verify new file is valid JSON
                 $content = Get-Content (Join-Path $bridgeDir "sync-state.json") -Raw

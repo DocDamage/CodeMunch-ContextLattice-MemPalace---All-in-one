@@ -12,6 +12,17 @@ The format is based on Keep a Changelog and this project follows Semantic Versio
 
 ## [Unreleased]
 
+### Changed - Reliability Hardening (2026-04-14)
+
+- Hardened `DoclingAdapter.ps1` failure visibility by replacing silent command/path probes with explicit helper-based resolution and verbose-safe suppressed-exception diagnostics.
+- Hardened `GeometryNodesParser.ps1` file path probing by removing `-ErrorAction SilentlyContinue`, adding explicit resolution/error signaling, and covering fallback/error paths with dedicated parser tests.
+- Hardened `LLMWorkflow.HealFunctions.ps1` runtime safety by replacing silent probes with explicit helper functions, adding safe workflow-version fallback for history entries, and fixing strict-mode/count edge cases.
+- Updated heal execution semantics so `-Force` mode is non-interactive by default and no longer prompts for secure input in unattended runs.
+- Added or updated regression coverage in:
+  - `tests/DocumentIngestion.Tests.ps1`
+  - `tests/GeometryNodesParser.Tests.ps1`
+  - `tests/LLMWorkflow.HealFunctions.Tests.ps1`
+
 ### Added - Game Asset Intake Foundation
 
 - Engine-aware game asset manifest and preset scaffolding for:

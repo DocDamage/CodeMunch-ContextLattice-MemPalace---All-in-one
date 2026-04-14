@@ -51,6 +51,58 @@ function Write-DoclingSuppressedException {
     Write-Verbose "[$script:ModuleName] $($Context): $($ErrorRecord.Exception.Message)"
 }
 
+function Resolve-DoclingCommandPath {
+    [CmdletBinding()]
+    [OutputType([string])]
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$CommandName,
+
+        [Parameter()]
+        [string]$Context = 'Command resolution'
+    )
+
+    try {
+        $command = Get-Command -Name $CommandName -CommandType Application -ErrorAction Stop | Select-Object -First 1
+        if ($null -eq $command) {
+            return $null
+        }
+
+        return [string]$command.Source
+    }
+    catch [System.Management.Automation.CommandNotFoundException] {
+        Write-Verbose "[$script:ModuleName] ${Context}: '$CommandName' is not installed or not on PATH."
+        return $null
+    }
+    catch {
+        Write-DoclingSuppressedException -Context "$Context for '$CommandName'" -ErrorRecord $_
+        return $null
+    }
+}
+
+function Resolve-DoclingLiteralPath {
+    [CmdletBinding()]
+    [OutputType([string])]
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$Path,
+
+        [Parameter()]
+        [string]$Context = 'Path resolution'
+    )
+
+    try {
+        return (Resolve-Path -LiteralPath $Path -ErrorAction Stop | Select-Object -ExpandProperty Path -First 1)
+    }
+    catch [System.Management.Automation.ItemNotFoundException] {
+        return $null
+    }
+    catch {
+        Write-DoclingSuppressedException -Context "$Context for '$Path'" -ErrorRecord $_
+        return $null
+    }
+}
+
 <#
 .SYNOPSIS
     Creates a new Docling adapter configuration.
@@ -83,9 +135,9 @@ function New-DoclingAdapter {
         $candidates = @('python', 'python3', 'py')
         $found = $null
         foreach ($candidate in $candidates) {
-            $cmd = Get-Command -Name $candidate -CommandType Application -ErrorAction SilentlyContinue | Select-Object -First 1
-            if ($cmd) {
-                $found = $cmd.Source
+            $resolvedCandidate = Resolve-DoclingCommandPath -CommandName $candidate -Context 'Default Python candidate lookup'
+            if (-not [string]::IsNullOrWhiteSpace($resolvedCandidate)) {
+                $found = $resolvedCandidate
                 break
             }
         }
@@ -127,13 +179,13 @@ function Test-DoclingAvailable {
     )
 
     $python = $Adapter.pythonPath
-    if (-not (Test-Path -LiteralPath $python -ErrorAction SilentlyContinue)) {
+    if (-not (Test-Path -LiteralPath $python -PathType Leaf)) {
         # Also try command resolution
-        $cmd = Get-Command -Name $python -CommandType Application -ErrorAction SilentlyContinue | Select-Object -First 1
-        if (-not $cmd) {
+        $resolvedPython = Resolve-DoclingCommandPath -CommandName $python -Context 'Docling availability Python lookup'
+        if ([string]::IsNullOrWhiteSpace($resolvedPython)) {
             return $false
         }
-        $python = $cmd.Source
+        $python = $resolvedPython
     }
 
     try {
@@ -165,7 +217,7 @@ function Test-DoclingAvailable {
         return ($process.ExitCode -eq 0)
     }
     catch {
-        Write-Verbose "[$script:ModuleName] Docling availability check failed: $_"
+        Write-DoclingSuppressedException -Context 'Docling availability check failed' -ErrorRecord $_
         return $false
     }
 }
@@ -207,7 +259,7 @@ function Invoke-DoclingExtraction {
         [string]$OutputFormat = 'markdown'
     )
 
-    $resolvedPath = Resolve-Path -Path $FilePath -ErrorAction SilentlyContinue | Select-Object -ExpandProperty Path
+    $resolvedPath = Resolve-DoclingLiteralPath -Path $FilePath -Context 'Input file resolution'
     if ([string]::IsNullOrWhiteSpace($resolvedPath) -or -not (Test-Path -LiteralPath $resolvedPath)) {
         return [ordered]@{
             success = $false
@@ -255,8 +307,10 @@ function Invoke-DoclingExtraction {
     }
 
     $python = $Adapter.pythonPath
-    $cmd = Get-Command -Name $python -CommandType Application -ErrorAction SilentlyContinue | Select-Object -First 1
-    if ($cmd) { $python = $cmd.Source }
+    $resolvedPython = Resolve-DoclingCommandPath -CommandName $python -Context 'Docling extraction Python lookup'
+    if (-not [string]::IsNullOrWhiteSpace($resolvedPython)) {
+        $python = $resolvedPython
+    }
 
     $tempOutDir = Join-Path ([System.IO.Path]::GetTempPath()) ([System.Guid]::NewGuid().ToString())
     New-Item -ItemType Directory -Path $tempOutDir -Force | Out-Null
@@ -349,7 +403,7 @@ except Exception as e:
         }
     }
     catch {
-        Write-Verbose "[$script:ModuleName] Extraction failed: $_"
+        Write-DoclingSuppressedException -Context 'Docling extraction failed' -ErrorRecord $_
         return [ordered]@{
             success = $false
             engine = 'docling'
@@ -376,12 +430,11 @@ except Exception as e:
 }
 
 if ($null -ne $MyInvocation.MyCommand.Module) {
-if ($ExecutionContext.SessionState.Module) {
-    Export-ModuleMember -Function @(
-        'New-DoclingAdapter',
-        'Invoke-DoclingExtraction',
-        'Test-DoclingAvailable'
-    )
-}
-
+    if ($ExecutionContext.SessionState.Module) {
+        Export-ModuleMember -Function @(
+            'New-DoclingAdapter',
+            'Invoke-DoclingExtraction',
+            'Test-DoclingAvailable'
+        )
+    }
 }

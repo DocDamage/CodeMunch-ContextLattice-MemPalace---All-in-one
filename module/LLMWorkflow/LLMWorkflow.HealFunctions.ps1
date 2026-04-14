@@ -40,6 +40,169 @@ enum IssueType {
 # Helper Functions
 #===============================================================================
 
+function Write-HealSuppressedException {
+    <#
+    .SYNOPSIS
+        Emits verbose diagnostics for intentionally suppressed exceptions.
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory=$true)]
+        [string]$Context,
+
+        [Parameter(Mandatory=$true)]
+        [System.Management.Automation.ErrorRecord]$ErrorRecord
+    )
+
+    Write-Verbose "[LLMWorkflow.HealFunctions] $($Context): $($ErrorRecord.Exception.Message)"
+}
+
+function Resolve-HealLiteralPath {
+    <#
+    .SYNOPSIS
+        Resolves a literal path to an absolute path, returning $null on known non-fatal misses.
+    #>
+    [CmdletBinding()]
+    [OutputType([string])]
+    param(
+        [Parameter(Mandatory=$true)]
+        [string]$LiteralPath,
+
+        [string]$Context = 'Path resolution'
+    )
+
+    try {
+        return (Resolve-Path -LiteralPath $LiteralPath -ErrorAction Stop | Select-Object -ExpandProperty Path -First 1)
+    } catch [System.Management.Automation.ItemNotFoundException] {
+        return $null
+    } catch {
+        Write-HealSuppressedException -Context "$Context for '$LiteralPath'" -ErrorRecord $_
+        return $null
+    }
+}
+
+function Get-HealCommandPath {
+    <#
+    .SYNOPSIS
+        Resolves an executable command name to a source path.
+    #>
+    [CmdletBinding()]
+    [OutputType([string])]
+    param(
+        [Parameter(Mandatory=$true)]
+        [string]$CommandName,
+
+        [string]$Context = 'Command resolution'
+    )
+
+    try {
+        $command = Get-Command -Name $CommandName -ErrorAction Stop | Select-Object -First 1
+        if ($null -eq $command) {
+            return $null
+        }
+        return [string]$command.Source
+    } catch [System.Management.Automation.CommandNotFoundException] {
+        return $null
+    } catch {
+        Write-HealSuppressedException -Context "$Context for '$CommandName'" -ErrorRecord $_
+        return $null
+    }
+}
+
+function Get-HealChildItems {
+    <#
+    .SYNOPSIS
+        Safely enumerates child items for wildcard and direct paths.
+    #>
+    [CmdletBinding()]
+    [OutputType([object[]])]
+    param(
+        [Parameter(Mandatory=$true)]
+        [string]$Path,
+
+        [ValidateSet('Any', 'File', 'Directory')]
+        [string]$ItemType = 'Any',
+
+        [string]$Context = 'Child item enumeration'
+    )
+
+    $params = @{
+        Path = $Path
+        ErrorAction = 'Stop'
+    }
+    switch ($ItemType) {
+        'File' { $params['File'] = $true }
+        'Directory' { $params['Directory'] = $true }
+    }
+
+    try {
+        return @(Get-ChildItem @params)
+    } catch [System.Management.Automation.ItemNotFoundException] {
+        return @()
+    } catch {
+        Write-HealSuppressedException -Context "$Context for '$Path'" -ErrorRecord $_
+        return @()
+    }
+}
+
+function Get-HealFileLines {
+    <#
+    .SYNOPSIS
+        Safely reads file lines, returning an empty array if unavailable.
+    #>
+    [CmdletBinding()]
+    [OutputType([string[]])]
+    param(
+        [Parameter(Mandatory=$true)]
+        [string]$Path,
+
+        [string]$Context = 'File read'
+    )
+
+    try {
+        if (-not (Test-Path -LiteralPath $Path -PathType Leaf)) {
+            return @()
+        }
+        return @(Get-Content -Path $Path -ErrorAction Stop)
+    } catch [System.Management.Automation.ItemNotFoundException] {
+        return @()
+    } catch {
+        Write-HealSuppressedException -Context "$Context for '$Path'" -ErrorRecord $_
+        return @()
+    }
+}
+
+function Get-HealWorkflowVersion {
+    <#
+    .SYNOPSIS
+        Gets the workflow version used in heal-history entries with a safe fallback.
+    #>
+    [CmdletBinding()]
+    [OutputType([string])]
+    param()
+
+    try {
+        $versionCommand = Get-Command -Name 'Get-LLMWorkflowVersion' -ErrorAction Stop
+        if ($null -eq $versionCommand) {
+            return 'unknown'
+        }
+
+        $versionInfo = Get-LLMWorkflowVersion
+        if ($null -ne $versionInfo -and $versionInfo.PSObject.Properties.Name -contains 'manifestVersion') {
+            $manifestVersion = [string]$versionInfo.manifestVersion
+            if (-not [string]::IsNullOrWhiteSpace($manifestVersion)) {
+                return $manifestVersion
+            }
+        }
+    } catch [System.Management.Automation.CommandNotFoundException] {
+        return 'unknown'
+    } catch {
+        Write-HealSuppressedException -Context 'Workflow version lookup' -ErrorRecord $_
+    }
+
+    return 'unknown'
+}
+
 function Initialize-HealHistoryStore {
     <#
     .SYNOPSIS
@@ -77,23 +240,25 @@ function Write-HealHistoryEntry {
     
     Initialize-HealHistoryStore
     
+    $resolvedProjectRoot = Resolve-HealLiteralPath -LiteralPath $ProjectRoot -Context 'Heal history project-root resolution'
+
     $entry = [ordered]@{
         timestamp = [DateTime]::UtcNow.ToString("o")
         operation = $Operation
         issueType = $IssueType
         status = $Status
         details = $Details
-        projectRoot = (Resolve-Path -LiteralPath $ProjectRoot -ErrorAction SilentlyContinue).Path
+        projectRoot = if ([string]::IsNullOrWhiteSpace($resolvedProjectRoot)) { $ProjectRoot } else { $resolvedProjectRoot }
         whatIf = $WhatIf.IsPresent
-        version = (Get-LLMWorkflowVersion).manifestVersion
+        version = Get-HealWorkflowVersion
     }
     
     $jsonLine = ($entry | ConvertTo-Json -Compress)
     Add-Content -Path $script:HealHistoryPath -Value $jsonLine -Encoding UTF8
     
     # Trim history if too large
-    $lines = Get-Content -Path $script:HealHistoryPath -ErrorAction SilentlyContinue
-    if ($lines.Count -gt $script:MaxHistoryEntries) {
+    $lines = @(Get-HealFileLines -Path $script:HealHistoryPath -Context 'Heal history trim read')
+    if (@($lines).Count -gt $script:MaxHistoryEntries) {
         $lines | Select-Object -Last $script:MaxHistoryEntries | Set-Content -Path $script:HealHistoryPath -Encoding UTF8
     }
 }
@@ -206,14 +371,14 @@ function Test-IsPythonAvailable {
     $foundPython = $null
     
     foreach ($cmd in $pythonCmds) {
-        $found = Get-Command $cmd -ErrorAction SilentlyContinue
-        if ($found) {
+        $foundPath = Get-HealCommandPath -CommandName $cmd -Context 'Python command availability probe'
+        if (-not [string]::IsNullOrWhiteSpace($foundPath)) {
             try {
                 $version = & $cmd --version 2>&1
                 if ($LASTEXITCODE -eq 0) {
                     $foundPython = @{
                         Command = $cmd
-                        Path = $found.Source
+                        Path = $foundPath
                         Version = $version
                     }
                     break
@@ -247,9 +412,9 @@ function Find-PythonInstallation {
         ) | Where-Object { -not [string]::IsNullOrWhiteSpace($_) }
 
         foreach ($rootPattern in $searchRoots) {
-            $roots = Get-ChildItem -Path $rootPattern -Directory -ErrorAction SilentlyContinue
+            $roots = Get-HealChildItems -Path $rootPattern -ItemType Directory -Context 'Python root directory scan'
             foreach ($pythonRoot in $roots) {
-                $versions = Get-ChildItem -Path $pythonRoot.FullName -Directory -ErrorAction SilentlyContinue |
+                $versions = Get-HealChildItems -Path $pythonRoot.FullName -ItemType Directory -Context 'Python version directory scan' |
                     Where-Object { $_.Name -match '^\d+' } |
                     Sort-Object Name -Descending
                 foreach ($ver in $versions) {
@@ -282,7 +447,7 @@ function Find-PythonInstallation {
         # Linux/Mac common locations using wildcards for portability
         $unixSearchPaths = @('/usr/bin/python*', '/usr/local/bin/python*', '/opt/python*/bin/python*', "$HOME/.local/bin/python*")
         foreach ($pattern in $unixSearchPaths) {
-            $matches = Get-ChildItem -Path $pattern -File -ErrorAction SilentlyContinue
+            $matches = Get-HealChildItems -Path $pattern -ItemType File -Context 'Unix python path scan'
             foreach ($match in $matches) {
                 $possiblePaths += $match.FullName
             }
@@ -396,7 +561,7 @@ function Test-LLMWorkflowIssue {
         [string]$ProjectRoot = "."
     )
     
-    $projectPath = Resolve-Path -LiteralPath $ProjectRoot -ErrorAction SilentlyContinue
+    $projectPath = Resolve-HealLiteralPath -LiteralPath $ProjectRoot -Context 'Issue detection project-root resolution'
     if (-not $projectPath) {
         return @{
             Detected = $true
@@ -667,7 +832,7 @@ function Repair-LLMWorkflowIssue {
         [switch]$Interactive
     )
     
-    $projectPath = Resolve-Path -LiteralPath $ProjectRoot -ErrorAction SilentlyContinue
+    $projectPath = Resolve-HealLiteralPath -LiteralPath $ProjectRoot -Context 'Issue repair project-root resolution'
     if (-not $projectPath) {
         return @{
             Success = $false
@@ -953,14 +1118,22 @@ except Exception as e:
                             Write-Host "You can obtain an API key from your ContextLattice orchestrator." -ForegroundColor Gray
                             $apiKey = Read-SecureInput -Prompt "Enter your ContextLattice API key: "
                         } else {
-                            # In Force mode without interactive, use placeholder
-                            $apiKey = "your-api-key-here"
+                            # In Force mode without interactive, use environment key if set; otherwise use placeholder.
+                            $apiKey = [Environment]::GetEnvironmentVariable("CONTEXTLATTICE_ORCHESTRATOR_API_KEY")
+                            if ([string]::IsNullOrWhiteSpace($apiKey)) {
+                                $apiKey = "your-api-key-here"
+                            }
                         }
                         
-                        if (-not [string]::IsNullOrWhiteSpace($apiKey) -and $apiKey -ne "your-api-key-here") {
+                        $allowPlaceholder = ($Force -and -not $Interactive -and $apiKey -eq "your-api-key-here")
+                        if (-not [string]::IsNullOrWhiteSpace($apiKey) -and ($apiKey -ne "your-api-key-here" -or $allowPlaceholder)) {
                             # Add to current session
-                            $env:CONTEXTLATTICE_ORCHESTRATOR_API_KEY = $apiKey
-                            $changes += "Set API key in current session"
+                            if ($apiKey -ne "your-api-key-here") {
+                                $env:CONTEXTLATTICE_ORCHESTRATOR_API_KEY = $apiKey
+                                $changes += "Set API key in current session"
+                            } else {
+                                $changes += "Configured placeholder API key for non-interactive force mode"
+                            }
                             
                             # Add to .env file
                             if (Test-Path -LiteralPath $envPath) {
@@ -981,8 +1154,12 @@ except Exception as e:
                             }
                             
                             $success = $true
-                            $message = "Configured ContextLattice API key"
-                            Write-HealLog -Message "Configured ContextLattice API key" -Level "SUCCESS"
+                            $message = if ($apiKey -eq "your-api-key-here") {
+                                "Configured placeholder ContextLattice API key in .env (manual update required)"
+                            } else {
+                                "Configured ContextLattice API key"
+                            }
+                            Write-HealLog -Message $message -Level "SUCCESS"
                         } else {
                             $success = $false
                             $message = "No API key provided"
@@ -1180,7 +1357,7 @@ function Get-LLMWorkflowRepairHistory {
     }
     
     if (-not [string]::IsNullOrWhiteSpace($ProjectRoot)) {
-        $resolvedRoot = (Resolve-Path -LiteralPath $ProjectRoot -ErrorAction SilentlyContinue).Path
+        $resolvedRoot = Resolve-HealLiteralPath -LiteralPath $ProjectRoot -Context 'Repair-history project-root resolution'
         if ($resolvedRoot) {
             $entries = $entries | Where-Object { $_.projectRoot -eq $resolvedRoot }
         }
@@ -1321,13 +1498,18 @@ function Invoke-LLMWorkflowHeal {
         [switch]$OnlyCritical,
         [IssueType[]]$IssueTypes = @()
     )
+
+    if ($Force) {
+        # Force mode is intended for unattended execution; disable interactive prompts.
+        $Interactive = $false
+    }
     
     # Initialize
     Initialize-HealHistoryStore
     Write-HealLog -Message "Starting heal operation on: $ProjectRoot (WhatIf=$WhatIf, Force=$Force)" -Level "INFO"
     
     $startTime = Get-Date
-    $projectPath = Resolve-Path -LiteralPath $ProjectRoot -ErrorAction SilentlyContinue
+    $projectPath = Resolve-HealLiteralPath -LiteralPath $ProjectRoot -Context 'Heal invocation project-root resolution'
     
     if (-not $projectPath) {
         Write-Error "Project root does not exist: $ProjectRoot"
@@ -1411,10 +1593,10 @@ function Invoke-LLMWorkflowHeal {
     Write-Host ""
     
     # Summary of diagnosis
-    $criticalCount = ($detectedIssues | Where-Object { $_.Category -eq [IssueCategory]::CRITICAL }).Count
-    $warningCount = ($detectedIssues | Where-Object { $_.Category -eq [IssueCategory]::WARNING }).Count
-    $infoCount = ($detectedIssues | Where-Object { $_.Category -eq [IssueCategory]::INFO }).Count
-    $fixableCount = ($detectedIssues | Where-Object { $_.CanFix }).Count
+    $criticalCount = @($detectedIssues | Where-Object { $_.Category -eq [IssueCategory]::CRITICAL }).Count
+    $warningCount = @($detectedIssues | Where-Object { $_.Category -eq [IssueCategory]::WARNING }).Count
+    $infoCount = @($detectedIssues | Where-Object { $_.Category -eq [IssueCategory]::INFO }).Count
+    $fixableCount = @($detectedIssues | Where-Object { $_.CanFix }).Count
     
     Write-Host "Diagnosis Summary:" -ForegroundColor Yellow
     Write-Host "  Critical issues: $criticalCount" -ForegroundColor $(if ($criticalCount -gt 0) { "Red" } else { "Green" })
@@ -1545,11 +1727,13 @@ function Invoke-LLMWorkflowHeal {
 # Export Module Members
 #===============================================================================
 
-Export-ModuleMember -Function @(
-    'Invoke-LLMWorkflowHeal',
-    'Test-LLMWorkflowIssue',
-    'Repair-LLMWorkflowIssue',
-    'Get-LLMWorkflowRepairHistory',
-    'Clear-LLMWorkflowRepairHistory',
-    'Export-LLMWorkflowRepairHistory'
-)
+if ($ExecutionContext.SessionState.Module) {
+    Export-ModuleMember -Function @(
+        'Invoke-LLMWorkflowHeal',
+        'Test-LLMWorkflowIssue',
+        'Repair-LLMWorkflowIssue',
+        'Get-LLMWorkflowRepairHistory',
+        'Clear-LLMWorkflowRepairHistory',
+        'Export-LLMWorkflowRepairHistory'
+    )
+}

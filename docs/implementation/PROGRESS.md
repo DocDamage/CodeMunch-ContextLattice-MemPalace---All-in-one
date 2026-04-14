@@ -87,6 +87,9 @@ Strategic emphasis has shifted from raw expansion toward:
 - **ConvertFrom-Json -AsHashtable** replaced with PS 5.1-compatible conversion in StateFile
 - **CorrelationId parameter block parse errors** fixed across retrieval and MCP modules
 - **docs-truth validator** restored to green (README.md metrics synchronized)
+- **DoclingAdapter failure-visibility hardening**: removed silent command/path probes and added explicit suppressed-exception diagnostics with regression tests
+- **GeometryNodesParser file-probe hardening**: removed `-ErrorAction SilentlyContinue` path probing, added explicit file-resolution failure signaling, and added dedicated parser tests (`tests/GeometryNodesParser.Tests.ps1`)
+- **HealFunctions reliability hardening**: removed silent path/command/file probes, added explicit helper-based diagnostics, made force mode truly non-interactive, and fixed strict-mode/count regressions with passing `tests/LLMWorkflow.HealFunctions.Tests.ps1`
 
 ### Resolver Hardening Completed
 The current branch baseline already covers:
