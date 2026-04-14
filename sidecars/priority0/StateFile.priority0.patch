@@ -1,0 +1,76 @@
+Target: `module/LLMWorkflow/core/StateFile.ps1`
+
+Reason:
+- triage `-ErrorAction SilentlyContinue` where it is masking operational cleanup failure instead of handling an optional probe
+- keep optional path resolution probes quiet, but surface temp-file cleanup failures in the atomic write failure path
+
+---
+
+## Patch A: keep optional `Resolve-Path` probes as-is
+
+These are acceptable to leave quiet because they are fallback probes, not real failures:
+
+```powershell
+$resolvedPath = Resolve-Path -Path $Path -ErrorAction SilentlyContinue
+if (-not $resolvedPath) {
+    $resolvedPath = $Path
+}
+```
+
+That pattern appears in several functions and is not the priority target.
+
+## Patch B: surface temp-file cleanup failure in `Write-StateFile`
+
+Current code:
+
+```powershell
+catch {
+    # Clean up temp file
+    if (Test-Path -LiteralPath $tempPath) {
+        Remove-Item -LiteralPath $tempPath -Force -ErrorAction SilentlyContinue
+    }
+
+    throw "Failed to write state file: $_"
+}
+```
+
+Replace with:
+
+```powershell
+catch {
+    # Clean up temp file
+    if ($tempPath -and (Test-Path -LiteralPath $tempPath)) {
+        try {
+            Remove-Item -LiteralPath $tempPath -Force -ErrorAction Stop
+        }
+        catch {
+            Write-Warning "Failed to remove temporary state file '$tempPath' after write failure: $($_.Exception.Message)"
+        }
+    }
+
+    throw "Failed to write state file: $_"
+}
+```
+
+Why this matters:
+- the write already failed, so silent cleanup failure becomes hidden residue on disk
+- this is exactly the kind of invisible operational failure the Priority 0 pass is supposed to expose
+- the patch preserves the original throw behavior while adding operator-visible signal
+
+## Patch C: follow-up test idea for `StateFile`
+
+Suggested future test insertion in a new `tests/StateFile.Tests.ps1`:
+
+```powershell
+It "Still throws write failure while surfacing temp cleanup issues" {
+    # future integration-oriented test:
+    # - arrange a failing write path
+    # - force temp cleanup removal to fail
+    # - assert the function still throws the write failure
+    # - assert a warning is emitted for temp cleanup failure
+}
+```
+
+Priority judgment:
+- do not churn all `SilentlyContinue` probes in this module
+- fix the one that hides meaningful post-failure cleanup behavior first
