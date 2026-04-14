@@ -1,0 +1,22 @@
+{
+  "packId": "curated-plugin-pack",
+  "sources": {
+    "curated-plugin-quarantined": {
+      "sourceId": "curated-plugin-quarantined",
+      "repoUrl": "https://github.com/example/curated-plugin-quarantined",
+      "selectedRef": "v2.0.0-beta.3",
+      "parseMode": "default",
+      "trustTier": "Low",
+      "authorityRole": "exemplar-pattern",
+      "priority": "P3",
+      "state": "quarantined",
+      "quarantineReason": "Curated plugin behavior regression requires manual review",
+      "collections": ["plugins", "curated-plugins"],
+      "engineTarget": "rpgmaker-mz",
+      "engineMinVersion": "1.8.0",
+      "engineMaxVersion": "1.9.99",
+      "refreshCadence": "14-day",
+      "lastReviewedUtc": "2026-04-12T00:00:00Z"
+    }
+  }
+}
