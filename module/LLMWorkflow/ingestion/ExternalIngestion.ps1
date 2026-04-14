@@ -63,6 +63,19 @@ Set-StrictMode -Version Latest
 $script:ModuleVersion = '1.0.0'
 $script:ModuleName = 'ExternalIngestion'
 
+function Write-ExternalIngestionSuppressedException {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$Context,
+
+        [Parameter(Mandatory = $true)]
+        [System.Management.Automation.ErrorRecord]$ErrorRecord
+    )
+
+    Write-Verbose "[$script:ModuleName] $($Context): $($ErrorRecord.Exception.Message)"
+}
+
 # Default directory paths
 $script:IngestionConfigDir = ".llm-workflow/ingestion"
 $script:IngestionJobsDir = ".llm-workflow/ingestion/jobs"
@@ -957,7 +970,10 @@ function Extract-LinksFromHtml {
         try {
             $uri = New-Object Uri($baseUri, $m.Groups[1].Value)
             if ($uri.Host -eq $baseUri.Host) { $links += $uri.AbsoluteUri }
-        } catch {}
+        }
+        catch {
+            Write-ExternalIngestionSuppressedException -Context "Failed to parse documentation-site link '$($m.Groups[1].Value)' from '$BaseUrl'" -ErrorRecord $_
+        }
     }
     return $links | Select-Object -Unique
 }
@@ -1624,8 +1640,11 @@ function Start-IngestionJob {
                 }
 
                 try {
-                    $content = Get-Content -Path $file -Raw -ErrorAction SilentlyContinue
-                    if (-not $content) { continue }
+                    $content = Get-Content -Path $file -Raw -ErrorAction Stop
+                    if ([string]::IsNullOrWhiteSpace($content)) {
+                        $runResult.warnings += "Skipped empty file during secret scan: $file"
+                        continue
+                    }
 
                     $secrets = Find-Secrets -Content $content -FilePath $file
 
@@ -1647,6 +1666,10 @@ function Start-IngestionJob {
                 }
                 catch {
                     $runResult.warnings += "Failed to scan: $file - $_"
+                    Write-IngestionLog -Level WARN -Message 'Secret scan failed for file' -JobId $JobId -Metadata @{
+                        file = $file
+                        error = $_.Exception.Message
+                    }
                 }
             }
 
@@ -1709,7 +1732,16 @@ function Start-IngestionJob {
 
             # Clean up temp directory
             if (Test-Path $workDir) {
-                Remove-Item -Path $workDir -Recurse -Force -ErrorAction SilentlyContinue
+                try {
+                    Remove-Item -Path $workDir -Recurse -Force -ErrorAction Stop
+                }
+                catch {
+                    $runResult.warnings += "Failed to remove temporary work directory: $workDir - $_"
+                    Write-IngestionLog -Level WARN -Message 'Temporary work directory cleanup failed' -JobId $JobId -Metadata @{
+                        path = $workDir
+                        error = $_.Exception.Message
+                    }
+                }
             }
 
             # Update job statistics

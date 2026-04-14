@@ -142,6 +142,61 @@ if (-not (Test-Path $script:GoldenTaskConfig.SuitesDirectory)) {
     $null = New-Item -ItemType Directory -Path $script:GoldenTaskConfig.SuitesDirectory -Force
 }
 
+function Get-SafeObjectPropertyValue {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory = $true)]
+        $InputObject,
+
+        [Parameter(Mandatory = $true)]
+        [string]$PropertyName,
+
+        [Parameter()]
+        $Default = $null
+    )
+
+    if ($null -eq $InputObject) {
+        return $Default
+    }
+
+    if ($InputObject -is [hashtable]) {
+        if ($InputObject.ContainsKey($PropertyName)) {
+            return $InputObject[$PropertyName]
+        }
+
+        return $Default
+    }
+
+    $property = $InputObject.PSObject.Properties[$PropertyName]
+    if ($null -ne $property) {
+        return $property.Value
+    }
+
+    return $Default
+}
+
+function Write-GoldenTaskSummary {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory = $true)]
+        [hashtable]$Summary
+    )
+
+    $lines = @(
+        '',
+        "Golden Task Summary for '$($Summary.PackId)':",
+        "  Tasks Run: $($Summary.TasksRun)",
+        "  Passed: $($Summary.Passed)",
+        "  Failed: $($Summary.Failed)",
+        "  Pass Rate: $([math]::Round($Summary.PassRate * 100, 2))%",
+        "  Avg Confidence: $($Summary.AverageConfidence)"
+    )
+
+    foreach ($line in $lines) {
+        Write-Information $line -InformationAction Continue
+    }
+}
+
 #endregion
 
 #region New-GoldenTask
@@ -1027,10 +1082,11 @@ function Invoke-PackGoldenTasks {
                 $taskCategory = $t['category']
                 $taskDifficulty = $t['difficulty']
                 $taskTags = $t['tags']
-            } else {
-                try { $taskCategory = $t.category } catch { }
-                try { $taskDifficulty = $t.difficulty } catch { }
-                try { $taskTags = $t.tags } catch { }
+            }
+            else {
+                $taskCategory = Get-SafeObjectPropertyValue -InputObject $t -PropertyName 'category'
+                $taskDifficulty = Get-SafeObjectPropertyValue -InputObject $t -PropertyName 'difficulty'
+                $taskTags = Get-SafeObjectPropertyValue -InputObject $t -PropertyName 'tags' -Default @()
             }
 
             if ($Filter.ContainsKey('category') -and $Filter.category -and $taskCategory -ne $Filter.category) { $include = $false }
@@ -1093,8 +1149,12 @@ function Invoke-PackGoldenTasks {
             $passed = (@($resultList | Where-Object { 
                 $r = $_
                 $isSucc = $false
-                if ($r -is [hashtable]) { $isSucc = $r['Success'] -eq $true } 
-                else { try { $isSucc = $r.Success -eq $true } catch { $isSucc = $false } }
+                if ($r -is [hashtable]) {
+                    $isSucc = $r['Success'] -eq $true
+                }
+                else {
+                    $isSucc = (Get-SafeObjectPropertyValue -InputObject $r -PropertyName 'Success' -Default $false) -eq $true
+                }
                 $isSucc
             })).Count
         }
@@ -1103,8 +1163,23 @@ function Invoke-PackGoldenTasks {
         if ($resultList.Count -gt 0) {
             $measure = $resultList | Measure-Object -Property { 
                 $conf = 0.0
-                if ($_ -is [hashtable]) { $conf = $_['Confidence'] } 
-                else { try { $conf = $_.Confidence } catch { $conf = 0 } }
+                if ($_ -is [hashtable]) {
+                    if ($_.ContainsKey('Validation') -and $_['Validation'] -is [hashtable]) {
+                        $conf = $_['Validation']['Confidence']
+                    }
+                    elseif ($_.ContainsKey('Confidence')) {
+                        $conf = $_['Confidence']
+                    }
+                }
+                else {
+                    $validation = Get-SafeObjectPropertyValue -InputObject $_ -PropertyName 'Validation'
+                    if ($null -ne $validation) {
+                        $conf = Get-SafeObjectPropertyValue -InputObject $validation -PropertyName 'Confidence' -Default 0.0
+                    }
+                    else {
+                        $conf = Get-SafeObjectPropertyValue -InputObject $_ -PropertyName 'Confidence' -Default 0.0
+                    }
+                }
                 $conf
             } -Average
             # Use safe property check for strict mode
@@ -1177,12 +1252,7 @@ function Invoke-PackGoldenTasks {
             CompletedAt = $endTime.ToString("yyyy-MM-ddTHH:mm:ssZ")
         }
 
-        Write-Host "`nGolden Task Summary for '$PackId':" -ForegroundColor Cyan
-        Write-Host "  Tasks Run: $($summary.TasksRun)" -ForegroundColor White
-        Write-Host "  Passed: $($summary.Passed)" -ForegroundColor Green
-        Write-Host "  Failed: $($summary.Failed)" -ForegroundColor Red
-        Write-Host "  Pass Rate: $([math]::Round($summary.PassRate * 100, 2))%" -ForegroundColor Yellow
-        Write-Host "  Avg Confidence: $($summary.AverageConfidence)" -ForegroundColor White
+        Write-GoldenTaskSummary -Summary $summary
 
         return $summary
     }
@@ -1277,12 +1347,12 @@ function Get-GoldenTaskResults {
 
     process {
         # Load all result files
-        $resultFiles = Get-ChildItem -Path $resultsDir -Filter "*.json" -Recurse -ErrorAction SilentlyContinue
+        $resultFiles = Get-ChildItem -Path $resultsDir -Filter "*.json" -Recurse -File
 
         foreach ($file in $resultFiles) {
             try {
-                $content = Get-Content -Path $file.FullName -Raw -ErrorAction SilentlyContinue
-                $result = $content | ConvertFrom-Json -ErrorAction SilentlyContinue
+                $content = Get-Content -Path $file.FullName -Raw -ErrorAction Stop
+                $result = $content | ConvertFrom-Json -ErrorAction Stop
 
                 if ($result) {
                     # Convert to hashtable for consistency
@@ -1291,7 +1361,7 @@ function Get-GoldenTaskResults {
                 }
             }
             catch {
-                Write-Verbose "Error loading result file '$($file.Name)': $_"
+                Write-Warning "Failed to load golden-task result file '$($file.Name)': $_"
             }
         }
 
@@ -2237,12 +2307,17 @@ function Invoke-GoldenTaskSuite {
                 $summary.ExportPath = $ExportPath
             }
 
-            Write-Host "`nGolden Task Suite Summary - '$($Suite.suiteName)'" -ForegroundColor Cyan
-            Write-Host "  Tasks Run: $($summary.TasksRun)" -ForegroundColor White
-            Write-Host "  Passed: $($summary.Passed)" -ForegroundColor Green
-            Write-Host "  Failed: $($summary.Failed)" -ForegroundColor Red
-            Write-Host "  Pass Rate: $($summary.PassRate)%" -ForegroundColor Yellow
-            Write-Host "  Avg Confidence: $($summary.AverageConfidence)" -ForegroundColor White
+            foreach ($line in @(
+                '',
+                "Golden Task Suite Summary - '$($Suite.suiteName)'",
+                "  Tasks Run: $($summary.TasksRun)",
+                "  Passed: $($summary.Passed)",
+                "  Failed: $($summary.Failed)",
+                "  Pass Rate: $($summary.PassRate)%",
+                "  Avg Confidence: $($summary.AverageConfidence)"
+            )) {
+                Write-Information $line -InformationAction Continue
+            }
 
             return $summary
         }
@@ -2477,22 +2552,20 @@ function Compare-GoldenTaskRuns {
             }
 
             # Output summary
-            Write-Host "`nGolden Task Run Comparison" -ForegroundColor Cyan
-            Write-Host "  Pack: $PackId$(if($TaskId){" / Task: $TaskId"})" -ForegroundColor White
-            Write-Host "  Baseline: $($result.BaselineRun)" -ForegroundColor Gray
-            Write-Host "  Comparison: $($result.ComparisonRun)" -ForegroundColor Gray
-            Write-Host "  Tasks Compared: $($result.Summary.TotalTasksCompared)" -ForegroundColor White
-            
-            if ($result.Summary.CriticalRegressions -gt 0) {
-                Write-Host "  CRITICAL REGRESSIONS: $($result.Summary.CriticalRegressions)" -ForegroundColor Red
+            foreach ($line in @(
+                '',
+                'Golden Task Run Comparison',
+                "  Pack: $PackId$(if($TaskId){" / Task: $TaskId"})",
+                "  Baseline: $($result.BaselineRun)",
+                "  Comparison: $($result.ComparisonRun)",
+                "  Tasks Compared: $($result.Summary.TotalTasksCompared)",
+                $(if ($result.Summary.CriticalRegressions -gt 0) { "  CRITICAL REGRESSIONS: $($result.Summary.CriticalRegressions)" }),
+                $(if ($result.Summary.TotalRegressions -gt 0) { "  Total Regressions: $($result.Summary.TotalRegressions)" }),
+                $(if ($result.Summary.TotalImprovements -gt 0) { "  Improvements: $($result.Summary.TotalImprovements)" }),
+                "  Status: $($result.Summary.Status)"
+            ) | Where-Object { -not [string]::IsNullOrWhiteSpace($_) }) {
+                Write-Information $line -InformationAction Continue
             }
-            if ($result.Summary.TotalRegressions -gt 0) {
-                Write-Host "  Total Regressions: $($result.Summary.TotalRegressions)" -ForegroundColor Yellow
-            }
-            if ($result.Summary.TotalImprovements -gt 0) {
-                Write-Host "  Improvements: $($result.Summary.TotalImprovements)" -ForegroundColor Green
-            }
-            Write-Host "  Status: $($result.Summary.Status)" -ForegroundColor $(if ($hasRegression) { "Red" } else { "Green" })
 
             if ($FailOnRegression -and $hasRegression) {
                 Write-Error "Regressions detected in golden task comparison"

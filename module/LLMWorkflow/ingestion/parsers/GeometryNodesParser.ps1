@@ -24,6 +24,19 @@
 
 Set-StrictMode -Version Latest
 
+function Write-GeometryNodesSuppressedException {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$Context,
+
+        [Parameter(Mandatory = $true)]
+        [System.Management.Automation.ErrorRecord]$ErrorRecord
+    )
+
+    Write-Verbose "[GeometryNodesParser] $($Context): $($ErrorRecord.Exception.Message)"
+}
+
 # ============================================================================
 # Script-level Constants and Node Type Definitions
 # ============================================================================
@@ -627,6 +640,7 @@ function Detect-GeometryNodesInputType {
             return 'Json'
         }
         catch {
+            Write-GeometryNodesSuppressedException -Context 'Auto-detect JSON probe failed; continuing with other Geometry Nodes heuristics' -ErrorRecord $_
         }
     }
 
@@ -853,6 +867,7 @@ function Parse-GeometryNodesFromBlendText {
             return Parse-GeometryNodesFromJson -JsonContent $TextContent
         }
         catch {
+            Write-GeometryNodesSuppressedException -Context 'Blend-text JSON parse failed; falling back to Python-style parsing' -ErrorRecord $_
         }
     }
 

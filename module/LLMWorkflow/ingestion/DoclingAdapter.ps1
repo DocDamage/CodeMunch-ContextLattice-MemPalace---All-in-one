@@ -38,6 +38,19 @@ $script:ModuleVersion = '1.0.0'
 $script:ModuleName = 'DoclingAdapter'
 $script:SupportedFormats = @('.pdf', '.docx', '.pptx')
 
+function Write-DoclingSuppressedException {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$Context,
+
+        [Parameter(Mandatory = $true)]
+        [System.Management.Automation.ErrorRecord]$ErrorRecord
+    )
+
+    Write-Verbose "[$script:ModuleName] $($Context): $($ErrorRecord.Exception.Message)"
+}
+
 <#
 .SYNOPSIS
     Creates a new Docling adapter configuration.
@@ -139,7 +152,13 @@ function Test-DoclingAvailable {
 
         $null = $process.WaitForExit(15000)
         if (-not $process.HasExited) {
-            try { $process.Kill() } catch { }
+            try {
+                $process.Kill()
+            }
+            catch {
+                Write-DoclingSuppressedException -Context 'Failed to terminate timed-out availability check process' -ErrorRecord $_
+            }
+
             return $false
         }
 
@@ -297,7 +316,13 @@ except Exception as e:
 
         $completed = $process.WaitForExit($Adapter.timeoutSeconds * 1000)
         if (-not $completed) {
-            try { $process.Kill() } catch { }
+            try {
+                $process.Kill()
+            }
+            catch {
+                Write-DoclingSuppressedException -Context 'Failed to terminate timed-out extraction process' -ErrorRecord $_
+            }
+
             throw 'Docling extraction timed out.'
         }
 
@@ -340,7 +365,12 @@ except Exception as e:
     }
     finally {
         if (Test-Path -LiteralPath $tempOutDir) {
-            Remove-Item -LiteralPath $tempOutDir -Recurse -Force -ErrorAction SilentlyContinue
+            try {
+                Remove-Item -LiteralPath $tempOutDir -Recurse -Force -ErrorAction Stop
+            }
+            catch {
+                Write-DoclingSuppressedException -Context "Failed to clean temporary directory '$tempOutDir'" -ErrorRecord $_
+            }
         }
     }
 }
