@@ -53,11 +53,13 @@ Canonical toolkit repo for the integrated workflow.
 
 ## Platform Scope
 
+The platform currently includes **121 PowerShell Modules**, 10 domain packs, 30 extraction parsers, and 60 golden tasks.
+
 | Area | Current scope |
 |---|---:|
 | Domain packs | 10 |
 | PowerShell modules | 121 |
-| Extraction parsers | 30 |
+| **Extraction Parsers** | 30 |
 | Golden tasks | 60 |
 | Benchmark suites | 5 |
 | MCP tool surface | 55 |
@@ -206,6 +208,7 @@ Install-Module Pester -Scope CurrentUser -Force -SkipPublisherCheck
 - alias environment variable handling (`MOONSHOT_API_KEY`, `GOOGLE_API_KEY`, `ZHIPU_API_KEY`)
 - base URL precedence and fallback behavior
 - curated-plugin compatibility fixtures for active/deprecated/quarantined/retired/mixed scenarios
+- Golden Task Evaluations (60 Tasks) and Golden Task Coverage (60 Total) with 60 predefined validation scenarios
 
 CI workflows:
 - `.github/workflows/ci.yml`
