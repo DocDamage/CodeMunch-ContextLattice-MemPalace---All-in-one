@@ -48,6 +48,10 @@ $script:RPGMakerAssetFamilyDefinitions = [ordered]@{
     plugins = @{ relativePath = 'js/plugins'; assetKind = 'plugin' }
 }
 
+<#
+.SYNOPSIS
+    Parses an RPG Maker project and returns a normalized asset catalog.
+#>
 function Invoke-RPGMakerAssetCatalogParse {
     [CmdletBinding()]
     [OutputType([hashtable])]
@@ -138,6 +142,10 @@ function Invoke-RPGMakerAssetCatalogParse {
     return $catalog
 }
 
+<#
+.SYNOPSIS
+    Retrieves the asset entries for a specific RPG Maker asset family.
+#>
 function Get-RPGMakerAssetEntries {
     [CmdletBinding()]
     [OutputType([array])]
@@ -188,6 +196,10 @@ function Get-RPGMakerAssetEntries {
     return $entries
 }
 
+<#
+.SYNOPSIS
+    Tests whether the specified path is a valid RPG Maker project.
+#>
 function Test-RPGMakerAssetCatalog {
     [CmdletBinding()]
     [OutputType([bool])]
@@ -219,6 +231,10 @@ function Test-RPGMakerAssetCatalog {
     return $false
 }
 
+<#
+.SYNOPSIS
+    Parses an RPG Maker project and exports the asset catalog to a JSON file.
+#>
 function Export-RPGMakerAssetCatalog {
     [CmdletBinding()]
     [OutputType([pscustomobject])]

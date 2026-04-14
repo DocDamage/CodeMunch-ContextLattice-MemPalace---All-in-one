@@ -163,6 +163,10 @@ Get-ChildItem -Path (Join-Path $script:ModuleRoot "interpack") -Filter "*.ps1" -
         Write-Verbose "Skipping PS 7-only script: $($_.Name)"
     }
 }
+<#
+.SYNOPSIS
+    Returns the base path for user-installed PowerShell modules.
+#>
 function Get-UserModuleBasePath {
     [CmdletBinding()]
     [OutputType([string])]
@@ -179,6 +183,10 @@ function Get-UserModuleBasePath {
     }
 }
 
+<#
+.SYNOPSIS
+    Parses a .env file into a hashtable of key-value pairs.
+#>
 function Get-EnvFileMap {
     [CmdletBinding()]
     [OutputType([hashtable])]
@@ -224,8 +232,13 @@ function Remove-ProfileMarkerBlock {
     return [regex]::Replace($Content, $pattern, "", $regexOptions)
 }
 
+<#
+.SYNOPSIS
+    Retrieves version and installation metadata for the LLMWorkflow module.
+#>
 function Get-LLMWorkflowVersion {
     [CmdletBinding()]
+    [OutputType([pscustomobject])]
     param()
 
     $manifestPath = Join-Path $PSScriptRoot "LLMWorkflow.psd1"
@@ -247,8 +260,13 @@ function Get-LLMWorkflowVersion {
     }
 }
 
+<#
+.SYNOPSIS
+    Installs the LLMWorkflow global launcher and toolkit.
+#>
 function Install-LLMWorkflow {
     [CmdletBinding()]
+    [OutputType([object])]
     param(
         [string]$InstallRoot = "$HOME\.llm-workflow",
         [switch]$NoProfileUpdate,
@@ -281,8 +299,13 @@ function Install-LLMWorkflow {
     & $scriptPath @invokeArgs
 }
 
+<#
+.SYNOPSIS
+    Uninstalls the LLMWorkflow global launcher, module files, and environment variables.
+#>
 function Uninstall-LLMWorkflow {
     [CmdletBinding()]
+    [OutputType([pscustomobject])]
     param(
         [string]$InstallRoot = "$HOME\.llm-workflow",
         [string]$ProfilePath = $PROFILE,
@@ -344,8 +367,13 @@ function Uninstall-LLMWorkflow {
     [pscustomobject]$actions
 }
 
+<#
+.SYNOPSIS
+    Downloads and installs the latest LLMWorkflow release from GitHub.
+#>
 function Update-LLMWorkflow {
     [CmdletBinding()]
+    [OutputType([pscustomobject])]
     param(
         [string]$Repository = "DocDamage/CodeMunch-ContextLattice-MemPalace---All-in-one",
         [string]$Version = "",
@@ -449,8 +477,13 @@ function Update-LLMWorkflow {
     Get-LLMWorkflowVersion
 }
 
+<#
+.SYNOPSIS
+    Validates the local project setup and optional ContextLattice connectivity.
+#>
 function Test-LLMWorkflowSetup {
     [CmdletBinding()]
+    [OutputType([pscustomobject])]
     param(
         [string]$ProjectRoot = ".",
         [switch]$CheckConnectivity,
@@ -610,8 +643,13 @@ function Test-LLMWorkflowSetup {
     return $result
 }
 
+<#
+.SYNOPSIS
+    Bootstraps the LLMWorkflow toolkit for a project.
+#>
 function Invoke-LLMWorkflowUp {
     [CmdletBinding()]
+    [OutputType([object])]
     param(
         [string]$ProjectRoot = ".",
         [switch]$SkipDependencyInstall,
@@ -701,8 +739,13 @@ function Invoke-LLMWorkflowUp {
     }
 }
 
+<#
+.SYNOPSIS
+    Returns configuration metadata for a specified LLM provider.
+#>
 function Get-ProviderProfile {
     [CmdletBinding()]
+    [OutputType([pscustomobject])]
     param(
         [Parameter(Mandatory=$true)]
         [string]$Name
@@ -763,14 +806,24 @@ function Get-ProviderProfile {
     }
 }
 
+<#
+.SYNOPSIS
+    Returns the default provider preference order list.
+#>
 function Get-ProviderPreferenceOrder {
     [CmdletBinding()]
+    [OutputType([string[]])]
     param()
     return @("openai", "claude", "kimi", "gemini", "glm", "ollama")
 }
 
+<#
+.SYNOPSIS
+    Resolves the best available provider profile based on environment variables.
+#>
 function Resolve-ProviderProfile {
     [CmdletBinding()]
+    [OutputType([pscustomobject])]
     param(
         [Parameter(Mandatory=$true)]
         [string]$RequestedProvider
@@ -858,8 +911,13 @@ function Resolve-ProviderProfile {
     return $null
 }
 
+<#
+.SYNOPSIS
+    Performs basic validation of a provider API key.
+#>
 function Test-ProviderKey {
     [CmdletBinding()]
+    [OutputType([bool])]
     param(
         [Parameter(Mandatory=$true)]
         [string]$ProviderName,
@@ -900,6 +958,7 @@ function Get-LLMWorkflowPalaces {
         Gets all palaces from the default config file.
     #>
     [CmdletBinding()]
+    [OutputType([array])]
     param(
         [string]$ConfigPath = ".memorybridge/bridge.config.json"
     )
@@ -972,6 +1031,7 @@ function Test-LLMWorkflowPalace {
         Tests the first palace in the configuration.
     #>
     [CmdletBinding()]
+    [OutputType([pscustomobject])]
     param(
         [Parameter(Mandatory=$true)]
         [int]$Index,
@@ -1069,6 +1129,7 @@ function Sync-LLMWorkflowPalace {
         Syncs the first palace.
     #>
     [CmdletBinding()]
+    [OutputType([object])]
     param(
         [Parameter(Mandatory=$true)]
         [int]$Index,
@@ -1143,6 +1204,7 @@ function Sync-LLMWorkflowAllPalaces {
         Shows what would be synced without making changes.
     #>
     [CmdletBinding()]
+    [OutputType([pscustomobject])]
     param(
         [string]$ConfigPath = ".memorybridge/bridge.config.json",
         [string]$StatePath = ".memorybridge/sync-state.json",
@@ -1247,6 +1309,7 @@ function Show-LLMWorkflowDashboard {
         Plain-text output suitable for CI/CD.
     #>
     [CmdletBinding()]
+    [OutputType([object])]
     param(
         [string]$ProjectRoot = ".",
         [ValidateSet("auto", "openai", "kimi", "gemini", "glm")]

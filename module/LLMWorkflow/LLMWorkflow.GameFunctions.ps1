@@ -2,6 +2,8 @@
 # PowerShell 5.1+ compatible
 # ASCII-only for Unicode safety
 
+Set-StrictMode -Version Latest
+
 $GameTemplateRoot = Join-Path $PSScriptRoot "templates\game"
 $GamePresetPath = Join-Path $GameTemplateRoot "game-preset.json"
 
@@ -717,6 +719,7 @@ function New-LLMWorkflowGamePreset {
         New-LLMWorkflowGamePreset -JamMode
         Sets up a jam-optimized project in current directory.
     #>
+    [OutputType([pscustomobject])]
     [CmdletBinding()]
     param(
         [string]$ProjectRoot = ".",
@@ -869,6 +872,7 @@ function Get-LLMWorkflowGameTemplates {
         Get-LLMWorkflowGameTemplates | Where-Object { $_.tags -contains "2d" }
         Lists only 2D game templates.
     #>
+    [OutputType([pscustomobject[]])]
     [CmdletBinding()]
     param()
     
@@ -909,6 +913,7 @@ function Export-LLMWorkflowAssetManifest {
         Export-LLMWorkflowAssetManifest -Format csv -OutputPath "assets/export.csv"
         Exports manifest to CSV format.
     #>
+    [OutputType([pscustomobject])]
     [CmdletBinding()]
     param(
         [string]$ProjectRoot = ".",
@@ -1120,6 +1125,7 @@ function Invoke-LLMWorkflowGameUp {
         llmup -GameTeam -JamMode
         Quick jam setup with defaults.
     #>
+    [OutputType([void])]
     [CmdletBinding()]
     param(
         [string]$ProjectRoot = ".",

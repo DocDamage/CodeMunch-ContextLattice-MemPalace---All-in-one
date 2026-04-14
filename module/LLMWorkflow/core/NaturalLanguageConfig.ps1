@@ -17,6 +17,8 @@
 Import-Module (Join-Path $script:ModulePath 'ConfigSchema.ps1') -Force -ErrorAction SilentlyContinue
 Import-Module (Join-Path $script:ModulePath 'ConfigPath.ps1') -Force -ErrorAction SilentlyContinue
 
+Set-StrictMode -Version Latest
+
 # Wizard State
 $script:WizardState = @{
     Active = $false
@@ -339,7 +341,7 @@ function ConvertFrom-NaturalLanguageConfig {
         $parameters = Get-ConfigParameters -Text $Text
         
         # Generate config based on intent and parameters
-        $generatedConfig = Build-ConfigFromIntent -Intent $intent -Parameters $parameters -Text $Text
+        $generatedConfig = New-ConfigFromIntent -Intent $intent -Parameters $parameters -Text $Text
         
         # Merge with base config if provided
         if ($BaseConfig -and $BaseConfig.Count -gt 0) {
@@ -1166,7 +1168,7 @@ function Get-ConfigParameters {
 .OUTPUTS
     Hashtable containing the built configuration.
 #>
-function Build-ConfigFromIntent {
+function New-ConfigFromIntent {
     [CmdletBinding()]
     [OutputType([hashtable])]
     param(
@@ -1184,34 +1186,34 @@ function Build-ConfigFromIntent {
     
     switch ($Intent.Category) {
         'pack-init' {
-            $config = Build-PackInitConfig -Parameters $Parameters
+            $config = New-PackInitConfig -Parameters $Parameters
         }
         'pack-update' {
-            $config = Build-PackUpdateConfig -Parameters $Parameters
+            $config = New-PackUpdateConfig -Parameters $Parameters
         }
         'pack-remove' {
-            $config = Build-PackRemoveConfig -Parameters $Parameters
+            $config = New-PackRemoveConfig -Parameters $Parameters
         }
         'mode-change' {
-            $config = Build-ModeChangeConfig -Parameters $Parameters
+            $config = New-ModeChangeConfig -Parameters $Parameters
         }
         'profile-switch' {
-            $config = Build-ProfileSwitchConfig -Parameters $Parameters
+            $config = New-ProfileSwitchConfig -Parameters $Parameters
         }
         'trust-update' {
-            $config = Build-TrustUpdateConfig -Parameters $Parameters
+            $config = New-TrustUpdateConfig -Parameters $Parameters
         }
         'provider-config' {
-            $config = Build-ProviderConfig -Parameters $Parameters
+            $config = New-ProviderConfig -Parameters $Parameters
         }
         'notification-config' {
-            $config = Build-NotificationConfig -Parameters $Parameters -Text $Text
+            $config = New-NotificationConfig -Parameters $Parameters -Text $Text
         }
         'filter-config' {
-            $config = Build-FilterConfig -Parameters $Parameters -Text $Text
+            $config = New-FilterConfig -Parameters $Parameters -Text $Text
         }
         default {
-            $config = Build-GenericConfig -Parameters $Parameters
+            $config = New-GenericConfig -Parameters $Parameters
         }
     }
     
@@ -1223,7 +1225,13 @@ function Build-ConfigFromIntent {
 }
 
 # Config builder helper functions
-function Build-PackInitConfig {
+function New-PackInitConfig {
+    [CmdletBinding()]
+    [OutputType([hashtable])]
+    <#
+    .SYNOPSIS
+        Creates a pack initialization configuration.
+    #>
     param([hashtable]$Parameters)
     $config = @{
         packs = @()
@@ -1257,7 +1265,13 @@ function Build-PackInitConfig {
     return $config
 }
 
-function Build-PackUpdateConfig {
+function New-PackUpdateConfig {
+    [CmdletBinding()]
+    [OutputType([hashtable])]
+    <#
+    .SYNOPSIS
+        Creates a pack update configuration.
+    #>
     param([hashtable]$Parameters)
     return @{
         action = 'update-packs'
@@ -1266,7 +1280,13 @@ function Build-PackUpdateConfig {
     }
 }
 
-function Build-PackRemoveConfig {
+function New-PackRemoveConfig {
+    [CmdletBinding()]
+    [OutputType([hashtable])]
+    <#
+    .SYNOPSIS
+        Creates a pack removal configuration.
+    #>
     param([hashtable]$Parameters)
     return @{
         action = 'remove-packs'
@@ -1274,7 +1294,13 @@ function Build-PackRemoveConfig {
     }
 }
 
-function Build-ModeChangeConfig {
+function New-ModeChangeConfig {
+    [CmdletBinding()]
+    [OutputType([hashtable])]
+    <#
+    .SYNOPSIS
+        Creates a mode-change configuration.
+    #>
     param([hashtable]$Parameters)
     $config = @{}
     
@@ -1288,7 +1314,13 @@ function Build-ModeChangeConfig {
     return $config
 }
 
-function Build-ProfileSwitchConfig {
+function New-ProfileSwitchConfig {
+    [CmdletBinding()]
+    [OutputType([hashtable])]
+    <#
+    .SYNOPSIS
+        Creates a profile-switch configuration.
+    #>
     param([hashtable]$Parameters)
     $config = @{}
     
@@ -1312,7 +1344,13 @@ function Build-ProfileSwitchConfig {
     return $config
 }
 
-function Build-TrustUpdateConfig {
+function New-TrustUpdateConfig {
+    [CmdletBinding()]
+    [OutputType([hashtable])]
+    <#
+    .SYNOPSIS
+        Creates a trust-update configuration.
+    #>
     param([hashtable]$Parameters)
     $config = @{
         action = 'update-trust'
@@ -1328,7 +1366,13 @@ function Build-TrustUpdateConfig {
     return $config
 }
 
-function Build-ProviderConfig {
+function New-ProviderConfig {
+    [CmdletBinding()]
+    [OutputType([hashtable])]
+    <#
+    .SYNOPSIS
+        Creates a provider configuration.
+    #>
     param([hashtable]$Parameters)
     $config = @{
         provider = @{}
@@ -1341,7 +1385,13 @@ function Build-ProviderConfig {
     return $config
 }
 
-function Build-NotificationConfig {
+function New-NotificationConfig {
+    [CmdletBinding()]
+    [OutputType([hashtable])]
+    <#
+    .SYNOPSIS
+        Creates a notification configuration.
+    #>
     param([hashtable]$Parameters, [string]$Text)
     $textLower = $Text.ToLower()
     $config = @{
@@ -1387,7 +1437,13 @@ function Build-NotificationConfig {
     return $config
 }
 
-function Build-FilterConfig {
+function New-FilterConfig {
+    [CmdletBinding()]
+    [OutputType([hashtable])]
+    <#
+    .SYNOPSIS
+        Creates a filter configuration.
+    #>
     param([hashtable]$Parameters, [string]$Text)
     $textLower = $Text.ToLower()
     $config = @{
@@ -1426,7 +1482,13 @@ function Build-FilterConfig {
     return $config
 }
 
-function Build-GenericConfig {
+function New-GenericConfig {
+    [CmdletBinding()]
+    [OutputType([hashtable])]
+    <#
+    .SYNOPSIS
+        Creates a generic configuration from extracted parameters.
+    #>
     param([hashtable]$Parameters)
     $config = @{}
     
@@ -1986,6 +2048,7 @@ function Measure-StringSimilarity {
 #>
 function Start-InteractiveConfig {
     [CmdletBinding()]
+    [OutputType([hashtable])]
     param(
         [Parameter(Mandatory = $false)]
         [PSCustomObject]$InitialResult = $null

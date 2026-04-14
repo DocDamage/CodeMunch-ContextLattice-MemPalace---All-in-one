@@ -26,6 +26,8 @@
     $model3d = Invoke-ImageTo3DConversion -Pipeline $pipeline -Image $image
 #>
 
+Set-StrictMode -Version Latest
+
 #region Configuration Schema
 
 <#
@@ -241,6 +243,7 @@ $script:TextureMapTypes = @(
 #>
 function New-AIGenerationPipeline {
     [CmdletBinding()]
+    [OutputType([hashtable])]
     param(
         [Parameter(Mandatory = $true)]
         [ValidateSet("ComfyUI", "Automatic1111", "Local", "Cloud-Azure", "Cloud-AWS", "Cloud-Stability", "Cloud-OpenAI", "Mock")]
@@ -350,6 +353,7 @@ function New-AIGenerationPipeline {
 #>
 function Start-AIGenerationWorkflow {
     [CmdletBinding()]
+    [OutputType([hashtable])]
     param(
         [Parameter(Mandatory = $true)]
         [hashtable]$Config,
@@ -465,6 +469,7 @@ function Start-AIGenerationWorkflow {
 #>
 function New-AIGeneratedAsset {
     [CmdletBinding()]
+    [OutputType([GeneratedAsset])]
     param(
         [Parameter(Mandatory = $true)]
         [AIGenerationPipeline]$Pipeline,
@@ -620,6 +625,7 @@ function New-AIGeneratedAsset {
 #>
 function Convert-ToGameFormat {
     [CmdletBinding()]
+    [OutputType([GeneratedAsset])]
     param(
         [Parameter(Mandatory = $true)]
         [AIGenerationPipeline]$Pipeline,
@@ -725,6 +731,7 @@ function Convert-ToGameFormat {
 #>
 function Optimize-AssetForGame {
     [CmdletBinding()]
+    [OutputType([GeneratedAsset])]
     param(
         [Parameter(Mandatory = $true)]
         [AIGenerationPipeline]$Pipeline,
@@ -834,6 +841,7 @@ function Optimize-AssetForGame {
 #>
 function Import-ToGodot {
     [CmdletBinding()]
+    [OutputType([hashtable])]
     param(
         [Parameter(Mandatory = $true)]
         [AIGenerationPipeline]$Pipeline,
@@ -968,6 +976,7 @@ source_file="res://assets/$assetTypeDir/$fileName"
 #>
 function Import-ToBlender {
     [CmdletBinding()]
+    [OutputType([hashtable])]
     param(
         [Parameter(Mandatory = $true)]
         [AIGenerationPipeline]$Pipeline,
@@ -1085,6 +1094,7 @@ print(f"Imported: {asset_path}")
 #>
 function Register-GeneratedAsset {
     [CmdletBinding()]
+    [OutputType([GeneratedAsset])]
     param(
         [Parameter(Mandatory = $true)]
         [AIGenerationPipeline]$Pipeline,
@@ -1188,6 +1198,7 @@ function Register-GeneratedAsset {
 #>
 function Get-AIGenerationStatus {
     [CmdletBinding()]
+    [OutputType([hashtable])]
     param(
         [Parameter(Mandatory = $true)]
         [AIGenerationPipeline]$Pipeline,
@@ -1285,6 +1296,7 @@ function Get-AIGenerationStatus {
 #>
 function Start-AIGenerationPipeline {
     [CmdletBinding()]
+    [OutputType([AIGenerationPipeline])]
     param(
         [Parameter(Mandatory = $true)]
         [ValidateSet("ComfyUI", "Automatic1111", "Local", "Cloud-Azure", "Cloud-AWS", "Cloud-Stability", "Cloud-OpenAI", "Mock")]
@@ -1432,6 +1444,7 @@ function Start-AIGenerationPipeline {
 #>
 function Invoke-TextToImageGeneration {
     [CmdletBinding()]
+    [OutputType([GeneratedAsset])]
     param(
         [Parameter(Mandatory = $true)]
         [AIGenerationPipeline]$Pipeline,
@@ -1587,6 +1600,7 @@ function Invoke-TextToImageGeneration {
 #>
 function Invoke-ImageTo3DConversion {
     [CmdletBinding()]
+    [OutputType([GeneratedAsset])]
     param(
         [Parameter(Mandatory = $true)]
         [AIGenerationPipeline]$Pipeline,
@@ -1735,6 +1749,7 @@ function Invoke-ImageTo3DConversion {
 #>
 function Invoke-TextureGeneration {
     [CmdletBinding()]
+    [OutputType([TextureSet])]
     param(
         [Parameter(Mandatory = $true)]
         [AIGenerationPipeline]$Pipeline,
@@ -1871,6 +1886,7 @@ function Invoke-TextureGeneration {
 #>
 function Invoke-MaterialGeneration {
     [CmdletBinding()]
+    [OutputType([MaterialDefinition])]
     param(
         [Parameter(Mandatory = $true)]
         [AIGenerationPipeline]$Pipeline,
@@ -1999,6 +2015,7 @@ function Invoke-MaterialGeneration {
 #>
 function Convert-AIAssetToPack {
     [CmdletBinding()]
+    [OutputType([hashtable])]
     param(
         [Parameter(Mandatory = $true)]
         [AIGenerationPipeline]$Pipeline,

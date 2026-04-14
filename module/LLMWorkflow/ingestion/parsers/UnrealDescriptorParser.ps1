@@ -20,6 +20,10 @@
 
 Set-StrictMode -Version Latest
 
+<#
+.SYNOPSIS
+    Parses an Unreal Engine descriptor file or content and returns normalized metadata.
+#>
 function Invoke-UnrealDescriptorParse {
     [CmdletBinding(DefaultParameterSetName = 'Path')]
     [OutputType([hashtable])]
@@ -91,6 +95,10 @@ function Invoke-UnrealDescriptorParse {
     }
 }
 
+<#
+.SYNOPSIS
+    Extracts metadata fields from an Unreal Engine descriptor object.
+#>
 function Get-UnrealDescriptorMetadata {
     [CmdletBinding()]
     [OutputType([hashtable])]
@@ -131,6 +139,10 @@ function Get-UnrealDescriptorMetadata {
     }
 }
 
+<#
+.SYNOPSIS
+    Extracts module definitions from an Unreal Engine descriptor object.
+#>
 function Get-UnrealDescriptorModules {
     [CmdletBinding()]
     [OutputType([array])]
@@ -158,6 +170,10 @@ function Get-UnrealDescriptorModules {
         return ,@($results)
 }
 
+<#
+.SYNOPSIS
+    Extracts plugin references from an Unreal Engine descriptor object.
+#>
 function Get-UnrealDescriptorPlugins {
     [CmdletBinding()]
     [OutputType([array])]
@@ -185,6 +201,10 @@ function Get-UnrealDescriptorPlugins {
     return ,@($results)
 }
 
+<#
+.SYNOPSIS
+    Extracts supported target platforms from an Unreal Engine descriptor object.
+#>
 function Get-UnrealDescriptorTargetPlatforms {
     [CmdletBinding()]
     [OutputType([array])]
@@ -208,6 +228,10 @@ function Get-UnrealDescriptorTargetPlatforms {
     return ,@($platforms | Where-Object { -not [string]::IsNullOrWhiteSpace([string]$_) } | Select-Object -Unique)
 }
 
+<#
+.SYNOPSIS
+    Computes compatibility metadata for an Unreal Engine descriptor.
+#>
 function Get-UnrealDescriptorCompatibility {
     [CmdletBinding()]
     [OutputType([hashtable])]
@@ -244,6 +268,10 @@ function Get-UnrealDescriptorCompatibility {
     }
 }
 
+<#
+.SYNOPSIS
+    Validates whether an Unreal Engine descriptor can be parsed successfully.
+#>
 function Test-UnrealDescriptor {
     [CmdletBinding(DefaultParameterSetName = 'Path')]
     [OutputType([bool])]
