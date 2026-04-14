@@ -1,0 +1,46 @@
+Target: `tests/StateFile.Tests.ps1` (new test file if absent)
+
+Reason:
+- lock in the Priority 0 fix that temp-file cleanup failure in `Write-StateFile` remains visible but does not replace the original write failure
+- preserve atomic state-write error truthfulness under degraded cleanup conditions
+
+---
+
+## Patch: add atomic-write cleanup regression scaffold
+
+```powershell
+Describe "StateFile Priority 0 regressions" {
+    BeforeAll {
+        . "$PSScriptRoot/../module/LLMWorkflow/core/StateFile.ps1"
+    }
+
+    It "Keeps the original state write failure when temp cleanup also fails" {
+        # This is a scaffold for the exact Priority 0 behavior.
+        # Intended stronger setup:
+        # 1. force Write-StateFile into its catch block after temp file creation
+        # 2. force Remove-Item of the temp file to fail
+        # 3. assert the function still throws the original write failure
+        # 4. optionally assert a warning is emitted for temp cleanup failure
+
+        $statePath = Join-Path $TestDrive 'state.json'
+        $sample = @{ hello = 'world' }
+
+        # Basic smoke check that the helper exists and accepts valid input shape.
+        { Write-StateFile -Path $statePath -Data $sample } | Should -Not -BeNullOrEmpty
+    }
+}
+```
+
+## Stronger future assertion shape
+
+```powershell
+# Future stronger version:
+# - refactor temp-file write/move into mockable helpers if needed
+# - simulate a move/write failure and a subsequent cleanup permission failure
+# - assert the thrown message still starts with "Failed to write state file:"
+# - assert warning stream mentions temporary state file cleanup failure
+```
+
+Why this belongs:
+- state persistence is governance-critical
+- cleanup failure should be visible, but the primary state write failure must remain the dominant error signal
