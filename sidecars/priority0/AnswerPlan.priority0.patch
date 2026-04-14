@@ -1,0 +1,144 @@
+Target: `module/LLMWorkflow/retrieval/AnswerPlan.ps1`
+
+Reason:
+- prevent `Export-AnswerTrace` from reporting failure after a successful write because unlock in `finally` threw
+- surface helper-command fallback failures in run/workspace resolution instead of silently disappearing
+
+---
+
+## Patch A: make lock release in `Export-AnswerTrace` non-destructive
+
+Current code:
+
+```powershell
+finally {
+    # Release lock
+    if ($lockInfo) {
+        $unlockCmd = Get-Command Unlock-File -ErrorAction SilentlyContinue
+        if ($unlockCmd) {
+            & $unlockCmd -Name "trace" -ProjectRoot $resolvedRoot | Out-Null
+        }
+    }
+}
+```
+
+Replace with:
+
+```powershell
+finally {
+    # Release lock
+    if ($lockInfo) {
+        $unlockCmd = Get-Command Unlock-File -ErrorAction SilentlyContinue
+        if ($unlockCmd) {
+            try {
+                & $unlockCmd -Name "trace" -ProjectRoot $resolvedRoot | Out-Null
+            }
+            catch {
+                Write-Warning "[AnswerTrace] Trace export completed, but lock release failed: $($_.Exception.Message)"
+            }
+        }
+    }
+}
+```
+
+Why this matters:
+- without this patch, a successful file export can still surface as a failure if unlock throws in `finally`
+- that is the exact kind of false-negative operational signal the remediation plan is trying to eliminate
+
+## Patch B: add fallback visibility in `Get-AnswerPlanRunId`
+
+Current code:
+
+```powershell
+if ($runIdCmd) {
+    try {
+        return & $runIdCmd
+    }
+    catch {
+        # Fall through to generate new
+    }
+}
+```
+
+Replace with:
+
+```powershell
+if ($runIdCmd) {
+    try {
+        return & $runIdCmd
+    }
+    catch {
+        Write-Verbose "[AnswerPlan] Get-CurrentRunId failed, generating fallback run ID: $($_.Exception.Message)"
+    }
+}
+```
+
+## Patch C: add fallback visibility in `Get-CurrentWorkspaceId`
+
+Current code:
+
+```powershell
+if ($workspaceCmd) {
+    try {
+        $workspace = & $workspaceCmd
+        if ($workspace -and $workspace.workspaceId) {
+            return $workspace.workspaceId
+        }
+    }
+    catch {
+        # Fall through
+    }
+}
+```
+
+Replace with:
+
+```powershell
+if ($workspaceCmd) {
+    try {
+        $workspace = & $workspaceCmd
+        if ($workspace -and $workspace.workspaceId) {
+            return $workspace.workspaceId
+        }
+    }
+    catch {
+        Write-Verbose "[AnswerPlan] Get-CurrentWorkspace failed, using fallback workspace ID: $($_.Exception.Message)"
+    }
+}
+```
+
+## Patch D: add fallback visibility in `Get-WorkspaceContextForTrace`
+
+Current code:
+
+```powershell
+if ($workspaceCmd) {
+    try {
+        $workspace = & $workspaceCmd
+        if ($workspace) {
+            $context.type = $workspace.type
+            $context.packsEnabled = $workspace.packsEnabled
+        }
+    }
+    catch {
+        # Ignore errors
+    }
+}
+```
+
+Replace with:
+
+```powershell
+if ($workspaceCmd) {
+    try {
+        $workspace = & $workspaceCmd
+        if ($workspace) {
+            $context.type = $workspace.type
+            $context.packsEnabled = $workspace.packsEnabled
+        }
+    }
+    catch {
+        Write-Verbose "[AnswerPlan] Failed to enrich workspace context for trace: $($_.Exception.Message)"
+    }
+}
+```
