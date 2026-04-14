@@ -2,1268 +2,137 @@
 
 [![Version](https://img.shields.io/badge/version-0.9.6-blue.svg)](https://github.com/yourusername/CodeMunch-ContextLattice-MemPalace)
 [![Packs](https://img.shields.io/badge/domain%20packs-10-green.svg)](#domain-packs)
-[![Modules](https://img.shields.io/badge/PowerShell%20modules-121-purple.svg)](#module-inventory)
+[![Modules](https://img.shields.io/badge/PowerShell%20modules-121-purple.svg)](#platform-scope)
 [![MCP](https://img.shields.io/badge/MCP%20tools-55-orange.svg)](#advanced-features)
 
-Canonical toolkit repo for the integrated workflow:
+Canonical toolkit repo for the integrated workflow.
 
 ## Related Docs
 - [Post-0.9.6 Strategic Execution Plan](docs/implementation/LLMWorkflow_Post_0.9.6_Strategic_Execution_Plan.md)
 - [Implementation Progress](docs/implementation/PROGRESS.md)
 - [Technical Debt Audit Summary](docs/implementation/TECHNICAL_DEBT_AUDIT.md)
-- [Detailed Working Audit](deep_audit_results.txt)
 - [Remaining Work](docs/implementation/REMAINING_WORK.md)
+- [Current Test Baseline and Resolver Hardening Sync](docs/implementation/CURRENT_TEST_BASELINE_AND_RESOLVER_HARDENING.md)
 
-## Remediation Status (2026-04-13)
+## Remediation Status (2026-04-14)
 
 ### Completed Recently
-- CI test portability hardened with a safe Pester runner (`tools/ci/invoke-pester-safe.ps1`)
-- docs/release path drift reduced across key release and workflow docs
-- stale install-script references removed in favor of direct module import paths
-- core/pack/framework/benchmark suites remediated and passing
+- full `tests/` baseline is now treated as the real CI baseline through `tools/ci/invoke-pester-safe.ps1`
+- install/bootstrap smoke is wired into CI alongside drift checking, compatibility-lock validation, and docs-truth validation
+- provider resolver hardening is complete at the current branch baseline and covered in `tests/LLMWorkflow.Tests.ps1`
+- curated-plugin compatibility coverage now includes active, deprecated, quarantined, retired, and mixed-state fixture scenarios, plus lock pinning coverage
+- docs/release path drift was reduced across key workflow and release documents
+- stale install-script references were removed in favor of direct module import usage where appropriate
 
 ### Still Left To Do
 - continue Priority 0 failure-visibility cleanup and silent-failure reduction
-- continue structural decomposition of the largest high-risk modules
-- harden strict mode, help, and output contracts on core public surfaces
-- deepen observability and policy enforcement on critical runtime paths
-- keep mixed-artifact and game-asset ingestion outputs governable, tested, and provenance-aware
-
-- `CodeMunch Pro` project indexing and MCP wrapper setup
-- `ContextLattice` project bootstrap + connectivity verification
-- `MemPalace -> ContextLattice` incremental bridge
-- **10 Domain Packs** with specialized knowledge extraction
-- **121 PowerShell Modules** for workflow automation
-- **MCP Toolkit Servers** for Godot, Blender, and RPG Maker
-- **Inter-Pack Pipelines** for cross-domain asset workflows
-- **Golden Task Evaluations** with 60 predefined validation scenarios
-- one global command to bootstrap any repo in one shot
+- bound the public module contract and remove wildcard export exposure
+- consolidate duplicate helpers and collapse parallel subsystem ownership forks
+- keep observability, policy, and security enforcement moving toward v1.0 release gates
+- keep mixed-artifact and game-asset ingestion governable, provenance-aware, and regression-tested
 
 ## Why Use This Toolkit?
 
 ### For AI-Assisted Development
-- **Unified Workflow**: One command (`llmup`) sets up everything needed for AI-assisted coding
-- **Memory Persistence**: MemPalace remembers context across sessions via ChromaDB
-- **Multi-Provider Support**: Seamlessly switch between OpenAI, Claude, Kimi, Gemini, GLM, and Ollama
-- **Context Synchronization**: Automatic sync from local memory to ContextLattice API
+- **Unified workflow**: one command (`llmup`) bootstraps the toolchain
+- **Memory persistence**: MemPalace + ContextLattice bridge sync preserves useful context
+- **Multi-provider support**: OpenAI, Claude, Kimi, Gemini, GLM, and Ollama
+- **Context synchronization**: project memory and external memory can be coordinated through the workflow
 
 ### For Game Development
-- **Game Presets**: `llmup -GameTeam` scaffolds complete game projects
-- **Asset Management**: Built-in license tracking for art, audio, and code assets
-- **Jam Mode**: Fast iteration with `-JamMode` for game jams and prototypes
-- **GDD Templates**: Auto-generate Game Design Documents with structured sections
+- **Game presets**: `llmup -GameTeam` scaffolds game-project structure quickly
+- **Asset management**: asset manifests, license tracking, and game-team templates
+- **Jam mode**: faster startup path for rapid prototyping and jam workflows
+- **Structured extraction**: Godot, RPG Maker, Blender, Unreal descriptors, and project-asset catalogs
 
-### For DevOps & CI/CD
-- **Docker Support**: Full containerization with `Dockerfile` and `docker-compose.yml`
-- **JSON Output**: `-AsJson` flag for machine-readable pipeline integration
-- **Offline Mode**: `-Offline` for air-gapped environments
-- **Cross-Platform**: Windows, Linux, and macOS support via PowerShell Core
+### For Operations and CI
+- **Cross-platform CI**: Windows primary matrix, Linux/macOS experimental lanes
+- **Safe Pester runner**: `tools/ci/invoke-pester-safe.ps1`
+- **Docs-truth and drift guards**: compatibility lock validation, template drift detection, docs validation
+- **Machine-readable output**: JSON-friendly and automation-friendly PowerShell workflows
 
-### For Teams
-- **Self-Healing**: `llmheal` automatically diagnoses and fixes common setup issues
-- **Schema Validation**: JSON Schema ensures config correctness with IDE autocomplete
-- **Plugin Architecture**: Extend with custom tools via `.llm-workflow/plugins.json`
-- **Troubleshooting Guide**: Comprehensive docs for common issues
+## Platform Scope
 
-### Key Benefits
+| Area | Current scope |
+|---|---:|
+| Domain packs | 10 |
+| PowerShell modules | 121 |
+| Extraction parsers | 30 |
+| Golden tasks | 60 |
+| Benchmark suites | 5 |
+| MCP tool surface | 55 |
 
-| Benefit | Feature | Command |
-|---------|---------|---------|
-| **One-Command Setup** | Bootstrap entire toolchain | `llmup` |
-| **Visual Health Check** | Interactive TUI dashboard | `llmdashboard` |
-| **Auto-Repair** | Self-healing diagnostics | `llmheal` |
-| **Multi-Palace** | Sync multiple memory stores | `llmsync` |
-| **Game Dev Ready** | Game templates & asset tracking | `llmup -GameTeam` |
-| **Extensible** | Plugin system for custom tools | `llmplugins` |
-| **Portable** | Docker containers for any environment | `docker-compose up` |
-| **Safe** | Schema validation & drift detection | Built-in |
-| **Inter-Pack Pipelines** | Cross-domain asset workflows | `Invoke-InterPackPipeline` |
-| **AI Asset Generation** | Automated content creation | `New-AIGeneratedAsset` |
-| **Voice/Animation** | TTS/STS to animation sync | `Sync-VoiceToAnimation` |
-| **Benchmarking** | Performance regression testing | `Invoke-BenchmarkSuite` |
-| **Enterprise-Grade** | Journaling, policy, workspaces | See [Infrastructure](#core-infrastructure) |
+## Architecture Snapshot
 
-## Architecture
+The platform is organized around a unified PowerShell workflow layer that coordinates:
+- CodeMunch project indexing
+- ContextLattice verification and synchronization
+- MemPalace bridge synchronization
+- domain-pack extraction, retrieval, governance, and MCP tooling
 
-### Overview
+Core architectural lanes:
+- **Core infrastructure**: run IDs, journaling, atomic writes, config, policy, execution modes, workspaces, visibility
+- **Pack framework**: manifests, source registries, lockfiles, transactions, compatibility
+- **Extraction**: domain-specific parsers and batch extraction support
+- **Retrieval and integrity**: routing, confidence policy, answer planning, caveats, caching, incident bundles
+- **Governance**: golden tasks, review gates, human annotations, replay, pack SLOs
+- **Expansion**: MCP, inter-pack pipelines, snapshots, external ingestion, federated memory
 
-The LLM Workflow system provides a unified bootstrap experience for integrating CodeMunch, ContextLattice, and MemPalace toolchains.
-
-```mermaid
-graph LR
-    A([User]) --> B["llmup / Invoke-LLMWorkflowUp"]
-    B --> C[Bootstrap Phase]
-    C --> D[CodeMunch Index]
-    C --> E[ContextLattice Verify]
-    C --> F[MemPalace Bridge Sync]
-    D --> G["MCP Server<br/>codemunch-pro"]
-    E --> H[(ContextLattice API)]
-    F --> I[(ChromaDB Palace)]
-    F --> H
-    
-    style A fill:#e1f5fe
-    style B fill:#fff3e0
-    style C fill:#e8f5e9
-    style D fill:#f3e5f5
-    style E fill:#f3e5f5
-    style F fill:#f3e5f5
-    style G fill:#ffebee
-    style H fill:#ffebee
-    style I fill:#ffebee
-```
-
-### Component Architecture
-
-```mermaid
-graph TB
-    subgraph UserLayer["User Interface Layer"]
-        A1[llmup]
-        A2[llmcheck]
-        A3[llmdown]
-        A4[llmupdate]
-        A5[llmbenchmark]
-    end
-    
-    subgraph ModuleLayer["PowerShell Module Layer<br/>121 Modules"]
-        B1[Invoke-LLMWorkflowUp]
-        B2[Test-LLMWorkflowSetup]
-        B3[Resolve-ProviderProfile]
-        B4[Invoke-StructuredExtraction]
-        B5[Invoke-QueryRouting]
-    end
-    
-    subgraph TransportLayer["Inter-Pack Transport Layer"]
-        T1[Pipeline Router]
-        T2[Asset Converter]
-        T3[Format Bridge]
-    end
-    
-    subgraph MCPLayer["MCP Toolkit Servers"]
-        M1[Godot MCP]
-        M2[Blender MCP]
-        M3[RPG Maker MCP]
-    end
-    
-    subgraph Toolchains["Domain Pack Toolchains<br/>10 Packs"]
-        direction TB
-        
-        subgraph CodeMunch["CodeMunch"]
-            C1[index-project.ps1]
-            C2[codemunch-pro CLI]
-        end
-        
-        subgraph ContextLattice["ContextLattice"]
-            D1[verify.ps1]
-            D2[orchestrator.env loader]
-        end
-        
-        subgraph MemPalace["MemPalace Bridge"]
-            E1[sync-from-mempalace.ps1]
-            E2[Python Bridge]
-        end
-        
-        subgraph Packs["Domain Packs"]
-            P1[Extraction Parsers]
-            P2[Golden Tasks]
-            P3[Benchmarks]
-        end
-    end
-    
-    subgraph External["External Services"]
-        F1[(ChromaDB)]
-        F2[ContextLattice API]
-        F3[MCP Server]
-        F4[AI Providers]
-    end
-    
-    A1 --> B1
-    A2 --> B2
-    A5 --> B5
-    B1 --> C1
-    B1 --> D1
-    B1 --> E1
-    B4 --> P1
-    B5 --> T1
-    T1 --> T2 --> T3
-    M1 --> F3
-    M2 --> F3
-    M3 --> F3
-    C1 --> C2 --> F3
-    D1 --> F2
-    E1 --> E2 --> F1
-    E2 --> F2
-    P1 --> F4
-    T3 --> P3
-    
-    style UserLayer fill:#e3f2fd
-    style ModuleLayer fill:#e8f5e9
-    style TransportLayer fill:#fff3e0
-    style MCPLayer fill:#fce4ec
-    style CodeMunch fill:#fce4ec
-    style ContextLattice fill:#fce4ec
-    style MemPalace fill:#fce4ec
-    style Packs fill:#f3e5f5
-    style External fill:#ffebee
-```
-
-### Data Flow
-
-```mermaid
-graph LR
-    S1[Project Files] --> P1[CodeMunch Indexer]
-    P1 --> P2[Embedding Generator]
-    P2 --> ST1[(ChromaDB)]
-    P1 --> ST2[.codemunch Index]
-    
-    ST1 --> B1[Python Sync Script]
-    B1 --> B2[State Manager]
-    B1 --> B3[Batch Processor]
-    B3 -->|POST /memory/write| T1[(ContextLattice API)]
-    ST2 --> T2[MCP Server]
-    
-    style S1 fill:#e3f2fd
-    style P1 fill:#e8f5e9
-    style ST1 fill:#fff3e0
-    style B1 fill:#fce4ec
-    style T1 fill:#f3e5f5
-```
-
-### Provider Resolution Flow
-
-```mermaid
-flowchart TD
-    Start([User Request]) --> CheckExplicit{Explicit Provider?}
-    
-    CheckExplicit -->|Yes| UseExplicit[Use Requested Provider]
-    CheckExplicit -->|No| CheckOverride{LLM_PROVIDER<br/>Env Var Set?}
-    
-    CheckOverride -->|Yes| ValidateOverride{Valid &<br/>Key Available?}
-    CheckOverride -->|No| AutoDetect[Auto-Detection Mode]
-    
-    ValidateOverride -->|Yes| UseOverride[Use LLM_PROVIDER]
-    ValidateOverride -->|No| AutoDetect
-    
-    AutoDetect --> CheckOpenAI{OPENAI_API_KEY?}
-    CheckOpenAI -->|Found| UseOpenAI[Use OpenAI]
-    CheckOpenAI -->|Not Found| CheckClaude{ANTHROPIC_API_KEY?}
-    
-    CheckClaude -->|Found| UseClaude[Use Claude]
-    CheckClaude -->|Not Found| CheckKimi{KIMI_API_KEY?}
-    
-    CheckKimi -->|Found| UseKimi[Use Kimi]
-    CheckKimi -->|Not Found| CheckGemini{GEMINI_API_KEY?}
-    
-    CheckGemini -->|Found| UseGemini[Use Gemini]
-    CheckGemini -->|Not Found| CheckGLM{GLM_API_KEY?}
-    
-    CheckGLM -->|Found| UseGLM[Use GLM]
-    CheckGLM -->|Not Found| CheckOllama{OLLAMA_HOST?}
-    
-    CheckOllama -->|Found| UseOllama[Use Ollama]
-    CheckOllama -->|Not Found| NoProvider[No Provider Found]
-    
-    UseOpenAI --> End([End])
-    UseClaude --> End
-    UseKimi --> End
-    UseGemini --> End
-    UseGLM --> End
-    UseOllama --> End
-    NoProvider --> End
-    
-    style Start fill:#e1f5fe
-    style End fill:#e1f5fe
-    style UseOpenAI fill:#e8f5e9
-    style UseClaude fill:#e8f5e9
-    style UseKimi fill:#e8f5e9
-    style UseGemini fill:#e8f5e9
-    style UseGLM fill:#e8f5e9
-    style UseOllama fill:#e8f5e9
-    style NoProvider fill:#ffebee
-```
-
-### Sync Process Flow
-
-```mermaid
-flowchart TD
-    Start([Start Sync]) --> LoadConfig[Load Config Files]
-    LoadConfig --> LoadState[Load sync-state.json]
-    LoadState --> InitChroma[Initialize ChromaDB Client]
-    
-    InitChroma --> GetCollection[Get Collection]
-    GetCollection --> BatchLoop{More Batches?}
-    
-    BatchLoop -->|Yes| GetBatch[Get Batch from ChromaDB]
-    GetBatch --> ProcessItems[Process Each Item]
-    ProcessItems --> CalcHash[Calculate Content Hash]
-    CalcHash --> CheckChange{Content Changed?}
-    
-    CheckChange -->|Yes| QueueWrite[Queue for Write]
-    CheckChange -->|No| SkipItem[Skip Unchanged]
-    SkipItem --> BatchLoop
-    QueueWrite --> BatchLoop
-    
-    BatchLoop -->|No| WritePhase[Write Phase]
-    WritePhase --> PostAPI[POST /memory/write]
-    PostAPI --> CheckResult{Success?}
-    CheckResult -->|Yes| RecordSuccess[Record Success]
-    CheckResult -->|No| RecordFail[Record Failure]
-    RecordSuccess --> SaveState[Save sync-state.json]
-    RecordFail --> SaveState
-    SaveState --> End([End])
-    
-    style Start fill:#e1f5fe
-    style End fill:#e1f5fe
-    style LoadConfig fill:#fff9c4
-    style SaveState fill:#fff9c4
-    style PostAPI fill:#f3e5f5
-```
-
-### Current Platform Statistics
-
-| Component | Count | Description |
-|-----------|-------|-------------|
-| **Godot Pack Sources** | 43 | Indexed Godot engine documentation and reference sources |
-| **Source Families** | 11 | Hierarchical source categorization groups |
-| **Extraction Parsers** | 30 | Domain-specific structured extraction parsers |
-
-For detailed architecture documentation, see [docs/ARCHITECTURE.md](docs/architecture/ARCHITECTURE.md).
+For detailed architecture, see [docs/architecture/ARCHITECTURE.md](docs/architecture/ARCHITECTURE.md).
 
 ## Domain Packs
 
-The platform includes **10 specialized domain packs** providing structured knowledge extraction and AI-assisted workflows:
-
-| Pack | Domain | Status | Description |
-|------|--------|--------|-------------|
-| ![Godot](https://img.shields.io/badge/-Godot-478CBF?style=flat-square) | `godot-engine` | ✅ Promoted | 2D/3D game development, GDScript, scenes, signals |
-| ![Blender](https://img.shields.io/badge/-Blender-EA7600?style=flat-square) | `blender-engine` | ✅ Promoted | 3D modeling, synthetic data, MCP integration |
-| ![RPG Maker](https://img.shields.io/badge/-RPG%20Maker-009944?style=flat-square) | `rpgmaker-mz` | ✅ Promoted | Plugin development, conflict diagnosis, notetags |
-| ![Voice](https://img.shields.io/badge/-Voice-Audio-FF6B6B?style=flat-square) | `voice-audio-generation` | ✅ Promoted | TTS/STS pipelines, voice cloning, animation sync |
-| ![Agent](https://img.shields.io/badge/-Agent-Sim-9B59B6?style=flat-square) | `agent-simulation` | ✅ Promoted | AI agent workflows, multi-agent orchestration |
-| ![Notebook](https://img.shields.io/badge/-Notebook-Data-3498DB?style=flat-square) | `notebook-data-workflow` | ✅ Promoted | Jupyter notebooks, HAR analysis, data extraction |
-| ![UI](https://img.shields.io/badge/-UI-Frontend-2ECC71?style=flat-square) | `ui-frontend-framework` | ✅ Promoted | Component libraries, design tokens, accessibility |
-| ![API](https://img.shields.io/badge/-API-Reverse-F39C12?style=flat-square) | `api-reverse-tooling` | ✅ Promoted | API documentation, reverse engineering |
-| ![ML](https://img.shields.io/badge/-ML-Educational-1ABC9C?style=flat-square) | `ml-educational-reference` | ✅ Promoted | Machine learning tutorials, model references |
-| ![Engine](https://img.shields.io/badge/-Engine-Ref-E74C3C?style=flat-square) | `engine-reference` | ✅ Promoted | Cross-engine patterns, best practices |
-
-### Pack Lifecycle
-
-```powershell
-# List all available packs
-Get-AvailableDomainPacks
-
-# Install a pack
-Install-DomainPack -PackId "godot-engine"
-
-# Check pack health
-Get-PackHealthScore -PackId "blender-engine" -Explain
-
-# View pack documentation
-Show-PackReadme -PackId "voice-audio-generation"
-```
+| Pack | Status | Focus |
+|---|---|---|
+| `godot-engine` | ✅ Promoted | Godot engine development, GDScript, scenes, signals |
+| `blender-engine` | ✅ Promoted | Blender automation, operators, geometry nodes, export workflows |
+| `rpgmaker-mz` | ✅ Promoted | RPG Maker plugin development, conflict diagnosis, notetags |
+| `voice-audio-generation` | ✅ Promoted | Voice, TTS/STS, audio generation pipelines |
+| `agent-simulation` | ✅ Promoted | Agent workflows and simulation patterns |
+| `notebook-data-workflow` | ✅ Promoted | Notebook and data workflow extraction |
+| `ui-frontend-framework` | ✅ Promoted | UI/component and design-system workflows |
+| `api-reverse-tooling` | ✅ Promoted | API discovery, reverse engineering, documentation |
+| `ml-educational-reference` | ✅ Promoted | ML educational and reference content |
+| `engine-reference` | ✅ Promoted | Cross-engine patterns and migration guidance |
 
 ## Core Infrastructure
 
-The LLM Workflow platform includes enterprise-grade operational infrastructure across three phases:
-
-| Phase | Focus | Status | Key Components |
-|-------|-------|--------|----------------|
-| Phase 1 | Reliability & Control | ✅ Complete | Journaling, Locks, Config, Policy, Workspaces |
-| Phase 2 | Pack Framework | ✅ Complete | Manifests, Source Registry, Lockfiles |
-| Phase 3 | Operator Workflow | ✅ Complete | Health Scores, Planner, Git Hooks, Compatibility |
-| Phase 4 | Structured Extraction | ✅ Complete | GDScript, Scene, Plugin, Blender Parsers |
-| Phase 5 | Retrieval & Answer Integrity | ✅ Complete | Query Router, Confidence Policy, Cache |
-| Phase 6 | Human Trust & Governance | ✅ Complete | Golden Tasks, Replay Harness, SLOs |
-
-### Journaling & Checkpoints
-Every operation is tracked with run manifests and checkpoint entries:
-```powershell
-# Generate run ID
-$runId = New-RunId  # Returns: 20260412T150530Z-a7b3
-
-# Create run manifest
-$manifest = New-RunManifest -RunId $runId -Command "sync" -Args @("--all")
-
-# Write checkpoint entries
-New-JournalEntry -RunId $runId -Step "ingest" -Status "before"
-# ... do work ...
-New-JournalEntry -RunId $runId -Step "ingest" -Status "after" -Metadata @{count=42}
-
-# Resume support
-$state = Get-JournalState -RunId $runId
-```
-
-### File Locking & Atomic Writes
-State safety under concurrency with cross-platform file locking:
-```powershell
-# Acquire lock
-try {
-    $lock = Lock-File -Name "sync" -TimeoutSeconds 30
-    # Do work with atomic writes
-    Write-AtomicFile -Path "state.json" -Content $data
-} finally {
-    Unlock-File -Name "sync"
-}
-```
-
-### Effective Configuration
-5-level configuration precedence with source tracking:
-```powershell
-# Get resolved config with explanation
-Get-EffectiveConfig -Explain
-
-# Shows: provider.model = "gpt-4" (from: project config, shadowed: env var)
-
-# CLI commands
-llmconfig --explain    # Show all values and sources
-llmconfig --validate   # Validate configuration
-```
-
-### Policy & Execution Modes
-Policy gates prevent unsafe operations:
-```powershell
-# Check if operation is allowed in current mode
-Test-PolicyPermission -Command "sync" -Mode "watch"  # Returns: $true/$false
-
-# Execution modes: interactive, ci, watch, heal-watch, scheduled, mcp-readonly, mcp-mutating
-Set-ExecutionMode -Mode "ci"
-```
-
-### Workspaces & Visibility
-Multi-tenancy with private/public separation:
-```powershell
-# Get current workspace
-$workspace = Get-CurrentWorkspace
-
-# Check export permission (scans for secrets)
-Test-ExportPermission -Content $data -Context $workspace
-
-# Get retrieval priority (private project first)
-$sources = Get-RetrievalPriority -Query $query -Workspace $workspace
-```
-
-### Safety Levels
-| Level | Operations | Examples |
-|-------|-----------|----------|
-| `read-only` | Query operations | doctor, status, preview, search |
-| `mutating` | State changes | sync, index, ingest, build |
-| `destructive` | Data loss risk | restore, prune, delete |
-| `networked` | External calls | remote sync, provider calls |
-
-### Pack Framework (Phase 2)
-Domain-specific knowledge packs with lifecycle management:
-
-```powershell
-# Create pack manifest
-$manifest = New-PackManifest -PackId "rpgmaker-mz" -Domain "game-dev"
-
-# Transition lifecycle state
-Set-PackLifecycleState -Manifest $manifest -NewStatus "promoted" -Reason "Validated"
-
-# Generate lockfile
-$lockfile = New-PackLockfile -PackId "rpgmaker-mz" -Sources $sources
-Save-PackLockfile -Lockfile $lockfile
-```
-
-**Supported Packs:**
-- **RPG Maker MZ** - Plugin development, conflict diagnosis
-- **Godot Engine** - 2D/3D game dev, GDScript, visual systems
-- **Blender Engine** - 3D modeling, synthetic data, MCP integration
-
-### Operator Workflow (Phase 3)
-
-#### Health Scores
-Monitor pack and workspace health:
-```powershell
-# Get pack health score (0-100)
-Get-PackHealthScore -PackId "rpgmaker-mz" -Explain
-
-# Workspace health summary
-Get-WorkspaceHealthSummary -IncludeDetails
-
-# Export health report with trending
-Export-HealthReport -CompareWithPrevious
-```
-
-#### Planner/Executor Previews
-Dry-run operations before execution:
-```powershell
-# Create execution plan
-$plan = New-ExecutionPlan -Operation "sync" -Targets @("rpgmaker-mz")
-Add-PlanStep -Plan $plan -Description "Lock pack" -SafetyLevel Mutating
-
-# Preview (dry-run)
-Show-ExecutionPlan -Plan $plan
-
-# Execute with rollback support
-Invoke-ExecutionPlan -Plan $plan -WhatIf  # Dry-run
-Invoke-ExecutionPlan -Plan $plan -Resume   # Resume interrupted
-```
-
-#### Git Hooks
-Automated quality gates:
-```powershell
-# Install hooks
-Install-LLMWorkflowGitHooks -Hooks @("pre-commit", "pre-push") -BackupExisting
-
-# Pre-commit: Secret scanning + health check
-# Pre-push: Full validation + compatibility check
-```
-
-#### Compatibility Enforcement
-Semantic versioning and drift detection:
-```powershell
-# Check compatibility matrix
-Test-CompatibilityMatrix -PackId "rpgmaker-mz" -Strict
-
-# Detect version drift
-Get-VersionDrift -PackId "rpgmaker-mz"
-
-# Export compatibility lock
-Export-CompatibilityLock -PackId "rpgmaker-mz"
-```
-
-#### Include/Exclude Rules
-Pattern-based filtering:
-```powershell
-# Create filter with glob patterns
-$filter = Get-DefaultFilters -PackType "rpgmaker-mz"
-Get-IncludedFiles -Filter $filter -Path "./js/plugins"
-```
-
-#### Notification Hooks
-Event-driven notifications:
-```powershell
-# Register webhook
-Register-NotificationHook -Name "slack" -HookType webhook -TargetUrl "..."
-
-# Send notification
-Send-Notification -EventType "pack.build.completed" -Severity info
-```
-
-### Structured Extraction Pipeline (Phase 4)
-
-Parse and extract structured metadata from domain-specific files:
-
-```powershell
-# Extract from GDScript file
-$result = Invoke-StructuredExtraction -FilePath "player.gd"
-$result.data.classInfo.className   # "Player"
-$result.data.signals               # Signal definitions
-$result.data.properties            # @export properties
-
-# Extract from Godot scene
-$result = Invoke-StructuredExtraction -FilePath "main.tscn"
-$result.data.nodes                 # Node hierarchy
-$result.data.connections           # Signal connections
-
-# Extract from RPG Maker plugin
-$result = Invoke-StructuredExtraction -FilePath "MyPlugin.js"
-$result.data.pluginName            # Plugin name
-$result.data.parameters            # @param definitions
-$result.data.commands              # @command definitions
-
-# Extract from Blender addon
-$result = Invoke-StructuredExtraction -FilePath "my_addon.py"
-$result.data.addonInfo             # bl_info metadata
-$result.data.operators             # Operator classes
-$result.data.panels                # Panel classes
-```
-
-**Supported File Types:**
-| Extension | Domain | Extracts |
-|-----------|--------|----------|
-| `.gd` | Godot | Classes, signals, methods, @export, @onready |
-| `.tscn` | Godot | Node hierarchy, signal connections, resources |
-| `.tres` | Godot | Resource definitions, properties |
-| `.gdshader` | Godot | Uniforms, functions, render modes |
-| `.js` | RPG Maker | Plugin headers, @param, @command, conflicts |
-| `.py` | Blender | Operators, panels, bpy.props, node groups |
-
-**Batch Extraction:**
-```powershell
-# Process multiple files
-$files = Get-ChildItem -Path "./plugins" -Filter "*.js"
-$results = Invoke-BatchExtraction -FilePaths $files.FullName
-
-# Generate report
-Export-ExtractionReport -OutputPath "./extraction-report.json"
-```
-
-### Retrieval & Answer Integrity (Phase 5)
-
-Query routing, answer planning, and evidence-based answer synthesis:
-
-#### Query Router
-Route queries to appropriate packs based on intent:
-```powershell
-# Route query with automatic pack selection
-$result = Invoke-QueryRouting -Query "How do I use signals?" -RetrievalProfile "godot-expert"
-$result.PackOrder        # Prioritized pack list
-$result.PrimaryPack      # Best matching pack
-$result.RoutingReason    # Why this route was chosen
-
-# Get query intent
-Get-QueryIntent -Query "Plugin conflict with Yanfly"  # Returns: "conflict-diagnosis"
-```
-
-**Retrieval Profiles:**
-| Profile | Use Case |
-|---------|----------|
-| `api-lookup` | API reference questions |
-| `plugin-pattern` | Plugin development patterns |
-| `conflict-diagnosis` | Diagnosing plugin conflicts |
-| `codegen` | Code generation tasks |
-| `private-project-first` | Prioritize private project content |
-| `tooling-workflow` | Tooling and workflow questions |
-| `reverse-format` | Reverse engineering questions |
-
-#### Answer Planning & Tracing
-Create answer plans before synthesis, traces after:
-```powershell
-# Create answer plan
-$plan = New-AnswerPlan -Query "How to use X?" `
-                       -RetrievalProfile "rpgmaker-expert" `
-                       -RequiredEvidenceTypes @("code-example", "api-reference")
-
-# Add evidence requirements
-Add-PlanEvidence -Plan $plan -EvidenceType "code-example" -Required $true -MinimumRelevance 0.8
-
-# After synthesis, create trace
-$trace = New-AnswerTrace -Plan $plan -AnswerMode "caveat" -ConfidenceDecision $decision
-Add-TraceEvidence -Trace $trace -EvidenceId "ev-001" -SourcePack "rpgmaker-mz-core"
-Export-AnswerTrace -Trace $trace  # For audit
-```
-
-**Answer Modes:**
-- `direct` - High confidence, answer directly
-- `caveat` - Medium confidence, include warnings
-- `dispute` - Multiple conflicting sources, surface dispute
-- `abstain` - Low confidence, decline to answer
-- `escalate` - Needs human review
-
-#### Confidence & Abstain Policy
-Calculate confidence and decide when to abstain:
-```powershell
-# Evaluate confidence (4 factors: relevance, authority, consistency, coverage)
-$confidence = Test-AnswerConfidence -Evidence $evidence -AnswerPlan $plan
-$confidence.Score                    # 0.0 to 1.0
-$confidence.Components               # Breakdown by factor
-
-# Get answer mode from confidence
-$mode = Get-AnswerMode -ConfidenceScore $confidence.Score -EvidenceIssues $issues
-# Returns: direct, caveat, dispute, abstain, escalate
-
-# Should we abstain?
-if (Test-ShouldAbstain -ConfidenceScore 0.45 -Policy $policy) {
-    $decision = Get-AbstainDecision -Reason "Low confidence" -Alternatives @{...}
-}
-```
-
-#### Cross-Pack Arbitration
-Handle queries spanning multiple domain packs:
-```powershell
-# Arbitrate across packs
-$result = Invoke-CrossPackArbitration -Query "Compare Godot and RPG Maker" -Packs $packs
-$result.IsCrossPack       # True if multiple packs involved
-$result.RequiresLabeling  # Whether to label sources
-
-# Create dispute set for conflicting claims
-$dispute = New-DisputeSet -DisputedEntity "Best plugin pattern" -Status "open"
-Add-DisputeClaim -DisputeSet $dispute -ClaimSource "godot-engine" -ClaimContent "Use signals" -TrustLevel "High"
-Add-DisputeClaim -DisputeSet $dispute -ClaimSource "rpgmaker-mz" -ClaimContent "Use event bus" -TrustLevel "High"
-```
-
-#### Evidence Policy
-Validate evidence quality and authority:
-```powershell
-# Validate evidence against policy
-$validation = Test-EvidencePolicy -Evidence $evidence -Policy $policy
-$validation.IsValid
-$validation.Violations
-
-# Check for translation-only evidence (can't carry high confidence)
-if (Test-TranslationOnlyEvidence -Evidence $evidence) {
-    Write-Warning "Evidence is translation-only"
-}
-
-# Sort by source authority
-$sorted = Sort-BySourceAuthority -Evidence $evidence  # Foundational first
-```
-
-**Evidence Classification:** foundational > authoritative > exemplar > community > translation
-
-#### Caveat Registry
-Known caveats and falsehoods to avoid:
-```powershell
-# Register a caveat
-Register-Caveat -CaveatId "godot-3-vs-4-onready" -Category "version-boundary" `
-                -Subject "@onready syntax" -Message "Note: @onready is Godot 4 only"
-
-# Find applicable caveats for answer
-$caveats = Find-ApplicableCaveats -Query $query -Evidence $evidence
-$answer = Add-AnswerCaveats -Answer $answer -Caveats $caveats
-
-# Test for known falsehoods
-if (Test-KnownFalsehoods -AnswerText $answer) {
-    Write-Warning "Answer contains known falsehood"
-}
-```
-
-#### Retrieval Cache
-Cache retrieval results with smart invalidation:
-```powershell
-# Cache a retrieval result
-Set-CachedRetrieval -Query "How do I use signals?" `
-                    -RetrievalProfile "godot-expert" `
-                    -Result $result `
-                    -PackVersions @{ "godot-engine" = "v2.1.0" }
-
-# Retrieve from cache (checks pack versions for validity)
-$cached = Get-CachedRetrieval -Query "How do I use signals?" -RetrievalProfile "godot-expert"
-
-# Invalidate on pack update
-Invoke-PackCacheInvalidation -PackId "godot-engine" -NewVersion "v2.2.0"
-
-# Maintenance
-Invoke-CacheMaintenance -MaxAgeHours 24
-```
-
-#### Answer Incident Bundles
-Track and investigate bad answers:
-```powershell
-# Create incident bundle for bad answer
-$bundle = New-AnswerIncidentBundle -Query "How do I use X?" `
-                                   -FinalAnswer $answer `
-                                   -AnswerPlan $plan `
-                                   -AnswerTrace $trace
-
-# Add feedback
-Add-IncidentFeedback -Incident $bundle -FeedbackType "thumbs-down" -FeedbackText "Wrong answer"
-
-# Root cause analysis
-$analysis = Get-IncidentRootCause -Incident $bundle
-$analysis.Category    # bad-retrieval, wrong-authority-level, etc.
-$analysis.Pattern     # hallucination, outdated-information, etc.
-
-# Export for investigation
-Export-IncidentBundle -Incident $bundle -OutputPath "./incident.json"
-```
-
-### Human Trust & Governance (Phase 6)
-
-Golden tasks, replay harness, and pack SLOs for quality assurance:
-
-#### Golden Tasks
-Evaluate system with predefined real-world tasks:
-```powershell
-# Run a golden task
-$result = Invoke-GoldenTaskEval -Task $task -RecordResults
-$result.Passed
-$result.ValidationResults
-
-# Run all tasks for a pack
-$results = Invoke-PackGoldenTasks -PackId "rpgmaker-mz" -Parallel
-
-# Get predefined tasks
-$tasks = Get-PredefinedGoldenTasks -PackId "godot"
-```
-
-**Predefined Golden Tasks (60 total across 6 pack families):**
-- **RPG Maker MZ (10)**: Plugin skeletons, conflict diagnosis, notetag extraction, engine patch analysis, command aliasing, parameter validation, event conversion, animation sequences, save customization, menu extension
-- **Godot (10)**: GDScript classes, signals, autoloads, scene inheritance, resource loading, custom nodes, editor plugins, shaders, input mapping, multiplayer patterns
-- **Blender (10)**: Operators, geometry nodes, addon manifests, panels, property groups, material nodes, rigging automation, render pipelines, import/export flows, keymaps
-- **API Reverse Tooling (10)**: Endpoint discovery, schema inference, OpenAPI generation, auth detection, GraphQL analysis, gRPC reconstruction, validation, rate limits, error patterns, changelog detection
-- **Notebook/Data Workflow (10)**: Versioning, output caching, lineage, dependency graphs, validation rules, visualization generation, profiling, feature engineering, training tracking, experiment comparison
-- **Agent Simulation (10)**: Setup, reward design, trajectory analysis, A/B testing, environment configuration, behavior validation, policy optimization, replay, metrics, collaboration patterns
-
-#### Replay Harness
-Before/after comparison for upgrades:
-```powershell
-# Replay golden task with new config
-$replay = Invoke-GoldenTaskReplay -TaskId "gt-rpgmaker-001" `
-                                  -BaselineConfig $oldConfig `
-                                  -NewConfig $newConfig
-
-# Compare results
-$comparison = Compare-ReplayResults -BaselineResult $replay.Baseline `
-                                    -NewResult $replay.NewResult
-$comparison.RegressionDetected
-$comparison.Differences
-
-# Test for regression
-if (Test-Regression -Baseline $before -Current $after) {
-    Write-Error "Regression detected!"
-}
-
-# Batch replay
-$batch = Invoke-BatchReplay -Targets $tasks -Config $newConfig -Parallel
-```
-
-#### Pack SLOs
-Service level objectives for pack quality:
-```powershell
-# Define SLO for pack
-$slo = New-PackSLO -PackId "rpgmaker-mz" -Targets @{
-    p95RetrievalLatencyMs = 1200
-    answerGroundingRate = 0.95
-    parserFailureRate = 0.02
-    goldenTaskPassRate = 0.90
-}
-
-# Record telemetry
-Record-Telemetry -PackId "rpgmaker-mz" -MetricName "retrievalLatencyMs" -Value 850
-
-# Check SLO status
-$status = Get-PackSLOStatus -PackId "rpgmaker-mz" -TimeRange "24h"
-$status.IsCompliant
-$status.Violations
-
-# Get violations
-$violations = Get-SLOViolations -PackId "rpgmaker-mz" -Severity "critical"
-```
-
-**SLO Targets:**
-| Metric | Target |
-|--------|--------|
-| p95RetrievalLatencyMs | 1200ms |
-| answerGroundingRate | 95% |
-| parserFailureRate | 2% |
-| provenanceCoverage | 99% |
-| goldenTaskPassRate | 90% |
-
-#### Human Annotations
-Human corrections and overrides:
-```powershell
-# Create annotation
-$annotation = New-HumanAnnotation -EntityId "plugin-123" `
-                                  -AnnotationType "correction" `
-                                  -Content "Fixed incorrect info about X" `
-                                  -Author "user"
-
-# Create project override
-$override = New-ProjectOverride -ProjectId "my-game" `
-                                -EntityId "source-456" `
-                                -OverrideData @{ paramType = "number" } `
-                                -Reason "Our project uses numbers"
-
-# Get effective annotations (with overrides applied)
-$annotations = Get-EffectiveAnnotations -EntityId "plugin-123" -Context @{ projectId = "my-game" }
-```
-
-**Annotation Types:** correction, deprecation, confidence, compatibility, relevance, caveat, override
-
-#### Human Review Gates
-Require approval for sensitive operations:
-```powershell
-# Check if review required
-if (Test-HumanReviewRequired -Operation "pack-promote" -ChangeSet $changes) {
-    # Create review request
-    $request = New-ReviewGateRequest -Operation "pack-promote" `
-                                     -ChangeSet $changes `
-                                     -Requester "user" `
-                                     -Reviewers @("admin", "owner")
-    
-    # Submit decision
-    Submit-ReviewDecision -RequestId $request.RequestId `
-                          -Reviewer "admin" `
-                          -Decision "approved" `
-                          -Comments "Looks good"
-}
-
-# Check review triggers
-Test-LargeSourceDelta -ChangeSet $changes -ThresholdPercent 30
-Test-MajorVersionJump -OldVersion "1.0.0" -NewVersion "2.0.0"
-Test-TrustTierChange -ChangeSet $changes
-```
-
-**Review Triggers:** Large source deltas, major version jumps, trust tier changes, visibility boundary changes, eval regressions
-
-## Advanced Features
-
-### MCP Integration
-Model Context Protocol (MCP) servers provide IDE-integrated assistance:
-
-| Server | Tools | Description |
-|--------|-------|-------------|
-| **Godot MCP** | 15+ | Scene analysis, GDScript linting, signal debugging |
-| **Blender MCP** | 15+ | Operator introspection, geometry nodes, addon dev |
-| **RPG Maker MCP** | 15+ | Plugin conflict detection, notetag extraction |
-
-```powershell
-# Start MCP server
-Start-MCPServer -PackId "godot-engine"
-
-# List available tools
-Get-MCPTools -PackId "blender-engine"
-
-# Deploy to production
-Deploy-MCPServer -PackId "rpgmaker-mz" -Environment "production"
-```
-
-### Inter-Pack Pipelines
-Cross-domain asset workflows enable seamless handoffs:
-
-```powershell
-# Blender → Godot pipeline
-$pipeline = New-InterPackPipeline -Source "blender-engine" -Target "godot-engine"
-Add-PipelineStage -Pipeline $pipeline -Stage "export-gltf" -Config @{format="GLTF2"}
-Add-PipelineStage -Pipeline $pipeline -Stage "optimize-mesh" -Config @{lod=3}
-Add-PipelineStage -Pipeline $pipeline -Stage "import-godot" -Config @{scene="Main"}
-Invoke-Pipeline -Pipeline $pipeline -AssetPath "./assets/character.blend"
-
-# AI generation → Voice → Animation
-$pipeline = New-InterPackPipeline -Name "AI-Voice-Animation"
-Add-PipelineStage -Pipeline $pipeline -Stage "generate-script" -Pack "agent-simulation"
-Add-PipelineStage -Pipeline $pipeline -Stage "tts-generate" -Pack "voice-audio-generation"
-Add-PipelineStage -Pipeline $pipeline -Stage "lip-sync" -Pack "voice-audio-generation"
-Add-PipelineStage -Pipeline $pipeline -Stage "import-godot" -Pack "godot-engine"
-```
-
-**Supported Pipeline Types:**
-- Blender → Godot (3D assets)
-- AI Generation → Voice → Animation
-- Notebook → API Documentation
-- UI Components → Frontend Framework
-
-### Federated Team Memory
-Multi-tenant memory with workspace isolation:
-
-```powershell
-# Create workspace
-New-Workspace -Name "TeamAlpha" -Visibility private
-
-# Sync with federated memory
-Sync-FederatedMemory -Workspace "TeamAlpha" -Sources @("github", "notion", "jira")
-
-# Query across workspaces
-$result = Invoke-FederatedQuery -Query "authentication patterns" -Workspaces @("TeamAlpha", "Shared")
-
-# Share memory between teams
-Grant-MemoryAccess -Workspace "TeamAlpha" -TargetWorkspace "TeamBeta" -Scope "read-only"
-```
-
-### Performance Benchmarking Suite
-Automated performance regression testing:
-
-```powershell
-# Run full benchmark suite
-$results = Invoke-BenchmarkSuite -Suite "all" -OutputFormat json
-
-# Compare with baseline
-$comparison = Compare-BenchmarkResults -Current $results -Baseline "baseline-v0.9.0.json"
-$comparison.Regressions
-
-# Export report
-Export-BenchmarkReport -Results $results -Format html -OutputPath "./benchmark-report.html"
-```
-
-**Benchmark Categories:**
-| Category | Metrics |
-|----------|---------|
-| Extraction | Parse time, memory usage, accuracy |
-| Retrieval | Query latency, relevance scoring |
-| Sync | Throughput, conflict resolution |
-| MCP | Tool invocation latency |
-
-### Golden Task Evaluations (60 Tasks)
-Comprehensive quality validation with 60 predefined real-world tasks:
-
-```powershell
-# Run all golden tasks
-$results = Invoke-AllGoldenTasks -Parallel -ReportResults
-
-# Run pack-specific tasks
-$results = Invoke-PackGoldenTasks -PackId "godot" -Verbose
-
-# Check specific task
-$result = Invoke-GoldenTaskEval -TaskId "gt-godot-001" -RecordResults
-$result.Passed  # $true or $false
-
-# Generate evaluation report
-Export-GoldenTaskReport -Results $results -Format markdown
-```
-
-**Golden Task Coverage (60 Total):**
-
-| Pack | Tasks | Examples |
-|------|-------|----------|
-| RPG Maker MZ | 10 | Plugin skeleton, conflict diagnosis, notetag extraction, patch analysis |
-| Godot | 10 | GDScript class, signal connection, autoload setup, scene instantiation |
-| Blender | 10 | Operator registration, geometry nodes, addon manifest, material setup |
-| API Reverse Tooling | 10 | Endpoint discovery, schema inference, OpenAPI generation, auth detection |
-| Notebook/Data Workflow | 10 | Notebook versioning, output caching, lineage tracking, validation rules |
-| Agent Simulation | 10 | Multi-agent setup, reward design, replay analysis, metrics collection |
-
-**SLO Targets:**
-| Metric | Target |
-|--------|--------|
-| p95RetrievalLatencyMs | 1200ms |
-| answerGroundingRate | 95% |
-| parserFailureRate | 2% |
-| goldenTaskPassRate | 90% |
-
-## Supported File Formats
-
-The platform provides structured extraction and indexing for a wide range of file formats:
-
-### Code Files
-| Extension | Language/Platform | Extraction Capabilities |
-|-----------|-------------------|------------------------|
-| `.gd` | Godot/GDScript | Classes, signals, methods, @export, @onready, enums, constants |
-| `.py` | Python | Classes, functions, decorators, type hints, docstrings, imports |
-| `.js` | JavaScript | Functions, classes, JSDoc, exports, RPG Maker plugin headers |
-| `.cs` | C# | Classes, methods, properties, attributes, namespaces |
-| `.rs` | Rust | Modules, functions, traits, structs, enums, macros |
-| `.swift` | Swift | Classes, structs, protocols, extensions, properties |
-
-### Scene & Asset Files
-| Extension | Platform | Extraction Capabilities |
-|-----------|----------|------------------------|
-| `.tscn` | Godot | Node hierarchy, signal connections, resources, groups |
-| `.tres` | Godot | Resource definitions, properties, script references |
-| `.blend` (metadata) | Blender | Scene structure, objects, materials, operator metadata |
-| `.gdshader` | Godot | Uniforms, functions, render modes, varyings |
-| `.uplugin` | Unreal Engine | Plugin descriptor metadata, modules, plugin references, target platforms |
-| `.uproject` | Unreal Engine | Project descriptor metadata, engine association, plugin references, target platforms |
-
-### Project Asset Catalogs
-| Input | Platform | Extraction Capabilities |
-|------|----------|------------------------|
-| RPG Maker project root | RPG Maker MV/MZ | Asset family cataloging for `img/*`, `audio/*`, and `js/plugins` with plugin metadata enrichment |
-
-### Data & Configuration
-| Extension | Type | Extraction Capabilities |
-|-----------|------|------------------------|
-| `.ipynb` | Jupyter | Cell content, outputs, markdown, code analysis |
-| `.har` | HTTP Archive | Request/response data, timing, headers |
-| `.json` | JSON | Schema detection, nested structure, API contracts |
-| `.yaml` / `.yml` | YAML | Configuration, Kubernetes, Docker Compose |
-| `.toml` | TOML | Package manifests, configuration |
-
-### Audio & Voice
-| Type | Description |
-|------|-------------|
-| Model configs | TTS/STS model configurations, voice profiles |
-| Processing pipelines | Audio preprocessing, effect chains |
-| Animation sync | Lip-sync data, phoneme mappings |
-
-### UI & Frontend
-| Type | Description |
-|------|-------------|
-| Component definitions | React/Vue/Svelte component metadata |
-| Design tokens | Colors, typography, spacing systems |
-| Accessibility | ARIA labels, contrast ratios, screen reader support |
-| Responsive breakpoints | Media queries, layout rules |
-
-### Extraction Examples
-
-```powershell
-# Extract from GDScript
-$result = Invoke-StructuredExtraction -FilePath "player.gd"
-$result.data.classInfo.className    # "Player"
-$result.data.signals                # ["health_changed", "died"]
-$result.data.properties             # [@export variables]
-
-# Extract from Godot scene
-$result = Invoke-StructuredExtraction -FilePath "main.tscn"
-$result.data.nodes                  # Node hierarchy tree
-$result.data.connections            # Signal connections
-
-# Extract from RPG Maker plugin
-$result = Invoke-StructuredExtraction -FilePath "MyPlugin.js"
-$result.data.pluginName             # Plugin name
-$result.data.parameters             # @param definitions
-$result.data.commands               # @command definitions
-
-# Extract from Blender addon
-$result = Invoke-StructuredExtraction -FilePath "my_addon.py"
-$result.data.addonInfo              # bl_info metadata
-$result.data.operators              # Operator classes
-
-# Extract from Unreal descriptor
-$result = Invoke-StructuredExtraction -FilePath "MyPlugin.uplugin"
-$result.data.modules                # Unreal modules
-$result.data.targetPlatforms        # Supported targets
-
-# Catalog an RPG Maker project
-$catalog = Invoke-RPGMakerAssetCatalogParse -ProjectRoot "./MyRmmzGame" -IncludePluginMetadata
-$catalog.assetFamilies.characters   # Character sheets
-$catalog.assetFamilies.plugins      # Plugin inventory
-$catalog.statistics.totalAssets     # Total cataloged assets
-
-# Extract from Jupyter notebook
-$result = Invoke-StructuredExtraction -FilePath "analysis.ipynb"
-$result.data.cells                  # Cell contents
-$result.data.outputs                # Cell outputs
-
-# Batch extraction
-$files = Get-ChildItem -Path "./src" -Filter "*.gd" -Recurse
-$results = Invoke-BatchExtraction -FilePaths $files.FullName
-Export-ExtractionReport -Results $results -OutputPath "./extraction-report.json"
-```
-
-## Repository layout
-
-- `tools/codemunch`
-- `tools/contextlattice`
-- `tools/memorybridge`
-- `tools/workflow`
-
-`tools/workflow` contains the global installer and unified bootstrap command.
-
-## Option A: Script install (global command)
-
-From this repo:
-
-```powershell
-.\tools\workflow\install-global-llm-workflow.ps1
-```
-
-Open a new PowerShell session.
-
-## Option B: Versioned module install (recommended)
-
-From this repo:
+Implemented phases:
+- **Phase 1**: reliability and control foundation
+- **Phase 2**: pack framework and source registry
+- **Phase 3**: operator workflow and guarded execution
+- **Phase 4**: structured extraction pipeline
+- **Phase 5**: retrieval and answer integrity
+- **Phase 6**: human trust, replay, and governance
+- **Phase 7**: platform expansion (MCP, inter-pack, snapshots, federation)
+- **Phase 8**: extended packs
+
+The repo is now in post-0.9.6 hardening and release-state reconciliation, not raw feature infancy.
+
+## Installation
+
+### Recommended module install
 
 ```powershell
 Import-Module .\module\LLMWorkflow\LLMWorkflow.psd1 -Force
 Install-LLMWorkflow -NoProfileUpdate
 ```
 
-Then in any project folder:
+Then in any project:
 
 ```powershell
 Invoke-LLMWorkflowUp
-```
-
-Alias:
-
-```powershell
+# alias
 llmup
 ```
 
-### Installing Additional Domain Packs
-
-Install specialized packs for your workflow:
+### Script install
 
 ```powershell
-# List available packs
-Get-AvailableDomainPacks
-
-# Install specific packs
-Install-DomainPack -PackId "godot-engine"
-Install-DomainPack -PackId "blender-engine"
-Install-DomainPack -PackId "voice-audio-generation"
-
-# Install all packs
-Install-AllDomainPacks
-
-# Check pack status
-Get-InstalledPacks
+.\tools\workflow\install-global-llm-workflow.ps1
 ```
 
-### MCP Server Deployment
-
-Deploy MCP servers for IDE integration:
-
-```powershell
-# Deploy all MCP servers
-Deploy-MCPServers -Environment "local"
-
-# Deploy specific server
-Deploy-MCPServer -PackId "godot-engine" -Port 8080
-
-# Production deployment
-Deploy-MCPServer -PackId "blender-engine" `
-                 -Environment "production" `
-                 -Containerize `
-                 -LoadBalanced
-
-# Check MCP status
-Get-MCPServerStatus
-
-# View server logs
-Get-MCPServerLogs -PackId "rpgmaker-mz" -Tail 100
-```
-
-**MCP Server Configuration:**
-
-```json
-{
-  "mcpServers": {
-    "godot-engine": {
-      "command": "npx",
-      "args": ["-y", "@modelcontextprotocol/server-godot"],
-      "env": {
-        "GODOT_PROJECT_PATH": "/path/to/project"
-      }
-    }
-  }
-}
-```
-
-### Inter-Pack Pipeline Setup
-
-Configure cross-domain asset workflows:
-
-```powershell
-# Initialize pipeline infrastructure
-Initialize-InterPackPipelines
-
-# Configure Blender → Godot pipeline
-Register-Pipeline -Name "blender-to-godot" `
-                  -SourcePack "blender-engine" `
-                  -TargetPack "godot-engine" `
-                  -Stages @("export", "optimize", "import")
-
-# Configure AI → Voice → Animation pipeline
-Register-Pipeline -Name "ai-voice-animation" `
-                  -SourcePack "agent-simulation" `
-                  -IntermediatePacks @("voice-audio-generation") `
-                  -TargetPack "godot-engine"
-
-# Run pipeline
-Invoke-InterPackPipeline -Name "blender-to-godot" -AssetPath "./assets/model.blend"
-
-# Monitor pipeline status
-Get-PipelineStatus -Name "ai-voice-animation"
-
-# View pipeline history
-Get-PipelineHistory -Days 7
-```
-
-**Pipeline Configuration File (`.llm-workflow/pipelines.json`):**
-
-```json
-{
-  "pipelines": [
-    {
-      "name": "blender-to-godot",
-      "source": "blender-engine",
-      "target": "godot-engine",
-      "autoRun": true,
-      "stages": [
-        {"name": "export", "format": "GLTF2"},
-        {"name": "optimize", "lod": 3},
-        {"name": "import", "scene": "Main"}
-      ]
-    }
-  ]
-}
-```
-
-Optional (from module):
-
-```powershell
-Install-LLMWorkflow
-Get-LLMWorkflowVersion
-Test-LLMWorkflowSetup -ProjectRoot .
-Update-LLMWorkflow
-```
-
-This installs the same global launcher under `~/.llm-workflow`.
-
-Uninstall:
+### Uninstall
 
 ```powershell
 Uninstall-LLMWorkflow
@@ -1271,612 +140,80 @@ Uninstall-LLMWorkflow
 llmdown
 ```
 
-Other aliases:
+## Common Commands
 
 ```powershell
-llmcheck     # Test-LLMWorkflowSetup
-llmver       # Get-LLMWorkflowVersion
-llmupdate    # Update-LLMWorkflow
-llmdashboard # Show-LLMWorkflowDashboard (interactive TUI)
-llmheal      # Invoke-LLMWorkflowHeal (self-healing)
-```
-
-### Interactive Dashboard
-
-Launch the real-time health dashboard:
-
-```powershell
-llmdashboard
-```
-
-The dashboard provides:
-- **Color-coded status indicators** (Green=OK, Yellow=WARN, Red=FAIL)
-- **Live progress** as checks complete
-- **Latency measurements** for network operations
-- **Interactive controls**: Press `R` to re-run, `Q` to quit, `A` to toggle auto-refresh
-
-For CI/CD environments, use the `-NoInteractive` flag for plain-text output:
-
-```powershell
-Show-LLMWorkflowDashboard -NoInteractive
-```
-
-With ContextLattice connectivity checks:
-
-```powershell
-llmdashboard -CheckContext
-```
-
-### Self-Healing (llmheal)
-
-Automatically diagnose and fix common issues:
-
-```powershell
-# Interactive diagnosis and repair
-llmheal
-
-# Preview what would be fixed
-llmheal -WhatIf
-
-# Auto-apply all fixes
-llmheal -Force
-```
-
-Repairs include: creating missing .env files, installing ChromaDB, fixing Python paths,
-creating palace directories, and more. See [docs/SELF_HEALING.md](docs/operations/SELF_HEALING.md) for details.
-
-## Use in any project
-
-From any repo folder (script or module path):
-
-```powershell
-llm-workflow-up
-```
-
-Alias:
-
-```powershell
-llmup
-```
-
-Strict end-to-end check:
-
-```powershell
-llm-workflow-check
-```
-
-Diagnostics:
-
-```powershell
-llm-workflow-doctor -CheckContext
-```
-
-## Troubleshooting
-
-See [docs/TROUBLESHOOTING.md](docs/operations/TROUBLESHOOTING.md) for detailed troubleshooting guidance, including:
-
-- Quick diagnostics with `llmcheck` and `llmheal`
-- Common issues (Python, ContextLattice, MemPalace, API keys)
-- Error message reference
-- Diagnostic commands (`-AsJson`, `-Strict`, doctor script)
-- How to collect logs for bug reports
-
-Quick fixes:
-
-```powershell
-# Reinstall dependencies
-python -m pip install --upgrade chromadb codemunch-pro
-
-# Reset sync state
-Remove-Item .memorybridge/sync-state.json -Force
-
-# Full diagnostic check
-llm-workflow-doctor -CheckContext -Strict
-```
-
-What it does:
-
-1. Loads `.env` and `.contextlattice/orchestrator.env` when present.
-2. Auto-creates missing tool folders in the current project:
-   - `tools/codemunch`
-   - `tools/contextlattice`
-   - `tools/memorybridge`
-3. Installs/validates dependencies (`codemunch-pro`, `chromadb`).
-4. Runs project bootstrap scripts for all three toolchains.
-5. Runs ContextLattice verify and MemPalace bridge dry-run (if API key exists).
-6. Normalizes provider credentials for OpenAI/Kimi/Gemini/GLM switching.
-
-## Optional flags
-
-```powershell
-llm-workflow-up -SkipDependencyInstall
-llm-workflow-up -Provider glm
-llm-workflow-up -Provider gemini
-llm-workflow-up -Provider claude
-llm-workflow-up -Provider ollama
-llm-workflow-up -SkipContextVerify
-llm-workflow-up -SkipBridgeDryRun
-llm-workflow-up -SmokeTestContext
-llm-workflow-up -SmokeTestContext -RequireSearchHit
-llm-workflow-up -DeepCheck
-llm-workflow-check -Provider kimi
-llm-workflow-doctor -Provider auto -CheckContext -Strict
-```
-
-Supported providers: `openai`, `claude`, `kimi`, `gemini`, `glm`, `ollama`
-
-## Plugin Architecture
-
-Third-party tools can register as plugins via `.llm-workflow/plugins.json`.
-
-### Plugin Manifest (`.llm-workflow/plugins.json`)
-
-```json
-{
-  "version": "1.0",
-  "plugins": [
-    {
-      "name": "code-review-agent",
-      "description": "AI-powered code review automation",
-      "bootstrapScript": "tools/code-review/bootstrap.ps1",
-      "checkScript": "tools/code-review/check.ps1",
-      "runOn": ["bootstrap", "check"]
-    }
-  ]
-}
-```
-
-### Registering Plugins
-
-Via module functions:
-
-```powershell
-# Register from a manifest file
-Register-LLMWorkflowPlugin -ManifestPath "tools/my-plugin/manifest.json"
-
-# Register inline
-Register-LLMWorkflowPlugin -Name "my-plugin" -Description "My plugin" `
-    -BootstrapScript "tools/my-plugin/bootstrap.ps1" `
-    -RunOn @("bootstrap")
-
-# List registered plugins
-Get-LLMWorkflowPlugins
-
-# Unregister a plugin
-Unregister-LLMWorkflowPlugin -Name "my-plugin"
-```
-
-### Plugin Triggers
-
-- `"bootstrap"` - Runs during `Invoke-LLMWorkflowUp` / `llmup`
-- `"check"` - Runs during `Test-LLMWorkflowSetup` / `llmcheck`
-
-### Plugin Script Interface
-
-Plugins receive these parameters:
-
-```powershell
-param(
-    [string]$ProjectRoot = ".",
-    [hashtable]$Context = @{}
-)
-```
-
-### Example Plugin
-
-See `module/LLMWorkflow/templates/plugins/example-plugin/` for a complete example.
-
-To use the example plugin:
-
-```powershell
-# Copy to your project
-Copy-Item -Recurse "module/LLMWorkflow/templates/plugins/example-plugin" "tools/"
-
-# Register it
-Register-LLMWorkflowPlugin -ManifestPath "tools/example-plugin/manifest.json"
-
-# Run bootstrap (includes plugins)
-Invoke-LLMWorkflowUp
-
-# Check will include plugin health checks
-Test-LLMWorkflowSetup
-```
-
-## Notes
-
-- Keep secrets in local `.env` files and never commit them.
-- For ContextLattice auth, set `CONTEXTLATTICE_ORCHESTRATOR_API_KEY` in `.env`
-  or `.contextlattice/orchestrator.env`.
-
-## Docker Usage
-
-The LLM Workflow Toolkit is available as a Docker container for CI/CD pipelines and containerized deployments.
-
-### Quick Start with Docker
-
-```bash
-# Build the image
-docker build -t llm-workflow .
-
-# Run llmup in current project directory
-docker run -v $(pwd):/workspace -e OPENAI_API_KEY llm-workflow
-
-# Run setup check
-docker run -v $(pwd):/workspace llm-workflow llmcheck
-
-# Interactive shell
-docker run -it -v $(pwd):/workspace llm-workflow shell
-```
-
-### Docker Compose
-
-For full-stack deployment with ChromaDB and optional Ollama:
-
-```bash
-# Start all services
-docker-compose up -d
-
-# Run workflow
-docker-compose run --rm llm-workflow
-
-# With specific provider
-docker-compose run --rm llm-workflow llmup
-
-# View logs
-docker-compose logs -f llm-workflow
-
-# Stop all services
-docker-compose down
-```
-
-### Environment Variables
-
-Pass API keys and configuration via environment variables:
-
-| Variable | Description | Required |
-|----------|-------------|----------|
-| `OPENAI_API_KEY` | OpenAI API key | Optional |
-| `ANTHROPIC_API_KEY` | Claude/Anthropic API key | Optional |
-| `KIMI_API_KEY` | Moonshot/Kimi API key | Optional |
-| `GEMINI_API_KEY` | Google Gemini API key | Optional |
-| `GLM_API_KEY` | Zhipu GLM API key | Optional |
-| `CONTEXTLATTICE_ORCHESTRATOR_URL` | ContextLattice URL | Optional |
-| `CONTEXTLATTICE_ORCHESTRATOR_API_KEY` | ContextLattice API key | Optional |
-| `MEMPALACE_PALACE_PATH` | MemPalace storage path | Optional |
-
-### Volume Mounts
-
-| Path | Purpose | Persistence |
-|------|---------|-------------|
-| `/workspace` | Project files | Mount your project directory |
-| `/data/mempalace` | ChromaDB data | Persistent volume |
-
-### Available Commands
-
-```bash
-# Default (runs llmup)
-docker run -v $(pwd):/workspace llm-workflow
-
-# Specific commands
-docker run -v $(pwd):/workspace llm-workflow llmup
-docker run -v $(pwd):/workspace llm-workflow llmcheck
-docker run -v $(pwd):/workspace llm-workflow llmver
-docker run -v $(pwd):/workspace llm-workflow doctor
-
-# Interactive shells
-docker run -it -v $(pwd):/workspace llm-workflow shell   # Bash
-docker run -it -v $(pwd):/workspace llm-workflow pwsh    # PowerShell
-```
-
-### CI/CD Pipeline Example
-
-```yaml
-# .github/workflows/docker-llm.yml
-name: LLM Workflow
-
-on: [push, pull_request]
-
-jobs:
-  llm-workflow:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      
-      - name: Run LLM Workflow
-        uses: docker://llm-workflow:latest
-        with:
-          args: llmup
-        env:
-          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-          
-      - name: Validate Setup
-        uses: docker://llm-workflow:latest
-        with:
-          args: llmcheck
-```
-
-### Building Custom Images
-
-```dockerfile
-# Dockerfile.custom
-FROM llm-workflow:latest
-
-# Add custom tools
-COPY my-tools/ /opt/llm-workflow/custom-tools/
-
-# Pre-configure environment
-ENV LLM_PROVIDER=openai
-ENV OPENAI_BASE_URL=https://api.openai.com/v1
-
-# Custom entrypoint
-CMD ["llmup", "-SkipContextVerify"]
-```
-
-### Troubleshooting Docker
-
-```bash
-# Check container logs
-docker logs llm-workflow
-
-# Exec into running container
-docker exec -it llm-workflow shell
-
-# Verify installation inside container
-docker run --rm llm-workflow llmver
-
-# Debug with verbose output
-docker run -v $(pwd):/workspace -e LLM_WORKFLOW_LOG_LEVEL=DEBUG llm-workflow
-```
-
-## Configuration Schema Validation
-
-All configuration files include JSON Schema for IDE autocomplete and validation.
-
-### Schema Files
-
-| Config File | Schema File | Purpose |
-|-------------|-------------|---------|
-| `.memorybridge/bridge.config.json` | `bridge.config.schema.json` | MemoryBridge sync configuration |
-| `.codemunch/index.defaults.json` | `index.defaults.schema.json` | CodeMunch indexing patterns |
-| `.contextlattice/orchestrator.env` | `orchestrator.env.schema.json` | ContextLattice connection settings |
-
-### IDE Integration
-
-VS Code and other JSON-aware editors automatically provide:
-
-- **Autocomplete**: Property names, values, and enums
-- **Validation**: Real-time error detection for invalid types or patterns
-- **Documentation**: Hover tooltips with descriptions and defaults
-- **Snippets**: Quick insertion of common configuration patterns
-
-To enable validation, ensure your config files include the `$schema` property:
-
-```json
-{
-  "$schema": "./bridge.config.schema.json",
-  "orchestratorUrl": "http://127.0.0.1:8075",
-  ...
-}
-```
-
-### Example: IDE Autocomplete Benefits
-
-**Before schema (no validation):**
-```json
-{
-  "orchestratorurl": "http://127.0.0.1:8075",
-  "apikeyenvvar": "MY_KEY"
-}
-```
-Issues: Typos in property names, no type checking, no documentation.
-
-**After schema (with validation):**
-```json
-{
-  "$schema": "./bridge.config.schema.json",
-  "orchestratorUrl": "http://127.0.0.1:8075",
-  "apiKeyEnvVar": "CONTEXTLATTICE_ORCHESTRATOR_API_KEY"
-}
-```
-Benefits: 
-- Property names autocomplete as you type
-- URLs validated against pattern
-- Enums show available options
-- Hover shows field descriptions
-
-### Manual Schema Validation
-
-Validate a config file against its schema using `ajv-cli`:
-
-```bash
-# Install validator
-npm install -g ajv-cli
-
-# Validate config
-ajv validate -s .memorybridge/bridge.config.schema.json -d .memorybridge/bridge.config.json
-```
-
-Or using Python:
-
-```python
-import json
-from jsonschema import validate, ValidationError
-
-with open('.memorybridge/bridge.config.schema.json') as f:
-    schema = json.load(f)
-
-with open('.memorybridge/bridge.config.json') as f:
-    config = json.load(f)
-
-try:
-    validate(config, schema)
-    print("Config is valid!")
-except ValidationError as e:
-    print(f"Validation error: {e.message}")
+llmup         # bootstrap project workflow
+llmcheck      # validate setup
+llmver        # show version
+llmupdate     # update toolkit
+llmdashboard  # interactive dashboard
+llmheal       # self-healing diagnostics
 ```
 
 ## Game Team Workflow
 
-The LLM Workflow module includes a specialized preset for game development teams with GDD templates, asset management, and jam-optimized workflows.
-
-### Quick Start for Game Projects
+Use the game-team preset for game repos:
 
 ```powershell
-# Initialize a game project with game team preset
-llmup -GameTeam -GameTemplate "2d-platformer" -GameEngine "Godot"
-
-# Or use jam mode for rapid prototyping
-llmup -GameTeam -JamMode
-
-# List available game templates
-Get-LLMWorkflowGameTemplates
-```
-
-### Game Team Parameters
-
-| Parameter | Description |
-|-----------|-------------|
-| `-GameTeam` | Activate game team preset with GDD, asset management, and task boards |
-| `-GameTemplate` | Choose from: 2d-platformer, topdown-rpg, puzzle, fps-prototype, visual-novel, roguelike, card-game, endless-runner |
-| `-GameEngine` | Engine being used (Unity, Godot, Unreal, etc.) |
-| `-JamMode` | Enable fast iteration mode (sets ContinueOnError, lightweight artifacts) |
-
-### Game Project Structure
-
-When using `-GameTeam`, the following structure is created:
-
-```
-project-root/
-├── docs/
-│   ├── GDD.md                 # Game Design Document template
-│   └── TASKS.md               # Task board (HacknPlan/Trello/GitHub compatible)
-├── assets/
-│   ├── ASSET_MANIFEST.json    # Asset tracking with license management
-│   ├── art/                   # Shared visual assets
-│   ├── spritesheets/          # Sprite sheets, atlases, Aseprite sources
-│   ├── tilemaps/              # Tilemaps and tilesets
-│   ├── sfx/                   # Sound effects
-│   ├── music/                 # Background music
-│   ├── plugins/               # Engine/runtime plugins
-│   ├── engines/
-│   │   ├── rpgmaker/          # RPG Maker assets and js/plugins intake
-│   │   ├── unreal/            # Unreal project-side assets (.uasset, .umap, .uproject)
-│   │   └── epic/              # Fab, Megascans, Epic-distributed content
-│   └── shared/                # Cross-engine packs and archives
-└── .llm-workflow/
-    └── game-preset.json       # Game preset configuration
-```
-
-### Game Design Document (GDD.md)
-
-The GDD template includes sections for:
-
-- **Elevator Pitch** - One-sentence hook and core fantasy
-- **Core Loop** - The repeatable 30-second experience
-- **Mechanics** - Primary/secondary systems, progression, failure states
-- **Content Checklist** - Levels, characters, items, UI, audio, polish
-- **Scope Boundaries** - MUST/SHOULD/NICE/WILL-NOT-HAVE lists
-- **Technical Notes** - Engine version, dependencies, performance targets
-
-### Asset Management
-
-Track assets with license compliance:
-
-```powershell
-# Scan asset folders and update manifest
-Export-LLMWorkflowAssetManifest -ScanFolders
-
-# Export to CSV for spreadsheet tracking
-Export-LLMWorkflowAssetManifest -Format csv -OutputPath "assets/manifest.csv"
-```
-
-Asset manifest tracks:
-- File metadata (name, format, size, dimensions/duration)
-- Asset family classification (spritesheets, tilemaps, plugins, RPG Maker, Unreal, Epic/Fab, shared)
-- Source and license information (CC0, CC-BY, proprietary, etc.)
-- Status (todo, wip, review, done)
-- Assignment and tags
-
-### Task Board (TASKS.md)
-
-The task board template supports:
-
-- **Kanban view** - To Do, In Progress, Blocked, Done
-- **Category tracking** - Code, Art, Audio, Design
-- **Time tracking** - Estimates vs actual hours
-- **Multi-platform export**:
-  - HacknPlan JSON import format
-  - Trello CSV format
-  - GitHub Projects checklist format
-
-### Jam Mode
-
-Optimized for game jams (48-72 hour sprints):
-
-```powershell
+llmup -GameTeam -GameTemplate "topdown-rpg" -GameEngine "Godot"
 llmup -GameTeam -JamMode
 ```
 
-Jam Mode automatically:
-- Sets `-ContinueOnError` (don't stop on minor issues)
-- Skips bridge dry-run for faster setup
-- Uses lightweight artifact reports
-- Enables fast checks only
+Game-oriented structure includes:
+- `docs/GDD.md`
+- `docs/TASKS.md`
+- `assets/ASSET_MANIFEST.json`
+- `assets/art`, `spritesheets`, `tilemaps`, `sfx`, `music`, `plugins`, engine-specific asset families
+- `.llm-workflow/game-preset.json`
 
-### Game Team Functions
+## Plugin Architecture
+
+Third-party tools can register through `.llm-workflow/plugins.json`.
+
+Example registration:
 
 ```powershell
-# Create game project structure
-New-LLMWorkflowGamePreset -ProjectName "MyGame" -Template "2d-platformer" -Engine "Unity"
-
-# List available templates
-Get-LLMWorkflowGameTemplates
-
-# Update asset manifest from scanned folders
-Export-LLMWorkflowAssetManifest -ScanFolders
-
-# Full game setup with all options
-New-LLMWorkflowGamePreset -ProjectRoot "." -ProjectName "SpaceShooter" `
-    -Template "topdown-rpg" -Engine "Godot" -JamMode
+Register-LLMWorkflowPlugin -ManifestPath "tools/my-plugin/manifest.json"
+Get-LLMWorkflowPlugins
+Unregister-LLMWorkflowPlugin -Name "my-plugin"
 ```
-
-### Available Game Templates
-
-| Template | Description | Suggested Engines |
-|----------|-------------|-------------------|
-| `2d-platformer` | Classic platformer with physics | Unity, Godot, GameMaker |
-| `topdown-rpg` | Adventure/RPG with tile movement | Unity, Godot, RPGMaker |
-| `puzzle` | Grid or physics puzzle | Any |
-| `fps-prototype` | First-person shooter mechanics | Unity, Unreal, Godot |
-| `visual-novel` | Story-focused with branching | RenPy, Unity |
-| `roguelike` | Procedural dungeon crawler | Unity, Godot |
-| `card-game` | Digital card game | Unity, Godot |
-| `endless-runner` | Auto-scrolling arcade | Unity, Godot |
 
 ## Testing
+
+Current branch baseline is broader than a few legacy suite counts.
+
+### Baseline now treated as authoritative
+- full `tests/` execution through `tools/ci/invoke-pester-safe.ps1`
+- Windows CI matrix across `powershell` and `pwsh`
+- Linux/macOS experimental Pester lanes
+- install/bootstrap smoke
+- docs-truth validation
+- compatibility-lock validation
+- template drift validation
+- ContextLattice integration lane
+
+### Local test invocation
 
 ```powershell
 Install-Module Pester -Scope CurrentUser -Force -SkipPublisherCheck
 .\tools\ci\invoke-pester-safe.ps1 -Path .\tests -CI
 ```
 
-CI workflow:
+### Notable hardening now covered
+- provider resolver priority order
+- `LLM_PROVIDER` override fallback behavior
+- alias environment variable handling (`MOONSHOT_API_KEY`, `GOOGLE_API_KEY`, `ZHIPU_API_KEY`)
+- base URL precedence and fallback behavior
+- curated-plugin compatibility fixtures for active/deprecated/quarantined/retired/mixed scenarios
 
+CI workflows:
 - `.github/workflows/ci.yml`
 - `.github/workflows/gitleaks.yml`
 - `.github/workflows/codeql.yml`
 - `.github/workflows/release.yml`
 - `.github/workflows/publish-gallery.yml`
 - `.github/workflows/supply-chain.yml`
-
-CI guard scripts:
-
-- `tools/ci/check-template-drift.ps1`
-- `tools/ci/validate-compatibility-lock.ps1`
-
-Compatibility lock:
-
-- `compatibility.lock.json`
 
 ## Release
 
@@ -1887,9 +224,9 @@ git commit -m "Release 0.2.1"
 .\tools\release\create-release-tag.ps1 -Push
 ```
 
-PowerShell Gallery publish is automated on GitHub Release publish when
-`PSGALLERY_API_KEY` is configured in repo secrets.
+PowerShell Gallery publishing is automated on GitHub Release publish when `PSGALLERY_API_KEY` is configured in repo secrets.
 
-
-
-
+## Notes
+- keep secrets in local `.env` files and never commit them
+- use `CONTEXTLATTICE_ORCHESTRATOR_API_KEY` in `.env` or `.contextlattice/orchestrator.env` for ContextLattice auth
+- for deeper implementation state, see `docs/implementation/PROGRESS.md`
