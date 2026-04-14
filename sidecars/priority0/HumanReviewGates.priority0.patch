@@ -1,0 +1,66 @@
+Target: `module/LLMWorkflow/governance/HumanReviewGates.ps1`
+
+Reason:
+- remove effectively double-suppressed module export behavior
+- stop silently swallowing export-context failures with both `-ErrorAction SilentlyContinue` and an empty catch
+- preserve dot-sourcing compatibility while making fallback behavior explicit and testable
+
+---
+
+## Patch A: replace silent module-export suppression at file end
+
+Current code:
+
+```powershell
+try {
+    Export-ModuleMember -Function @(
+        ...
+    ) -ErrorAction SilentlyContinue
+}
+catch {
+    # Silently ignore when dot-sourcing (not running as a module)
+}
+```
+
+Replace with:
+
+```powershell
+if ($null -ne $MyInvocation.MyCommand.Module -or $ExecutionContext.SessionState.Module) {
+    try {
+        Export-ModuleMember -Function @(
+            ...
+        ) -ErrorAction Stop
+    }
+    catch {
+        Write-Verbose "[HumanReviewGates] Export-ModuleMember failed: $($_.Exception.Message)"
+    }
+}
+else {
+    Write-Verbose "[HumanReviewGates] Skipping Export-ModuleMember because the file is being dot-sourced"
+}
+```
+
+Why this is better:
+- dot-sourced execution becomes an explicit branch instead of an exception-driven control path
+- true export failures are no longer silently discarded
+- behavior remains non-fatal for test files that dot-source the module
+
+## Patch B: keep parse failures in `Get-ReviewHistory` as verbose, but make line context visible
+
+Current code:
+
+```powershell
+catch {
+    Write-Verbose "Failed to parse log entry: $_"
+}
+```
+
+Recommended tightening:
+
+```powershell
+catch {
+    Write-Verbose "[HumanReviewGates] Failed to parse review log entry: $($_.Exception.Message)"
+}
+```
+
+This is not a behavior change so much as a diagnostics cleanup, but it keeps the failure signal consistent with the rest of the Priority 0 pass.
