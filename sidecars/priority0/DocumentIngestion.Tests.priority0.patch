@@ -1,0 +1,58 @@
+Target: `tests/DocumentIngestion.Tests.ps1`
+
+Reason:
+- add follow-up coverage for non-fatal cleanup visibility behavior introduced in the Priority 0 ingestion fixes
+- document how to test warning-producing timeout/cleanup branches without requiring live Docling/Tika infrastructure
+
+---
+
+## Patch A: add Docling timeout cleanup visibility test scaffold
+
+Add under `Describe "DoclingAdapter (Mocked / Availability)"`:
+
+```powershell
+    Context "Priority 0 cleanup / timeout visibility" {
+        It "Keeps extraction failure non-fatal when timeout cleanup path is hit" {
+            # Intentionally scoped as a non-invasive behavioral test.
+            # The goal is to ensure the adapter still returns a failure record
+            # instead of throwing out of the function when timeout handling runs.
+
+            $tmp = Join-Path $TestDrive 'timeout-test.pdf'
+            'fake pdf content' | Set-Content -LiteralPath $tmp
+
+            $adapter = New-DoclingAdapter -PythonPath 'C:\NonExistent\python.exe' -TimeoutSeconds 1
+            $result = Invoke-DoclingExtraction -FilePath $tmp -Adapter $adapter
+
+            $result | Should -Not -BeNullOrEmpty
+            $result.success | Should -Be $false
+        }
+    }
+```
+
+Why this belongs:
+- it verifies the function remains graceful on the failure path
+- it protects against future refactors that accidentally convert these branches into hard throws
+
+## Patch B: add note for warning-stream assertions
+
+If you later want stronger stream-level assertions, add a higher-friction integration block such as:
+
+```powershell
+# Example future direction only:
+# - dot-source DoclingAdapter.ps1 in isolation
+# - mock process creation or wrap process launch behind a helper
+# - capture warning stream with 3>&1 or a helper wrapper
+# - assert that cleanup/kill failures emit warnings without changing return shape
+```
+
+## Patch C: add ingestion-side logging expectation note
+
+For `ExternalIngestion.ps1`, future test coverage should verify that secret-scan failures and work-dir cleanup failures both:
+- append to `runResult.warnings`
+- emit `Write-IngestionLog -Level WARN`
+
+Suggested future insertion point:
+- create `tests/ExternalIngestion.Tests.ps1`
+- mock `Write-IngestionLog`
+- simulate a file read failure during secret scanning
+- assert one warning entry plus one structured WARN log call
