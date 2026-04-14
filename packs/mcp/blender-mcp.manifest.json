@@ -1,0 +1,315 @@
+{
+  "mcpToolkitManifest": {
+    "version": "1.0.0",
+    "server": {
+      "name": "blender-engine-mcp",
+      "version": "1.0.0",
+      "description": "MCP toolkit for Blender integration. Provides tools for mesh analysis, 3D scene manipulation, material generation, and export operations.",
+      "author": "LLM Workflow Platform",
+      "license": "MIT"
+    },
+    "environment": {
+      "required": [
+        {
+          "name": "BLENDER_PATH",
+          "description": "Path to the Blender executable",
+          "example": "/usr/bin/blender or C:\\Program Files\\Blender Foundation\\Blender 4.0\\blender.exe"
+        }
+      ],
+      "optional": [
+        {
+          "name": "BLENDER_SCRIPTS_PATH",
+          "description": "Path to custom Blender scripts directory",
+          "default": ""
+        },
+        {
+          "name": "BLENDER_EXPORT_PATH",
+          "description": "Default export directory for generated assets",
+          "default": "./exports"
+        }
+      ]
+    },
+    "tools": [
+      {
+        "name": "blender_mesh_analysis",
+        "description": "Analyze mesh geometry, topology, and provide detailed statistics",
+        "executionMode": "readonly",
+        "category": "mesh",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "blendFile": {
+              "type": "string",
+              "description": "Path to the .blend file"
+            },
+            "objectName": {
+              "type": "string",
+              "description": "Name of the mesh object to analyze"
+            },
+            "includeTopology": {
+              "type": "boolean",
+              "description": "Include topology analysis (poles, loops, etc.)",
+              "default": true
+            }
+          },
+          "required": ["blendFile", "objectName"],
+          "additionalProperties": false
+        },
+        "returns": {
+          "type": "object",
+          "properties": {
+            "vertexCount": { "type": "integer" },
+            "edgeCount": { "type": "integer" },
+            "faceCount": { "type": "integer" },
+            "triangleCount": { "type": "integer" },
+            "topology": { "type": "object" },
+            "bounds": { "type": "object" }
+          }
+        }
+      },
+      {
+        "name": "blender_scene_inventory",
+        "description": "Get complete inventory of objects, collections, and materials in a Blender scene",
+        "executionMode": "readonly",
+        "category": "scene",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "blendFile": {
+              "type": "string",
+              "description": "Path to the .blend file"
+            },
+            "includeHidden": {
+              "type": "boolean",
+              "description": "Include hidden objects",
+              "default": false
+            }
+          },
+          "required": ["blendFile"],
+          "additionalProperties": false
+        },
+        "returns": {
+          "type": "object",
+          "properties": {
+            "objectCount": { "type": "integer" },
+            "objects": { "type": "array" },
+            "collections": { "type": "array" },
+            "materials": { "type": "array" }
+          }
+        }
+      },
+      {
+        "name": "blender_mesh_modification",
+        "description": "Apply mesh modifications, modifiers, or transformations",
+        "executionMode": "mutating",
+        "category": "mesh",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "blendFile": {
+              "type": "string",
+              "description": "Path to the .blend file"
+            },
+            "objectName": {
+              "type": "string",
+              "description": "Name of the mesh object to modify"
+            },
+            "operations": {
+              "type": "array",
+              "description": "List of operations to perform",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "type": { "type": "string", "enum": ["subdivide", "decimate", "smooth", "transform", "remesh"] },
+                  "parameters": { "type": "object" }
+                },
+                "required": ["type"]
+              }
+            },
+            "saveAs": {
+              "type": "string",
+              "description": "Optional new file path to save modified blend"
+            }
+          },
+          "required": ["blendFile", "objectName", "operations"],
+          "additionalProperties": false
+        },
+        "returns": {
+          "type": "object",
+          "properties": {
+            "success": { "type": "boolean" },
+            "operationsApplied": { "type": "integer" },
+            "outputPath": { "type": "string" }
+          }
+        }
+      },
+      {
+        "name": "blender_material_generation",
+        "description": "Generate materials with node-based shader networks",
+        "executionMode": "mutating",
+        "category": "material",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "blendFile": {
+              "type": "string",
+              "description": "Path to the .blend file"
+            },
+            "materialName": {
+              "type": "string",
+              "description": "Name for the new material"
+            },
+            "materialType": {
+              "type": "string",
+              "description": "Type of material to generate",
+              "enum": ["principled", "glass", "metal", "emission", "procedural"],
+              "default": "principled"
+            },
+            "targetObject": {
+              "type": "string",
+              "description": "Object to assign material to (optional)"
+            },
+            "parameters": {
+              "type": "object",
+              "description": "Material-specific parameters"
+            }
+          },
+          "required": ["blendFile", "materialName"],
+          "additionalProperties": false
+        },
+        "returns": {
+          "type": "object",
+          "properties": {
+            "success": { "type": "boolean" },
+            "materialName": { "type": "string" },
+            "nodeCount": { "type": "integer" }
+          }
+        }
+      },
+      {
+        "name": "blender_operator_execution",
+        "description": "Execute arbitrary Blender bpy operators with parameters",
+        "executionMode": "mutating",
+        "category": "operator",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "blendFile": {
+              "type": "string",
+              "description": "Path to the .blend file (optional for new files)"
+            },
+            "operator": {
+              "type": "string",
+              "description": "Full operator ID (e.g., 'mesh.primitive_cube_add')"
+            },
+            "parameters": {
+              "type": "object",
+              "description": "Operator-specific parameters"
+            },
+            "context": {
+              "type": "object",
+              "description": "Context overrides (mode, active_object, etc.)"
+            }
+          },
+          "required": ["operator"],
+          "additionalProperties": false
+        },
+        "returns": {
+          "type": "object",
+          "properties": {
+            "success": { "type": "boolean" },
+            "operator": { "type": "string" },
+            "result": { "type": "object" }
+          }
+        }
+      },
+      {
+        "name": "blender_addon_install",
+        "description": "Install and enable a Blender addon from file or repository",
+        "executionMode": "mutating",
+        "category": "addon",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "addonPath": {
+              "type": "string",
+              "description": "Path to addon .zip file or directory"
+            },
+            "addonName": {
+              "type": "string",
+              "description": "Addon module name (for verification)"
+            },
+            "enable": {
+              "type": "boolean",
+              "description": "Enable addon after installation",
+              "default": true
+            }
+          },
+          "required": ["addonPath"],
+          "additionalProperties": false
+        },
+        "returns": {
+          "type": "object",
+          "properties": {
+            "success": { "type": "boolean" },
+            "addonName": { "type": "string" },
+            "installed": { "type": "boolean" },
+            "enabled": { "type": "boolean" }
+          }
+        }
+      },
+      {
+        "name": "blender_render_config",
+        "description": "Configure render settings and output parameters",
+        "executionMode": "mutating",
+        "category": "render",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "blendFile": {
+              "type": "string",
+              "description": "Path to the .blend file"
+            },
+            "engine": {
+              "type": "string",
+              "description": "Render engine",
+              "enum": ["CYCLES", "BLENDER_EEVEE", "BLENDER_WORKBENCH"],
+              "default": "CYCLES"
+            },
+            "resolution": {
+              "type": "object",
+              "properties": {
+                "x": { "type": "integer", "default": 1920 },
+                "y": { "type": "integer", "default": 1080 }
+              }
+            },
+            "samples": {
+              "type": "integer",
+              "description": "Render samples (for CYCLES)",
+              "default": 128
+            },
+            "outputPath": {
+              "type": "string",
+              "description": "Output file path for renders"
+            }
+          },
+          "required": ["blendFile"],
+          "additionalProperties": false
+        },
+        "returns": {
+          "type": "object",
+          "properties": {
+            "success": { "type": "boolean" },
+            "engine": { "type": "string" },
+            "resolution": { "type": "object" }
+          }
+        }
+      }
+    ],
+    "statistics": {
+      "totalTools": 7,
+      "readonlyTools": 2,
+      "mutatingTools": 5
+    }
+  }
+}

@@ -1,0 +1,54 @@
+{
+  "packId": "curated-plugin-pack",
+  "sources": {
+    "curated-plugin-stable": {
+      "sourceId": "curated-plugin-stable",
+      "repoUrl": "https://github.com/example/curated-plugin-stable",
+      "selectedRef": "v2.4.1",
+      "parseMode": "default",
+      "trustTier": "High",
+      "authorityRole": "exemplar-pattern",
+      "priority": "P2",
+      "state": "active",
+      "collections": ["plugins", "curated-plugins"],
+      "engineTarget": "rpgmaker-mz",
+      "engineMinVersion": "1.7.0",
+      "engineMaxVersion": "1.9.99",
+      "refreshCadence": "30-day",
+      "lastReviewedUtc": "2026-04-13T00:00:00Z"
+    },
+    "curated-plugin-compat-shim": {
+      "sourceId": "curated-plugin-compat-shim",
+      "repoUrl": "https://github.com/example/curated-plugin-compat-shim",
+      "selectedRef": "v1.8.5",
+      "parseMode": "default",
+      "trustTier": "Medium-High",
+      "authorityRole": "exemplar-pattern",
+      "priority": "P2",
+      "state": "deprecated",
+      "collections": ["plugins", "curated-plugins"],
+      "engineTarget": "rpgmaker-mz",
+      "engineMinVersion": "1.6.0",
+      "engineMaxVersion": "1.9.99",
+      "refreshCadence": "30-day",
+      "lastReviewedUtc": "2026-04-10T00:00:00Z"
+    },
+    "curated-plugin-behavior-override": {
+      "sourceId": "curated-plugin-behavior-override",
+      "repoUrl": "https://github.com/example/curated-plugin-behavior-override",
+      "selectedRef": "v2.0.0-beta.3",
+      "parseMode": "default",
+      "trustTier": "Low",
+      "authorityRole": "exemplar-pattern",
+      "priority": "P3",
+      "state": "quarantined",
+      "quarantineReason": "Curated plugin behavior regression requires manual review",
+      "collections": ["plugins", "curated-plugins"],
+      "engineTarget": "rpgmaker-mz",
+      "engineMinVersion": "1.8.0",
+      "engineMaxVersion": "1.9.99",
+      "refreshCadence": "14-day",
+      "lastReviewedUtc": "2026-04-12T00:00:00Z"
+    }
+  }
+}

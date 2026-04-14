@@ -1,6 +1,6 @@
 {
   "name": "Game Team Workflow",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Optimized preset for game development teams with GDD, asset management, and jam workflows",
   "presetType": "gameteam",
   "jamModeDefaults": {
@@ -13,9 +13,19 @@
   "folderStructure": [
     "docs/",
     "assets/",
+    "assets/art/",
+    "assets/spritesheets/",
+    "assets/tilemaps/",
     "assets/sfx/",
     "assets/music/",
-    "assets/art/",
+    "assets/plugins/",
+    "assets/engines/",
+    "assets/engines/rpgmaker/",
+    "assets/engines/rpgmaker/js/",
+    "assets/engines/rpgmaker/js/plugins/",
+    "assets/engines/unreal/",
+    "assets/engines/epic/",
+    "assets/shared/",
     ".llm-workflow/"
   ],
   "templateFiles": [
@@ -32,7 +42,7 @@
     {
       "source": "ASSET_MANIFEST.json",
       "destination": "assets/ASSET_MANIFEST.json",
-      "description": "Asset tracking with license management"
+      "description": "Multi-engine asset tracking with license management"
     }
   ],
   "gameTemplates": [
@@ -69,7 +79,7 @@
       "name": "Visual Novel",
       "description": "Story-focused visual novel with branching dialogue",
       "tags": ["2d", "vn", "story", "dialogue"],
-      "defaultEngine": "RenPy|Unity| TyranoBuilder"
+      "defaultEngine": "RenPy|Unity|TyranoBuilder"
     },
     {
       "id": "roguelike",
@@ -96,8 +106,10 @@
   "defaultChecks": {
     "preBuild": [
       "Validate asset manifest",
+      "Check plugin inventory",
       "Check for missing textures",
-      "Verify audio files exist"
+      "Verify audio files exist",
+      "Review marketplace and engine asset licenses"
     ],
     "postBuild": [
       "Test build size",

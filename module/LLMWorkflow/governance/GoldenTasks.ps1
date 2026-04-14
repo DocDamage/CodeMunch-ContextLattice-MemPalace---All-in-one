@@ -10,7 +10,7 @@
     - Golden task definition and management
     - Property-based validation (not exact text matching)
     - Historical result tracking and trending
-    - Pack-specific predefined golden tasks
+    - Pack-specific predefined golden tasks (30 total: 10 per pack)
     - Suite management for batch evaluation
     
     Golden tasks reflect real work scenarios:
@@ -19,6 +19,80 @@
     - Answer how a project-local plugin patches a specific engine surface
     - Extract all notetags from a source repo
     - Compare a public pattern to a private project implementation
+
+    Predefined Tasks by Pack:
+    
+    RPG Maker MZ (10 tasks):
+    - Plugin skeleton generation
+    - Plugin conflict diagnosis
+    - Notetag extraction
+    - Engine surface patch analysis
+    - Command alias detection
+    - Plugin parameter validation
+    - Event script conversion
+    - Animation sequence generation
+    - Save system customization
+    - Menu scene extension
+    
+    Godot Engine (10 tasks):
+    - GDScript class generation
+    - Signal connection setup
+    - Autoload (singleton) setup
+    - Scene inheritance pattern
+    - Resource preloading
+    - Custom node creation
+    - Editor plugin development
+    - Shader material setup
+    - Input action mapping
+    - Multiplayer networking pattern
+    
+    Blender Engine (10 tasks):
+    - Operator registration
+    - Geometry nodes code
+    - Addon manifest creation
+    - Panel layout design
+    - Property group definition
+    - Material node setup
+    - Rigging automation
+    - Render pipeline configuration
+    - Import/export operator
+    - Custom keymap binding
+
+    API Reverse Tooling Pack (10 tasks):
+    - API endpoint discovery
+    - Schema inference from traffic
+    - OpenAPI spec generation
+    - Authentication pattern detection
+    - GraphQL introspection
+    - gRPC proto reconstruction
+    - Response validation
+    - Rate limit analysis
+    - Error pattern recognition
+    - API changelog detection
+
+    Notebook/Data Workflow Pack (10 tasks):
+    - Notebook version control
+    - Cell output caching
+    - Data lineage tracking
+    - Pipeline dependency graph
+    - Data validation rules
+    - Visualization generation
+    - Dataset profiling
+    - Feature engineering pipeline
+    - Model training tracking
+    - Experiment comparison
+
+    Agent Simulation Pack (10 tasks):
+    - Multi-agent setup
+    - Reward function design
+    - Trajectory analysis
+    - A/B testing framework
+    - Environment configuration
+    - Agent behavior validation
+    - Policy optimization
+    - Simulation replay
+    - Metrics collection
+    - Agent collaboration patterns
 
 .NOTES
     Version:        1.0.0
@@ -36,9 +110,17 @@
     # Run all golden tasks for a pack
     Invoke-PackGoldenTasks -PackId "rpgmaker-mz" -Parallel
 
+.EXAMPLE
+    # Get golden task score
+    $score = Get-GoldenTaskScore -PackId "godot" -TimeRange "7d"
+
 .LINK
     https://github.com/llm-workflow/platform/wiki/GoldenTasks
 #>
+
+# Import modular components
+. "$PSScriptRoot/GoldenTaskDefinitions.ps1"
+. "$PSScriptRoot/GoldenTaskHelpers.ps1"
 
 #region Configuration
 
@@ -83,7 +165,7 @@ if (-not (Test-Path $script:GoldenTaskConfig.SuitesDirectory)) {
     Detailed description of what the task evaluates
 
 .PARAMETER PackId
-    The pack this golden task belongs to (e.g., "rpgmaker-mz", "godot")
+    The pack this golden task belongs to (e.g., "rpgmaker-mz", "godot", "blender")
 
 .PARAMETER Query
     The query/prompt to test against
@@ -156,7 +238,7 @@ function New-GoldenTask {
         [hashtable]$ValidationRules = @{},
 
         [Parameter(Mandatory = $false)]
-        [ValidateSet('codegen', 'analysis', 'extraction', 'comparison', 'diagnosis', 'integration')]
+        [ValidateSet('codegen', 'analysis', 'extraction', 'comparison', 'diagnosis', 'integration', 'validation')]
         [string]$Category = 'codegen',
 
         [Parameter(Mandatory = $false)]
@@ -250,145 +332,7 @@ function New-GoldenTask {
 .OUTPUTS
     [hashtable] Validation result with properties: Success, PassedProperties, FailedProperties, Confidence
 #>
-function Test-PropertyBasedExpectation {
-    [CmdletBinding()]
-    [OutputType([hashtable])]
-    param(
-        [Parameter(Mandatory = $true)]
-        [hashtable]$Expected,
-
-        [Parameter(Mandatory = $true)]
-        [hashtable]$Actual
-    )
-
-    begin {
-        Write-Verbose "Starting property-based validation"
-        $passedProperties = @()
-        $failedProperties = @()
-        $confidenceSum = 0.0
-        $totalProperties = $Expected.Keys.Count
-    }
-
-    process {
-        if ($totalProperties -eq 0) {
-            Write-Warning "No expected properties to validate"
-            return @{
-                Success = $true
-                PassedProperties = @()
-                FailedProperties = @()
-                Confidence = 1.0
-                Details = @{}
-            }
-        }
-
-        $details = @{}
-
-        foreach ($propertyName in $Expected.Keys) {
-            $expectedValue = $Expected[$propertyName]
-            $actualValue = $Actual[$propertyName]
-            $propertyMatch = $false
-            $matchDetails = @{}
-
-            try {
-                # Handle different types of expected values
-                if ($expectedValue -is [type]) {
-                    # Type checking
-                    $propertyMatch = $actualValue -is $expectedValue
-                    $matchDetails = @{ type = $expectedValue.Name; actualType = $actualValue.GetType().Name }
-                }
-                elseif ($expectedValue -is [scriptblock]) {
-                    # Script block validation
-                    $propertyMatch = & $expectedValue $actualValue
-                    $matchDetails = @{ validator = 'scriptblock' }
-                }
-                elseif ($expectedValue -is [hashtable] -and ($expectedValue.ContainsKey('min') -or $expectedValue.ContainsKey('max'))) {
-                    # Range checking
-                    $min = $expectedValue['min']
-                    $max = $expectedValue['max']
-                    $propertyMatch = $true
-                    if ($null -ne $min -and $actualValue -lt $min) { $propertyMatch = $false }
-                    if ($null -ne $max -and $actualValue -gt $max) { $propertyMatch = $false }
-                    $matchDetails = @{ min = $min; max = $max; actual = $actualValue }
-                }
-                elseif ($expectedValue -is [array] -and $expectedValue.Count -gt 0) {
-                    # Collection containment - actual should contain all expected items
-                    $propertyMatch = $true
-                    $missing = @()
-                    foreach ($item in $expectedValue) {
-                        if ($actualValue -notcontains $item) {
-                            $propertyMatch = $false
-                            $missing += $item
-                        }
-                    }
-                    $matchDetails = @{ expectedItems = $expectedValue; missingItems = $missing }
-                }
-                elseif ($expectedValue -is [string] -and $expectedValue.StartsWith('regex:')) {
-                    # Regex pattern matching
-                    $pattern = $expectedValue.Substring(6)
-                    $propertyMatch = $actualValue -match $pattern
-                    $matchDetails = @{ pattern = $pattern }
-                }
-                elseif ($expectedValue -is [string] -and $expectedValue.StartsWith('like:')) {
-                    # Wildcard matching
-                    $pattern = $expectedValue.Substring(5)
-                    $propertyMatch = $actualValue -like $pattern
-                    $matchDetails = @{ pattern = $pattern }
-                }
-                elseif ($expectedValue -eq $true) {
-                    # Presence checking - property exists and is not null/empty
-                    $propertyMatch = $null -ne $actualValue -and $actualValue -ne '' -and $actualValue.Count -ne 0
-                    $matchDetails = @{ check = 'presence' }
-                }
-                elseif ($expectedValue -eq $false) {
-                    # Absence checking - property should be null, empty, or false
-                    $propertyMatch = $null -eq $actualValue -or $actualValue -eq '' -or $actualValue -eq $false -or $actualValue.Count -eq 0
-                    $matchDetails = @{ check = 'absence' }
-                }
-                else {
-                    # Exact value matching (case-insensitive for strings)
-                    if ($expectedValue -is [string] -and $actualValue -is [string]) {
-                        $propertyMatch = $expectedValue -eq $actualValue
-                    }
-                    else {
-                        $propertyMatch = $expectedValue -eq $actualValue
-                    }
-                    $matchDetails = @{ expected = $expectedValue; actual = $actualValue }
-                }
-            }
-            catch {
-                Write-Verbose "Error validating property '$propertyName': $_"
-                $propertyMatch = $false
-                $matchDetails = @{ error = $_.ToString() }
-            }
-
-            $details[$propertyName] = @{
-                Expected = $expectedValue
-                Actual = $actualValue
-                Match = $propertyMatch
-                Details = $matchDetails
-            }
-
-            if ($propertyMatch) {
-                $passedProperties += $propertyName
-                $confidenceSum += 1.0
-            }
-            else {
-                $failedProperties += $propertyName
-            }
-        }
-
-        $overallConfidence = if ($totalProperties -gt 0) { $confidenceSum / $totalProperties } else { 0 }
-        $success = $failedProperties.Count -eq 0
-
-        return @{
-            Success = $success
-            PassedProperties = $passedProperties
-            FailedProperties = $failedProperties
-            Confidence = [math]::Round($overallConfidence, 4)
-            Details = $details
-        }
-    }
-}
+# Moved to GoldenTaskHelpers.ps1
 
 #endregion
 
@@ -468,7 +412,7 @@ function Test-GoldenTaskResult {
                     }
                     'method-citation' {
                         # Look for method citations
-                        if ($AnswerText -match '\.[a-zA-Z_]+\s*\(|function\s+\w+') {
+                        if ($AnswerText -match '\.[a-zA-Z_]+\s*\(|function\s+\w+|def\s+\w+') {
                             $evidenceFoundFlag = $true
                         }
                     }
@@ -478,9 +422,27 @@ function Test-GoldenTaskResult {
                             $evidenceFoundFlag = $true
                         }
                     }
+                    'signal-pattern' {
+                        # Look for Godot signal patterns
+                        if ($AnswerText -match '(signal\s+\w+|emit_signal|connect\s*\()') {
+                            $evidenceFoundFlag = $true
+                        }
+                    }
+                    'bpy-pattern' {
+                        # Look for Blender bpy patterns
+                        if ($AnswerText -match '(bpy\.(ops|context|data)|bl_idname|bl_label)') {
+                            $evidenceFoundFlag = $true
+                        }
+                    }
                     default {
                         # Generic pattern matching
-                        if ($evidence.pattern -and $AnswerText -match $evidence.pattern) {
+                        if ($evidence -is [hashtable]) {
+                            if ($evidence.ContainsKey('pattern') -and $AnswerText -match $evidence.pattern) {
+                                $evidenceFoundFlag = $true
+                            }
+                        }
+                        elseif ($evidence.PSObject.Properties['pattern'] -and $AnswerText -match $evidence.pattern) {
+                            # Fallback for PSCustomObject or other objects
                             $evidenceFoundFlag = $true
                         }
                     }
@@ -510,6 +472,12 @@ function Test-GoldenTaskResult {
         $evidenceSatisfied = $Task.requiredEvidence.Count -eq 0 -or $evidenceErrors.Count -eq 0
         if (-not $evidenceSatisfied) {
             $validationErrors += $evidenceErrors
+        }
+
+        # Add property validation errors
+        foreach ($failedProp in $propertyValidation.FailedProperties) {
+            $propDetails = $propertyValidation.Details[$failedProp]
+            $validationErrors += "Property validation failed for '$failedProp': Expected $($propDetails.Expected), got $($propDetails.Actual)"
         }
 
         # 5. Calculate overall result
@@ -552,7 +520,7 @@ function Test-GoldenTaskResult {
 
 #endregion
 
-#region Invoke-GoldenTaskEval
+#region Invoke-GoldenTask
 
 <#
 .SYNOPSIS
@@ -580,12 +548,12 @@ function Test-GoldenTaskResult {
 
 .EXAMPLE
     $task = Get-PredefinedGoldenTasks -PackId "rpgmaker-mz" | Select-Object -First 1
-    Invoke-GoldenTaskEval -Task $task -RecordResults
+    Invoke-GoldenTask -Task $task -RecordResults
 
 .OUTPUTS
     [hashtable] Evaluation result including the LLM response and validation outcome
 #>
-function Invoke-GoldenTaskEval {
+function Invoke-GoldenTask {
     [CmdletBinding()]
     [OutputType([hashtable])]
     param(
@@ -643,6 +611,7 @@ function Invoke-GoldenTaskEval {
                     Category = $Task.category
                     Difficulty = $Task.difficulty
                 }
+                Success = $validation.Success
                 Query = $Task.query
                 LLMResponse = $llmResponse
                 ExtractedProperties = $extractedProperties
@@ -685,6 +654,285 @@ function Invoke-GoldenTaskEval {
 
             Write-Error "Golden task evaluation failed: $_"
             return $errorResult
+        }
+    }
+}
+
+#endregion
+
+#region Get-GoldenTaskScore
+
+<#
+.SYNOPSIS
+    Calculates pass/fail score for golden tasks.
+
+.DESCRIPTION
+    Calculates a score based on golden task results for a pack.
+    Returns percentage of passed tasks and aggregate confidence score.
+
+.PARAMETER PackId
+    The pack ID to calculate score for
+
+.PARAMETER TimeRange
+    Time range for results to include ('24h', '7d', '30d', '90d')
+
+.PARAMETER Category
+    Filter by task category
+
+.PARAMETER Difficulty
+    Filter by task difficulty
+
+.PARAMETER ProjectRoot
+    The project root directory
+
+.EXAMPLE
+    $score = Get-GoldenTaskScore -PackId "rpgmaker-mz" -TimeRange "7d"
+    Write-Host "Pass rate: $($score.PassRate)%"
+
+.OUTPUTS
+    [hashtable] Score summary with PassRate, AverageConfidence, TotalTasks, PassedTasks, FailedTasks
+#>
+function Get-GoldenTaskScore {
+    [CmdletBinding()]
+    [OutputType([hashtable])]
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$PackId,
+
+        [Parameter(Mandatory = $false)]
+        [ValidateSet('24h', '7d', '30d', '90d', 'all')]
+        [string]$TimeRange = '7d',
+
+        [Parameter(Mandatory = $false)]
+        [string]$Category = '',
+
+        [Parameter(Mandatory = $false)]
+        [string]$Difficulty = '',
+
+        [Parameter(Mandatory = $false)]
+        [string]$ProjectRoot = '.'
+    )
+
+    # Calculate cutoff date
+    $cutoff = switch ($TimeRange) {
+        '24h' { (Get-Date).AddHours(-24) }
+        '7d' { (Get-Date).AddDays(-7) }
+        '30d' { (Get-Date).AddDays(-30) }
+        '90d' { (Get-Date).AddDays(-90) }
+        'all' { [DateTime]::MinValue }
+        default { (Get-Date).AddDays(-7) }
+    }
+
+    # Get results
+    $results = Get-GoldenTaskResults -PackId $PackId -FromDate $cutoff
+
+    # Apply filters
+    if ($Category) {
+        $results = $results | Where-Object { $_.Task.Category -eq $Category }
+    }
+    if ($Difficulty) {
+        $results = $results | Where-Object { $_.Task.Difficulty -eq $Difficulty }
+    }
+
+    # Calculate latest result per task
+    $latestResults = @{}
+    foreach ($result in $results) {
+        $taskId = $result.Task.TaskId
+        if (-not $latestResults.ContainsKey($taskId) -or 
+            $result.Timing.CompletedAt -gt $latestResults[$taskId].Timing.CompletedAt) {
+            $latestResults[$taskId] = $result
+        }
+    }
+
+    $evaluatedResults = $latestResults.Values
+
+    if ($evaluatedResults.Count -eq 0) {
+        return @{
+            PackId = $PackId
+            TimeRange = $TimeRange
+            PassRate = 0
+            AverageConfidence = 0
+            TotalTasks = 0
+            PassedTasks = 0
+            FailedTasks = 0
+            Score = 0
+            Grade = 'N/A'
+            Timestamp = (Get-Date -Format "yyyy-MM-ddTHH:mm:ssZ")
+        }
+    }
+
+    $passed = ($evaluatedResults | Where-Object { $_.Validation.Success }).Count
+    $failed = $evaluatedResults.Count - $passed
+    $passRate = [math]::Round(($passed / $evaluatedResults.Count) * 100, 2)
+
+    $avgConfidence = 0
+    $confidenceSum = 0
+    foreach ($result in $evaluatedResults) {
+        if ($result.Validation -and $result.Validation.Confidence) {
+            $confidenceSum += $result.Validation.Confidence
+        }
+    }
+    $avgConfidence = [math]::Round($confidenceSum / $evaluatedResults.Count, 4)
+
+    # Calculate overall score (weighted average of pass rate and confidence)
+    $score = [math]::Round(($passRate * 0.6) + ($avgConfidence * 100 * 0.4), 2)
+
+    # Determine grade
+    $grade = switch ($score) {
+        { $_ -ge 95 } { 'A+' }
+        { $_ -ge 90 } { 'A' }
+        { $_ -ge 85 } { 'B+' }
+        { $_ -ge 80 } { 'B' }
+        { $_ -ge 70 } { 'C' }
+        { $_ -ge 60 } { 'D' }
+        default { 'F' }
+    }
+
+    return @{
+        PackId = $PackId
+        TimeRange = $TimeRange
+        PassRate = $passRate
+        AverageConfidence = $avgConfidence
+        TotalTasks = $evaluatedResults.Count
+        PassedTasks = $passed
+        FailedTasks = $failed
+        Score = $score
+        Grade = $grade
+        Timestamp = (Get-Date -Format "yyyy-MM-ddTHH:mm:ssZ")
+        TaskBreakdown = @{
+            Easy = ($evaluatedResults | Where-Object { $_.Task.Difficulty -eq 'easy' }).Count
+            Medium = ($evaluatedResults | Where-Object { $_.Task.Difficulty -eq 'medium' }).Count
+            Hard = ($evaluatedResults | Where-Object { $_.Task.Difficulty -eq 'hard' }).Count
+        }
+    }
+}
+
+#endregion
+
+#region Export-GoldenTaskReport
+
+<#
+.SYNOPSIS
+    Exports a golden task evaluation report.
+
+.DESCRIPTION
+    Generates and exports a comprehensive golden task evaluation report
+    in multiple formats (JSON, HTML, Markdown).
+
+.PARAMETER PackId
+    The pack ID to generate report for
+
+.PARAMETER OutputPath
+    Path to save the report
+
+.PARAMETER Format
+    Report format: json, html, markdown
+
+.PARAMETER TimeRange
+    Time range for report data
+
+.PARAMETER IncludeDetails
+    Include detailed task results in report
+
+.PARAMETER ProjectRoot
+    The project root directory
+
+.EXAMPLE
+    Export-GoldenTaskReport -PackId "rpgmaker-mz" -OutputPath "./report.html" -Format html
+
+.OUTPUTS
+    [System.IO.FileInfo] The exported report file
+#>
+function Export-GoldenTaskReport {
+    [CmdletBinding()]
+    [OutputType([System.IO.FileInfo])]
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$PackId,
+
+        [Parameter(Mandatory = $true)]
+        [string]$OutputPath,
+
+        [Parameter(Mandatory = $false)]
+        [ValidateSet('json', 'html', 'markdown')]
+        [string]$Format = 'json',
+
+        [Parameter(Mandatory = $false)]
+        [ValidateSet('24h', '7d', '30d', '90d', 'all')]
+        [string]$TimeRange = '30d',
+
+        [Parameter(Mandatory = $false)]
+        [switch]$IncludeDetails,
+
+        [Parameter(Mandatory = $false)]
+        [string]$ProjectRoot = '.'
+    )
+
+    begin {
+        Write-Verbose "Generating golden task report for pack: $PackId"
+    }
+
+    process {
+        try {
+            # Get score summary
+            $score = Get-GoldenTaskScore -PackId $PackId -TimeRange $TimeRange
+
+            # Get detailed results if requested
+            $details = @()
+            if ($IncludeDetails) {
+                $cutoff = switch ($TimeRange) {
+                    '24h' { (Get-Date).AddHours(-24) }
+                    '7d' { (Get-Date).AddDays(-7) }
+                    '30d' { (Get-Date).AddDays(-30) }
+                    '90d' { (Get-Date).AddDays(-90) }
+                    'all' { [DateTime]::MinValue }
+                    default { (Get-Date).AddDays(-7) }
+                }
+                $details = Get-GoldenTaskResults -PackId $PackId -FromDate $cutoff
+            }
+
+            # Build report object
+            $report = @{
+                ReportMetadata = @{
+                    Title = "Golden Task Evaluation Report - $PackId"
+                    GeneratedAt = (Get-Date -Format "yyyy-MM-ddTHH:mm:ssZ")
+                    TimeRange = $TimeRange
+                    Format = $Format
+                    Version = $script:GoldenTaskConfig.Version
+                }
+                Summary = $score
+                Details = $details
+            }
+
+            # Generate output based on format
+            switch ($Format) {
+                'json' {
+                    $content = $report | ConvertTo-Json -Depth 20 -Compress:$false
+                }
+                'html' {
+                    $content = ConvertTo-GoldenTaskHtmlReport -Report $report
+                }
+                'markdown' {
+                    $content = ConvertTo-GoldenTaskMarkdownReport -Report $report
+                }
+            }
+
+            # Ensure output directory exists
+            $outputDir = Split-Path -Parent $OutputPath
+            if ($outputDir -and -not (Test-Path $outputDir)) {
+                $null = New-Item -ItemType Directory -Path $outputDir -Force
+            }
+
+            # Write report
+            $content | Out-File -FilePath $OutputPath -Encoding UTF8
+            $fileInfo = Get-Item $OutputPath
+
+            Write-Verbose "Report exported to: $OutputPath"
+            return $fileInfo
+        }
+        catch {
+            Write-Error "Failed to export golden task report: $_"
+            throw
         }
     }
 }
@@ -760,26 +1008,41 @@ function Invoke-PackGoldenTasks {
 
         if (-not $allTasks -or $allTasks.Count -eq 0) {
             Write-Warning "No golden tasks found for pack: $PackId"
-            return @{ PackId = $PackId; TasksRun = 0; Passed = 0; Failed = 0; Tasks = @() }
+            return @{ PackId = $PackId; TasksRun = 0; Passed = 0; Failed = 0; Tasks = @(); Summary = "No tasks found" }
         }
 
         Write-Verbose "Found $($allTasks.Count) golden tasks"
 
         # Apply filters
         $filteredTasks = $allTasks | Where-Object {
-            $task = $_
+            $t = $_
             $include = $true
 
-            if ($Filter.category -and $task.category -ne $Filter.category) { $include = $false }
-            if ($Filter.difficulty -and $task.difficulty -ne $Filter.difficulty) { $include = $false }
-            if ($Filter.tags) {
+            # Safe property access for strict mode (handles hashtable or pscustomobject)
+            $taskCategory = $null
+            $taskDifficulty = $null
+            $taskTags = $null
+
+            if ($t -is [hashtable]) {
+                $taskCategory = $t['category']
+                $taskDifficulty = $t['difficulty']
+                $taskTags = $t['tags']
+            } else {
+                try { $taskCategory = $t.category } catch { }
+                try { $taskDifficulty = $t.difficulty } catch { }
+                try { $taskTags = $t.tags } catch { }
+            }
+
+            if ($Filter.ContainsKey('category') -and $Filter.category -and $taskCategory -ne $Filter.category) { $include = $false }
+            if ($Filter.ContainsKey('difficulty') -and $Filter.difficulty -and $taskDifficulty -ne $Filter.difficulty) { $include = $false }
+            if ($Filter.ContainsKey('tags') -and $Filter.tags) {
                 foreach ($tag in $Filter.tags) {
-                    if ($task.tags -notcontains $tag) { $include = $false; break }
+                    if ($taskTags -notcontains $tag) { $include = $false; break }
                 }
             }
-            if ($Filter.excludeTags) {
+            if ($Filter.ContainsKey('excludeTags') -and $Filter.excludeTags) {
                 foreach ($tag in $Filter.excludeTags) {
-                    if ($task.tags -contains $tag) { $include = $false; break }
+                    if ($taskTags -contains $tag) { $include = $false; break }
                 }
             }
 
@@ -794,6 +1057,10 @@ function Invoke-PackGoldenTasks {
     }
 
     process {
+        if (-not $allTasks -or $allTasks.Count -eq 0) {
+            return
+        }
+
         if ($Parallel -and $tasksToRun.Count -gt 1) {
             # Run in parallel using runspaces
             $results = Invoke-ParallelGoldenTasks -Tasks $tasksToRun -MaxParallelJobs $MaxParallelJobs -RecordResults:$RecordResults -FailFast:$FailFast
@@ -802,10 +1069,10 @@ function Invoke-PackGoldenTasks {
             # Run sequentially
             foreach ($task in $tasksToRun) {
                 Write-Verbose "Running task: $($task.taskId)"
-                $result = Invoke-GoldenTaskEval -Task $task -RecordResults:$RecordResults
+                $result = Invoke-GoldenTask -Task $task -RecordResults:$RecordResults
                 $results += $result
 
-                if ($FailFast -and -not $result.Validation.Success) {
+                if ($FailFast -and $result -and $result.Validation -and -not $result.Validation.Success) {
                     Write-Warning "Task '$($task.taskId)' failed and FailFast is enabled. Stopping."
                     break
                 }
@@ -813,27 +1080,84 @@ function Invoke-PackGoldenTasks {
         }
 
         $endTime = Get-Date
-        $duration = ($endTime - $startTime).TotalSeconds
+        $duration = 0
+        if ($null -ne $startTime) {
+            $duration = ($endTime - $startTime).TotalSeconds
+        }
 
         # Calculate statistics
-        $passed = ($results | Where-Object { $_.Validation.Success }).Count
-        $failed = $results.Count - $passed
-        $avgConfidence = if ($results.Count -gt 0) {
-            ($results | Measure-Object -Property { $_.Validation.Confidence } -Average).Average
-        } else { 0 }
+        $passed = 0
+        $resultList = @($results)
+        if ($resultList.Count -gt 0) {
+            # Safely check for Success property on either hashtable or pscustomobject
+            $passed = (@($resultList | Where-Object { 
+                $r = $_
+                $isSucc = $false
+                if ($r -is [hashtable]) { $isSucc = $r['Success'] -eq $true } 
+                else { try { $isSucc = $r.Success -eq $true } catch { $isSucc = $false } }
+                $isSucc
+            })).Count
+        }
+        $failed = $resultList.Count - $passed
+        $avgConfidence = 0.0
+        if ($resultList.Count -gt 0) {
+            $measure = $resultList | Measure-Object -Property { 
+                $conf = 0.0
+                if ($_ -is [hashtable]) { $conf = $_['Confidence'] } 
+                else { try { $conf = $_.Confidence } catch { $conf = 0 } }
+                $conf
+            } -Average
+            # Use safe property check for strict mode
+            if ($measure.PSObject.Properties['Average'] -and $measure.Average -ne $null) {
+                $avgConfidence = $measure.Average
+            }
+        }
 
         $categoryStats = @{}
-        foreach ($result in $results) {
-            $cat = $result.Task.Category
+        foreach ($res in $results) {
+            # Find the original task if possible, or use ID
+            $cat = "General"
+            if ($res -is [hashtable]) { 
+                # In Invoke-PackGoldenTasks, we might have stored the category in the result or we look it up
+                # Actually, the result doesn't have Category currently. 
+                # Let's assume it might be in TaskName or we can lookup from $allTasks
+                $taskMatch = $allTasks | Where-Object { 
+                    if ($_ -is [hashtable]) { $_['taskId'] -eq $res['TaskId'] } else { $_.taskId -eq $res.TaskId }
+                }
+                if ($taskMatch) { $cat = if ($taskMatch -is [hashtable]) { $taskMatch['category'] } else { $taskMatch.category } }
+            }
+            
             if (-not $categoryStats.ContainsKey($cat)) {
                 $categoryStats[$cat] = @{ Passed = 0; Failed = 0; Total = 0 }
             }
             $categoryStats[$cat].Total++
-            if ($result.Validation.Success) {
+            $isSuccess = if ($res -is [hashtable]) { $res['Success'] } else { try { $res.Success } catch { $false } }
+            if ($isSuccess) {
                 $categoryStats[$cat].Passed++
             }
             else {
                 $categoryStats[$cat].Failed++
+            }
+        }
+
+        $difficultyStats = @{}
+        foreach ($res in $results) {
+            $diff = "Medium"
+            $taskMatch = $allTasks | Where-Object { 
+                if ($_ -is [hashtable]) { $_['taskId'] -eq $res['TaskId'] } else { $_.taskId -eq $res.TaskId }
+            }
+            if ($taskMatch) { $diff = if ($taskMatch -is [hashtable]) { $taskMatch['difficulty'] } else { $taskMatch.difficulty } }
+            
+            if (-not $difficultyStats.ContainsKey($diff)) {
+                $difficultyStats[$diff] = @{ Passed = 0; Failed = 0; Total = 0 }
+            }
+            $difficultyStats[$diff].Total++
+            $isSuccess = if ($res -is [hashtable]) { $res['Success'] } else { try { $res.Success } catch { $false } }
+            if ($isSuccess) {
+                $difficultyStats[$diff].Passed++
+            }
+            else {
+                $difficultyStats[$diff].Failed++
             }
         }
 
@@ -846,6 +1170,7 @@ function Invoke-PackGoldenTasks {
             AverageConfidence = [math]::Round($avgConfidence, 4)
             DurationSeconds = [math]::Round($duration, 2)
             CategoryBreakdown = $categoryStats
+            DifficultyBreakdown = $difficultyStats
             Filter = $Filter
             Tasks = $results
             StartedAt = $startTime.ToString("yyyy-MM-ddTHH:mm:ssZ")
@@ -856,7 +1181,7 @@ function Invoke-PackGoldenTasks {
         Write-Host "  Tasks Run: $($summary.TasksRun)" -ForegroundColor White
         Write-Host "  Passed: $($summary.Passed)" -ForegroundColor Green
         Write-Host "  Failed: $($summary.Failed)" -ForegroundColor Red
-        Write-Host "  Pass Rate: $($summary.PassRate * 100)%" -ForegroundColor Yellow
+        Write-Host "  Pass Rate: $([math]::Round($summary.PassRate * 100, 2))%" -ForegroundColor Yellow
         Write-Host "  Avg Confidence: $($summary.AverageConfidence)" -ForegroundColor White
 
         return $summary
@@ -1018,343 +1343,7 @@ function Get-GoldenTaskResults {
 
 #endregion
 
-#region Get-PredefinedGoldenTasks
-
-<#
-.SYNOPSIS
-    Gets the predefined golden tasks for a specific pack.
-
-.DESCRIPTION
-    Returns the built-in golden task definitions for supported packs.
-    Includes at least 3 tasks per pack covering various categories
-    and difficulty levels.
-
-.PARAMETER PackId
-    The pack ID to get golden tasks for (rpgmaker-mz, godot, blender)
-
-.EXAMPLE
-    # Get all RPG Maker MZ golden tasks
-    Get-PredefinedGoldenTasks -PackId "rpgmaker-mz"
-
-.EXAMPLE
-    # Get all predefined tasks across all packs
-    Get-PredefinedGoldenTasks
-
-.OUTPUTS
-    [array] Array of golden task hashtables
-#>
-function Get-PredefinedGoldenTasks {
-    [CmdletBinding()]
-    [OutputType([array])]
-    param(
-        [Parameter(Mandatory = $false)]
-        [ValidateSet('', 'rpgmaker-mz', 'godot', 'blender')]
-        [string]$PackId = ''
-    )
-
-    begin {
-        $allTasks = @()
-    }
-
-    process {
-        # RPG Maker MZ Golden Tasks
-        $rpgmakerTasks = @(
-            # Task 1: Plugin Skeleton Generation
-            (New-GoldenTask `
-                -TaskId "gt-rpgmaker-mz-001" `
-                -Name "Plugin skeleton generation" `
-                -Description "Generate minimal plugin skeleton with one command and one parameter" `
-                -PackId "rpgmaker-mz" `
-                -Category "codegen" `
-                -Difficulty "easy" `
-                -Query "Generate a plugin skeleton with one command called 'HealAll' that takes a 'percent' parameter" `
-                -ExpectedResult @{
-                    containsCommand = "HealAll"
-                    containsParameter = "percent"
-                    hasJSDocHeader = $true
-                    hasPluginCommandRegistration = $true
-                } `
-                -RequiredEvidence @(
-                    @{ source = "rpgmaker-mz-core"; type = "plugin-pattern" }
-                ) `
-                -ValidationRules @{
-                    propertyBased = $true
-                    requiredProperties = @("containsCommand", "containsParameter")
-                    forbiddenPatterns = @("eval\s*\(", "Function\s*\(" )
-                    minConfidence = 0.8
-                } `
-                -Tags @("codegen", "plugin", "skeleton", "javascript")
-            ),
-
-            # Task 2: Plugin Conflict Diagnosis
-            (New-GoldenTask `
-                -TaskId "gt-rpgmaker-mz-002" `
-                -Name "Plugin conflict diagnosis" `
-                -Description "Diagnose whether two plugins conflict and cite touched methods" `
-                -PackId "rpgmaker-mz" `
-                -Category "diagnosis" `
-                -Difficulty "medium" `
-                -Query "Analyze whether VisuStella's Battle Core conflicts with Yanfly's Buff States Core. List any method overlaps and potential conflicts." `
-                -ExpectedResult @{
-                    analyzesConflict = $true
-                    citesMethods = $true
-                    providesResolution = $true
-                    mentionsLoadOrder = $true
-                } `
-                -RequiredEvidence @(
-                    @{ source = "plugin-compatibility"; type = "method-citation" }
-                    @{ source = "battle-core"; type = "source-reference" }
-                ) `
-                -ValidationRules @{
-                    propertyBased = $true
-                    requiredProperties = @("analyzesConflict", "citesMethods")
-                    forbiddenPatterns = @()
-                    minConfidence = 0.75
-                } `
-                -Tags @("diagnosis", "conflict", "compatibility", "analysis")
-            ),
-
-            # Task 3: Notetag Extraction
-            (New-GoldenTask `
-                -TaskId "gt-rpgmaker-mz-003" `
-                -Name "Notetag extraction from source" `
-                -Description "Extract all notetags from a source repository" `
-                -PackId "rpgmaker-mz" `
-                -Category "extraction" `
-                -Difficulty "easy" `
-                -Query "Extract all notetags used in the rpg_core.js file and categorize them by type (actor, item, skill, etc.)" `
-                -ExpectedResult @{
-                    extractsNotetags = $true
-                    categorizesByType = $true
-                    providesExamples = $true
-                    hasValidRegexPatterns = $true
-                } `
-                -RequiredEvidence @(
-                    @{ source = "rpg_core.js"; type = "notetag" }
-                ) `
-                -ValidationRules @{
-                    propertyBased = $true
-                    requiredProperties = @("extractsNotetags", "categorizesByType")
-                    forbiddenPatterns = @()
-                    minConfidence = 0.8
-                } `
-                -Tags @("extraction", "notetag", "parsing", "documentation")
-            ),
-
-            # Task 4: Engine Surface Patch Analysis
-            (New-GoldenTask `
-                -TaskId "gt-rpgmaker-mz-004" `
-                -Name "Engine surface patch analysis" `
-                -Description "Analyze how a project-local plugin patches a specific engine surface" `
-                -PackId "rpgmaker-mz" `
-                -Category "analysis" `
-                -Difficulty "hard" `
-                -Query "Explain how a local plugin that overrides Game_Actor.prototype.paramPlus patches the engine's parameter calculation surface. Include the method chain affected." `
-                -ExpectedResult @{
-                    identifiesMethodChain = $true
-                    explainsPatchMechanism = $true
-                    mentionsAliasPattern = $true
-                    showsOriginalVsPatched = $true
-                } `
-                -RequiredEvidence @(
-                    @{ source = "Game_Actor"; type = "method-citation" }
-                    @{ source = "paramPlus"; type = "source-reference" }
-                ) `
-                -ValidationRules @{
-                    propertyBased = $true
-                    requiredProperties = @("identifiesMethodChain", "explainsPatchMechanism", "mentionsAliasPattern")
-                    forbiddenPatterns = @()
-                    minConfidence = 0.85
-                } `
-                -Tags @("analysis", "patching", "prototype", "alias", "advanced")
-            )
-        )
-
-        # Godot Engine Golden Tasks
-        $godotTasks = @(
-            # Task 1: GDScript Class Generation
-            (New-GoldenTask `
-                -TaskId "gt-godot-001" `
-                -Name "GDScript class generation" `
-                -Description "Generate a GDScript class with proper structure" `
-                -PackId "godot" `
-                -Category "codegen" `
-                -Difficulty "easy" `
-                -Query "Generate a GDScript class called 'PlayerController' that extends CharacterBody2D with a speed property and _physics_process method" `
-                -ExpectedResult @{
-                    extendsCharacterBody2D = $true
-                    hasClassName = "PlayerController"
-                    hasSpeedProperty = $true
-                    hasPhysicsProcess = $true
-                    usesGDScriptSyntax = $true
-                } `
-                -RequiredEvidence @(
-                    @{ source = "godot-api"; type = "source-reference" }
-                ) `
-                -ValidationRules @{
-                    propertyBased = $true
-                    requiredProperties = @("hasClassName", "hasSpeedProperty", "hasPhysicsProcess")
-                    forbiddenPatterns = @("public class", "def ")
-                    minConfidence = 0.8
-                } `
-                -Tags @("codegen", "gdscript", "class", "node")
-            ),
-
-            # Task 2: Signal Connection Pattern
-            (New-GoldenTask `
-                -TaskId "gt-godot-002" `
-                -Name "Signal connection setup" `
-                -Description "Demonstrate proper Godot signal connection patterns" `
-                -PackId "godot" `
-                -Category "codegen" `
-                -Difficulty "medium" `
-                -Query "Show three ways to connect a button's pressed signal to a callback function in GDScript, including the @onready pattern" `
-                -ExpectedResult @{
-                    showsConnectMethod = $true
-                    showsEditorConnection = $true
-                    showsOnreadyPattern = $true
-                    includesSignalCallback = $true
-                } `
-                -RequiredEvidence @(
-                    @{ source = "godot-signals"; type = "source-reference" }
-                ) `
-                -ValidationRules @{
-                    propertyBased = $true
-                    requiredProperties = @("showsConnectMethod", "showsOnreadyPattern")
-                    forbiddenPatterns = @()
-                    minConfidence = 0.8
-                } `
-                -Tags @("codegen", "signals", "connection", "gdscript")
-            ),
-
-            # Task 3: Autoload Setup
-            (New-GoldenTask `
-                -TaskId "gt-godot-003" `
-                -Name "Autoload (Singleton) setup" `
-                -Description "Explain and demonstrate Godot autoload/singleton pattern" `
-                -PackId "godot" `
-                -Category "codegen" `
-                -Difficulty "easy" `
-                -Query "Create a GameManager autoload script in GDScript that tracks player score and lives, and show how to access it from another scene" `
-                -ExpectedResult @{
-                    createsGameManager = $true
-                    tracksScoreAndLives = $true
-                    showsAutoloadAccess = $true
-                    usesGlobalReference = $true
-                } `
-                -RequiredEvidence @(
-                    @{ source = "godot-autoload"; type = "source-reference" }
-                ) `
-                -ValidationRules @{
-                    propertyBased = $true
-                    requiredProperties = @("createsGameManager", "tracksScoreAndLives", "showsAutoloadAccess")
-                    forbiddenPatterns = @()
-                    minConfidence = 0.8
-                } `
-                -Tags @("codegen", "autoload", "singleton", "global", "gdscript")
-            )
-        )
-
-        # Blender Engine Golden Tasks
-        $blenderTasks = @(
-            # Task 1: Operator Registration
-            (New-GoldenTask `
-                -TaskId "gt-blender-001" `
-                -Name "Operator registration" `
-                -Description "Create a Blender operator with proper registration" `
-                -PackId "blender" `
-                -Category "codegen" `
-                -Difficulty "easy" `
-                -Query "Create a Blender Python operator that scales selected objects by a factor property, with proper bl_idname, bl_label, and registration" `
-                -ExpectedResult @{
-                    hasBlIdname = $true
-                    hasBlLabel = $true
-                    hasExecuteMethod = $true
-                    hasScaleFactorProperty = $true
-                    includesRegistration = $true
-                } `
-                -RequiredEvidence @(
-                    @{ source = "blender-api"; type = "source-reference" }
-                ) `
-                -ValidationRules @{
-                    propertyBased = $true
-                    requiredProperties = @("hasBlIdname", "hasExecuteMethod", "includesRegistration")
-                    forbiddenPatterns = @("class.*\\(.*Operator\\):", "^def.*execute")
-                    minConfidence = 0.8
-                } `
-                -Tags @("codegen", "operator", "addon", "python")
-            ),
-
-            # Task 2: Geometry Nodes Setup
-            (New-GoldenTask `
-                -TaskId "gt-blender-002" `
-                -Name "Geometry Nodes code generation" `
-                -Description "Generate geometry nodes setup using Python API" `
-                -PackId "blender" `
-                -Category "codegen" `
-                -Difficulty "medium" `
-                -Query "Write Python code to create a geometry nodes modifier that adds a subdivision surface followed by a set position node with random offset" `
-                -ExpectedResult @{
-                    createsModifier = $true
-                    addsSubdivisionNode = $true
-                    addsSetPositionNode = $true
-                    usesNodesNew = $true
-                    linksNodes = $true
-                } `
-                -RequiredEvidence @(
-                    @{ source = "blender-geometry-nodes"; type = "source-reference" }
-                ) `
-                -ValidationRules @{
-                    propertyBased = $true
-                    requiredProperties = @("createsModifier", "addsSubdivisionNode", "usesNodesNew")
-                    forbiddenPatterns = @()
-                    minConfidence = 0.75
-                } `
-                -Tags @("codegen", "geometry-nodes", "modifier", "procedural")
-            ),
-
-            # Task 3: Addon Manifest
-            (New-GoldenTask `
-                -TaskId "gt-blender-003" `
-                -Name "Addon manifest creation" `
-                -Description "Create a complete Blender addon manifest with bl_info" `
-                -PackId "blender" `
-                -Category "codegen" `
-                -Difficulty "easy" `
-                -Query "Create a complete Blender addon __init__.py with bl_info dictionary, including name, author, version, blender version, location, description, and category" `
-                -ExpectedResult @{
-                    hasBlInfo = $true
-                    hasNameField = $true
-                    hasAuthorField = $true
-                    hasVersionTuple = $true
-                    hasBlenderVersion = $true
-                    hasCategory = $true
-                    hasRegistrationFunctions = $true
-                } `
-                -RequiredEvidence @(
-                    @{ source = "blender-addon"; type = "source-reference" }
-                ) `
-                -ValidationRules @{
-                    propertyBased = $true
-                    requiredProperties = @("hasBlInfo", "hasVersionTuple", "hasRegistrationFunctions")
-                    forbiddenPatterns = @()
-                    minConfidence = 0.8
-                } `
-                -Tags @("codegen", "addon", "manifest", "bl_info")
-            )
-        )
-
-        # Combine all tasks
-        $allTasks = $rpgmakerTasks + $godotTasks + $blenderTasks
-
-        # Filter by pack if specified
-        if ($PackId) {
-            return $allTasks | Where-Object { $_.packId -eq $PackId }
-        }
-
-        return $allTasks
-    }
-}
+# Moved to GoldenTaskDefinitions.ps1
 
 #endregion
 
@@ -1582,229 +1571,940 @@ function Import-GoldenTaskSuite {
     Placeholder function that simulates LLM query execution.
     In production, this would call the actual LLM workflow system.
 #>
-function Invoke-LLMQuery {
-    param(
-        [string]$Query,
-        [string]$Provider = "default",
-        [int]$Timeout = 120
-    )
+# Helper functions moved to GoldenTaskHelpers.ps1
 
-    # Placeholder implementation
-    # In production, this would:
-    # 1. Call the actual LLM provider (OpenAI, Anthropic, etc.)
-    # 2. Apply context from available packs
-    # 3. Return structured response
-
-    Write-Verbose "[SIMULATION] Querying LLM provider '$Provider' with timeout $Timeout`s"
-    Write-Verbose "[SIMULATION] Query: $Query"
-
-    return @{
-        content = "[Simulated LLM Response] This is a placeholder response."
-        provider = $Provider
-        tokens = @{ prompt = 100; completion = 200 }
-        latency = 500
-    }
-}
+#region Export-GoldenTaskResults
 
 <#
 .SYNOPSIS
-    Internal: Extracts properties from LLM response for validation.
+    Exports golden task results to various formats for analysis.
 
 .DESCRIPTION
-    Analyzes the LLM response text and extracts properties for
-    property-based validation.
+    Exports raw golden task evaluation results to JSON, CSV, or Excel format
+    for external analysis. Supports filtering by date range, pack, and task status.
+    Unlike Export-GoldenTaskReport which generates summary reports, this function
+    exports the raw result data.
+
+.PARAMETER OutputPath
+    Path to save the exported results
+
+.PARAMETER Format
+    Export format: json, csv, excel (default: json)
+
+.PARAMETER PackId
+    Filter by pack ID
+
+.PARAMETER TaskId
+    Filter by specific task ID
+
+.PARAMETER FromDate
+    Start date for results to include
+
+.PARAMETER ToDate
+    End date for results to include
+
+.PARAMETER SuccessOnly
+    Export only successful results
+
+.PARAMETER FailedOnly
+    Export only failed results
+
+.PARAMETER IncludeProperties
+    Include detailed property validation results
+
+.EXAMPLE
+    Export-GoldenTaskResults -OutputPath "./results.json" -PackId "rpgmaker-mz"
+
+.EXAMPLE
+    Export-GoldenTaskResults -OutputPath "./results.csv" -Format csv -FromDate (Get-Date).AddDays(-7)
+
+.OUTPUTS
+    [System.IO.FileInfo] The exported file
 #>
-function Extract-ResponseProperties {
+function Export-GoldenTaskResults {
+    [CmdletBinding()]
+    [OutputType([System.IO.FileInfo])]
     param(
-        [hashtable]$Response,
-        [hashtable]$Task
+        [Parameter(Mandatory = $true)]
+        [string]$OutputPath,
+
+        [Parameter(Mandatory = $false)]
+        [ValidateSet('json', 'csv')]
+        [string]$Format = 'json',
+
+        [Parameter(Mandatory = $false)]
+        [string]$PackId,
+
+        [Parameter(Mandatory = $false)]
+        [string]$TaskId,
+
+        [Parameter(Mandatory = $false)]
+        [DateTime]$FromDate,
+
+        [Parameter(Mandatory = $false)]
+        [DateTime]$ToDate,
+
+        [Parameter(Mandatory = $false)]
+        [switch]$SuccessOnly,
+
+        [Parameter(Mandatory = $false)]
+        [switch]$FailedOnly,
+
+        [Parameter(Mandatory = $false)]
+        [switch]$IncludeProperties
     )
 
-    $properties = @{}
-    $content = $Response.content
+    begin {
+        Write-Verbose "Exporting golden task results to: $OutputPath"
+    }
 
-    # Analyze based on task category
-    switch ($Task.category) {
-        'codegen' {
-            # Check for various code patterns
-            $properties['hasJSDocHeader'] = $content -match '/\*\*[\s\S]*?\*/'
-            $properties['hasPluginCommandRegistration'] = $content -match 'PluginManager\.(registerCommand|commands)'
-            $properties['containsCommand'] = $Task.expectedResult.containsCommand
-            $properties['containsParameter'] = $Task.expectedResult.containsParameter
-            $properties['usesGDScriptSyntax'] = $content -match '(extends\s+\w+|func\s+\w+|var\s+\w+)'
-            $properties['hasBlIdname'] = $content -match "bl_idname\s*=\s*['`"']"
-            $properties['hasBlLabel'] = $content -match "bl_label\s*=\s*['`"']"
-            $properties['hasExecuteMethod'] = $content -match 'def\s+execute\s*\('
-            $properties['includesRegistration'] = $content -match '(bpy\.utils\.register_class|register\s*\()'
-            $properties['hasClassName'] = if ($Task.expectedResult.hasClassName) { 
-                $content -match "class_name\s+$($Task.expectedResult.hasClassName)" 
-            } else { $false }
+    process {
+        try {
+            # Get results with filters
+            $params = @{}
+            if ($PackId) { $params['PackId'] = $PackId }
+            if ($TaskId) { $params['TaskId'] = $TaskId }
+            if ($FromDate) { $params['FromDate'] = $FromDate }
+            if ($ToDate) { $params['ToDate'] = $ToDate }
+            if ($SuccessOnly) { $params['SuccessOnly'] = $true }
+            if ($FailedOnly) { $params['FailedOnly'] = $true }
+
+            $results = Get-GoldenTaskResults @params
+
+            if ($results.Count -eq 0) {
+                Write-Warning "No results found matching the specified criteria"
+                return $null
+            }
+
+            # Process results for export
+            $exportData = $results | ForEach-Object {
+                $row = [ordered]@{
+                    EvaluationId = $_.EvaluationId
+                    TaskId = $_.Task.TaskId
+                    TaskName = $_.Task.Name
+                    PackId = $_.Task.PackId
+                    Category = $_.Task.Category
+                    Difficulty = $_.Task.Difficulty
+                    Success = $_.Validation.Success
+                    Confidence = $_.Validation.Confidence
+                    MinConfidenceRequired = $_.Validation.MinConfidenceRequired
+                    PassedProperties = ($_.Validation.PropertyValidation.PassedProperties -join ';')
+                    FailedProperties = ($_.Validation.PropertyValidation.FailedProperties -join ';')
+                    EvidenceSatisfied = $_.Validation.Evidence.Satisfied
+                    EvidenceMissing = $_.Validation.Evidence.MissingCount
+                    ForbiddenViolations = $_.Validation.ForbiddenPatterns.Violations
+                    Errors = ($_.Validation.Errors -join ';')
+                    StartedAt = $_.Timing.StartedAt
+                    CompletedAt = $_.Timing.CompletedAt
+                    DurationSeconds = $_.Timing.DurationSeconds
+                }
+
+                if ($IncludeProperties -and $_.Validation.PropertyValidation.Details) {
+                    foreach ($prop in $_.Validation.PropertyValidation.Details.Keys) {
+                        $row["Prop_$prop"] = $_.Validation.PropertyValidation.Details[$prop].Match
+                    }
+                }
+
+                [PSCustomObject]$row
+            }
+
+            # Ensure output directory exists
+            $outputDir = Split-Path -Parent $OutputPath
+            if ($outputDir -and -not (Test-Path $outputDir)) {
+                $null = New-Item -ItemType Directory -Path $outputDir -Force
+            }
+
+            # Export based on format
+            switch ($Format) {
+                'json' {
+                    $exportData | ConvertTo-Json -Depth 5 | Out-File -FilePath $OutputPath -Encoding UTF8
+                }
+                'csv' {
+                    $exportData | Export-Csv -Path $OutputPath -NoTypeInformation -Encoding UTF8
+                }
+            }
+
+            $fileInfo = Get-Item $OutputPath
+            Write-Verbose "Exported $($results.Count) results to: $OutputPath"
+            return $fileInfo
         }
-        'diagnosis' {
-            $properties['analyzesConflict'] = $content -match '(conflict|overlap|incompatible|compatible)'
-            $properties['citesMethods'] = $content -match '(\.\w+\s*\(|function\s+\w+|def\s+\w+)'
-            $properties['providesResolution'] = $content -match '(solution|workaround|fix|recommend|place.*above|place.*below)'
-            $properties['mentionsLoadOrder'] = $content -match '(load.*order|order.*load|placement)'
+        catch {
+            Write-Error "Failed to export golden task results: $_"
+            throw
         }
-        'extraction' {
-            $properties['extractsNotetags'] = $content -match '(notetag|meta|@type)'
-            $properties['categorizesByType'] = $content -match '(actor|item|skill|class|weapon|armor|enemy|state)'
-            $properties['providesExamples'] = $content -match '(example|e\.g\.|for instance|such as)'
-            $pattern = [regex]::Escape('^ <') + '|' + '<.*?>' + '|' + '\w' + '|' + '\d' + '|' + '\[.+?\]'
-            $properties['hasValidRegexPatterns'] = $content -match $pattern
+    }
+}
+
+#endregion
+
+#region Get-GoldenTaskMetrics
+
+<#
+.SYNOPSIS
+    Calculates detailed pass/fail metrics for golden task evaluation.
+
+.DESCRIPTION
+    Calculates comprehensive metrics for golden task results including:
+    - Pass/fail counts and rates by various dimensions
+    - Confidence score statistics
+    - Regression indicators
+    - Trend analysis
+    - Score calculation with weighted components
+
+.PARAMETER PackId
+    The pack ID to calculate metrics for
+
+.PARAMETER TaskId
+    Specific task ID for detailed metrics
+
+.PARAMETER TimeRange
+    Time range for results to include ('24h', '7d', '30d', '90d', 'all')
+
+.PARAMETER Category
+    Filter by task category
+
+.PARAMETER Difficulty
+    Filter by task difficulty
+
+.PARAMETER CompareToPrevious
+    Include comparison with previous run for regression detection
+
+.EXAMPLE
+    $metrics = Get-GoldenTaskMetrics -PackId "rpgmaker-mz" -TimeRange "7d"
+    Write-Host "Pass Rate: $($metrics.Summary.PassRate)%"
+    Write-Host "Regression Detected: $($metrics.Regression.RegressionDetected)"
+
+.OUTPUTS
+    [hashtable] Comprehensive metrics including summary, breakdowns, trends, and regression status
+#>
+function Get-GoldenTaskMetrics {
+    [CmdletBinding()]
+    [OutputType([hashtable])]
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$PackId,
+
+        [Parameter(Mandatory = $false)]
+        [string]$TaskId,
+
+        [Parameter(Mandatory = $false)]
+        [ValidateSet('24h', '7d', '30d', '90d', 'all')]
+        [string]$TimeRange = '7d',
+
+        [Parameter(Mandatory = $false)]
+        [string]$Category = '',
+
+        [Parameter(Mandatory = $false)]
+        [string]$Difficulty = '',
+
+        [Parameter(Mandatory = $false)]
+        [switch]$CompareToPrevious
+    )
+
+    begin {
+        Write-Verbose "Calculating golden task metrics for pack: $PackId"
+    }
+
+    process {
+        # Calculate cutoff date
+        $cutoff = switch ($TimeRange) {
+            '24h' { (Get-Date).AddHours(-24) }
+            '7d' { (Get-Date).AddDays(-7) }
+            '30d' { (Get-Date).AddDays(-30) }
+            '90d' { (Get-Date).AddDays(-90) }
+            'all' { [DateTime]::MinValue }
+            default { (Get-Date).AddDays(-7) }
         }
-        'analysis' {
-            $properties['identifiesMethodChain'] = $content -match '(prototype\.|__proto__|method.*chain|call.*chain)'
-            $properties['explainsPatchMechanism'] = $content -match '(alias|override|wrap|patch|replace)'
-            $properties['mentionsAliasPattern'] = $content -match '(alias|_alias|_\w+_\w+_alias)'
-            $properties['showsOriginalVsPatched'] = $content -match '(original|before|after|vs|versus|compared)'
+
+        # Get results
+        $params = @{ PackId = $PackId; FromDate = $cutoff }
+        if ($TaskId) { $params['TaskId'] = $TaskId }
+        $results = Get-GoldenTaskResults @params
+
+        # Apply filters
+        if ($Category) {
+            $results = $results | Where-Object { $_.Task.Category -eq $Category }
         }
-        default {
-            # Generic property extraction based on expected result keys
-            foreach ($key in $Task.expectedResult.Keys) {
-                $properties[$key] = $content -match [regex]::Escape($key)
+        if ($Difficulty) {
+            $results = $results | Where-Object { $_.Task.Difficulty -eq $Difficulty }
+        }
+
+        if ($results.Count -eq 0) {
+            return @{
+                PackId = $PackId
+                TimeRange = $TimeRange
+                Summary = @{
+                    TotalTasks = 0
+                    PassedTasks = 0
+                    FailedTasks = 0
+                    PassRate = 0
+                    AverageConfidence = 0
+                    Score = 0
+                    Grade = 'N/A'
+                }
+                Breakdowns = @{}
+                Trends = @{}
+                Regression = @{ RegressionDetected = $false }
+                Timestamp = (Get-Date -Format "yyyy-MM-ddTHH:mm:ssZ")
             }
         }
-    }
 
-    return $properties
-}
-
-<#
-.SYNOPSIS
-    Internal: Saves evaluation result to history.
-
-.DESCRIPTION
-    Persists golden task evaluation results for historical analysis.
-#>
-function Save-GoldenTaskResult {
-    param(
-        [hashtable]$Result
-    )
-
-    $resultsDir = $script:GoldenTaskConfig.ResultsDirectory
-    $taskId = $Result.Task.TaskId
-    $timestamp = (Get-Date -Format "yyyyMMdd-HHmmss")
-    $filename = "$taskId-$timestamp.json"
-    $filepath = Join-Path $resultsDir $filename
-
-    # Create pack subdirectory if needed
-    $packId = $Result.Task.PackId
-    if ($packId) {
-        $packDir = Join-Path $resultsDir $packId
-        if (-not (Test-Path $packDir)) {
-            $null = New-Item -ItemType Directory -Path $packDir -Force
+        # Get latest result per task
+        $latestResults = @{}
+        foreach ($result in $results) {
+            $tid = $result.Task.TaskId
+            if (-not $latestResults.ContainsKey($tid) -or 
+                $result.Timing.CompletedAt -gt $latestResults[$tid].Timing.CompletedAt) {
+                $latestResults[$tid] = $result
+            }
         }
-        $filepath = Join-Path $packDir $filename
-    }
+        $evaluatedResults = $latestResults.Values
 
-    $Result | ConvertTo-Json -Depth 10 | Out-File -FilePath $filepath -Encoding UTF8
-    Write-Verbose "Result saved to: $filepath"
-}
+        # Summary metrics
+        $passed = ($evaluatedResults | Where-Object { $_.Validation.Success }).Count
+        $failed = $evaluatedResults.Count - $passed
+        $passRate = if ($evaluatedResults.Count -gt 0) { ($passed / $evaluatedResults.Count) * 100 } else { 0 }
+        
+        $confidenceValues = $evaluatedResults | ForEach-Object { $_.Validation.Confidence }
+        $avgConfidence = if ($confidenceValues.Count -gt 0) { 
+            ($confidenceValues | Measure-Object -Average).Average 
+        } else { 0 }
 
-<#
-.SYNOPSIS
-    Internal: Runs golden tasks in parallel.
-
-.DESCRIPTION
-    Executes multiple golden tasks using runspace pool for parallel processing.
-#>
-function Invoke-ParallelGoldenTasks {
-    param(
-        [array]$Tasks,
-        [int]$MaxParallelJobs,
-        [switch]$RecordResults,
-        [switch]$FailFast
-    )
-
-    # PowerShell 5.1 compatible parallel execution using runspaces
-    $runspacePool = [runspacefactory]::CreateRunspacePool(1, $MaxParallelJobs)
-    $runspacePool.Open()
-
-    $runspaces = @()
-    $results = @()
-
-    foreach ($task in $Tasks) {
-        $powershell = [powershell]::Create().AddScript({
-            param($Task, $RecordResults, $Config)
-            
-            # Import module functions (simplified for runspace)
-            $script:GoldenTaskConfig = $Config
-            
-            # Call evaluation
-            $result = Invoke-GoldenTaskEval -Task $Task -RecordResults:$RecordResults
-            return $result
-        }).AddArgument($task).AddArgument($RecordResults).AddArgument($script:GoldenTaskConfig)
-
-        $powershell.RunspacePool = $runspacePool
-
-        $runspaces += @{
-            Pipe = $powershell
-            Status = $powershell.BeginInvoke()
-            Task = $task
+        # Calculate weighted score
+        $difficultyWeights = @{ easy = 1.0; medium = 1.5; hard = 2.0 }
+        $weightedScore = 0
+        $totalWeight = 0
+        foreach ($result in $evaluatedResults) {
+            $weight = $difficultyWeights[$result.Task.Difficulty]
+            if ($result.Validation.Success) {
+                $weightedScore += $weight * $result.Validation.Confidence * 100
+            }
+            $totalWeight += $weight
         }
-    }
+        $finalScore = if ($totalWeight -gt 0) { ($weightedScore / $totalWeight) } else { 0 }
 
-    # Collect results
-    foreach ($rs in $runspaces) {
-        try {
-            $result = $rs.Pipe.EndInvoke($rs.Status)
-            if ($result) {
-                $results += $result[0]
-                
-                if ($FailFast -and -not $result[0].Validation.Success) {
-                    Write-Warning "Task '$($rs.Task.taskId)' failed. FailFast enabled."
+        # Category breakdown
+        $categoryBreakdown = @{}
+        foreach ($cat in ($evaluatedResults | Select-Object -ExpandProperty Task | Select-Object -ExpandProperty Category -Unique)) {
+            $catResults = $evaluatedResults | Where-Object { $_.Task.Category -eq $cat }
+            $catPassed = ($catResults | Where-Object { $_.Validation.Success }).Count
+            $categoryBreakdown[$cat] = @{
+                Total = $catResults.Count
+                Passed = $catPassed
+                Failed = $catResults.Count - $catPassed
+                PassRate = if ($catResults.Count -gt 0) { ($catPassed / $catResults.Count) * 100 } else { 0 }
+            }
+        }
+
+        # Difficulty breakdown
+        $difficultyBreakdown = @{}
+        foreach ($diff in ($evaluatedResults | Select-Object -ExpandProperty Task | Select-Object -ExpandProperty Difficulty -Unique)) {
+            $diffResults = $evaluatedResults | Where-Object { $_.Task.Difficulty -eq $diff }
+            $diffPassed = ($diffResults | Where-Object { $_.Validation.Success }).Count
+            $difficultyBreakdown[$diff] = @{
+                Total = $diffResults.Count
+                Passed = $diffPassed
+                Failed = $diffResults.Count - $diffPassed
+                PassRate = if ($diffResults.Count -gt 0) { ($diffPassed / $diffResults.Count) * 100 } else { 0 }
+            }
+        }
+
+        # Tag breakdown
+        $tagBreakdown = @{}
+        foreach ($result in $evaluatedResults) {
+            foreach ($tag in $result.Task.Tags) {
+                if (-not $tagBreakdown.ContainsKey($tag)) {
+                    $tagBreakdown[$tag] = @{ Total = 0; Passed = 0; Failed = 0 }
+                }
+                $tagBreakdown[$tag].Total++
+                if ($result.Validation.Success) {
+                    $tagBreakdown[$tag].Passed++
+                } else {
+                    $tagBreakdown[$tag].Failed++
                 }
             }
         }
-        catch {
-            Write-Error "Error in parallel execution for task '$($rs.Task.taskId)': $_"
-            $results += @{
-                Task = @{ TaskId = $rs.Task.taskId; Name = $rs.Task.name }
-                Success = $false
-                Error = $_.ToString()
+        foreach ($tag in $tagBreakdown.Keys) {
+            $tagBreakdown[$tag].PassRate = if ($tagBreakdown[$tag].Total -gt 0) { 
+                ($tagBreakdown[$tag].Passed / $tagBreakdown[$tag].Total) * 100 
+            } else { 0 }
+        }
+
+        # Trend analysis (if multiple results per task)
+        $trends = @{
+            Improving = @()
+            Declining = @()
+            Stable = @()
+        }
+        if ($CompareToPrevious) {
+            $previousCutoff = $cutoff.AddDays(-($cutoff - [DateTime]::MinValue).Days / 2)
+            $previousParams = @{ PackId = $PackId; FromDate = $previousCutoff; ToDate = $cutoff }
+            if ($TaskId) { $previousParams['TaskId'] = $TaskId }
+            $previousResults = Get-GoldenTaskResults @previousParams
+
+            foreach ($taskId in $latestResults.Keys) {
+                $current = $latestResults[$taskId]
+                $previous = $previousResults | Where-Object { $_.Task.TaskId -eq $taskId } | 
+                    Sort-Object { $_.Timing.CompletedAt } -Descending | Select-Object -First 1
+
+                if ($previous) {
+                    $currentSuccess = $current.Validation.Success
+                    $previousSuccess = $previous.Validation.Success
+                    $currentConf = $current.Validation.Confidence
+                    $previousConf = $previous.Validation.Confidence
+
+                    if ($currentSuccess -and -not $previousSuccess) {
+                        $trends.Improving += $taskId
+                    } elseif (-not $currentSuccess -and $previousSuccess) {
+                        $trends.Declining += $taskId
+                    } elseif ([Math]::Abs($currentConf - $previousConf) -lt 0.05) {
+                        $trends.Stable += $taskId
+                    } elseif ($currentConf -gt $previousConf) {
+                        $trends.Improving += $taskId
+                    } else {
+                        $trends.Declining += $taskId
+                    }
+                }
             }
         }
-        finally {
-            $rs.Pipe.Dispose()
+
+        # Regression detection
+        $regression = @{
+            RegressionDetected = $trends.Declining.Count -gt 0
+            NewFailures = $trends.Declining
+            TasksBelowThreshold = @()
+            ConfidenceDrops = @()
+        }
+
+        foreach ($result in $evaluatedResults) {
+            if (-not $result.Validation.Success -or 
+                $result.Validation.Confidence -lt $result.Validation.MinConfidenceRequired) {
+                $regression.TasksBelowThreshold += @{
+                    TaskId = $result.Task.TaskId
+                    Confidence = $result.Validation.Confidence
+                    Required = $result.Validation.MinConfidenceRequired
+                }
+            }
+        }
+
+        # Determine grade
+        $grade = switch ($finalScore) {
+            { $_ -ge 95 } { 'A+' }
+            { $_ -ge 90 } { 'A' }
+            { $_ -ge 85 } { 'B+' }
+            { $_ -ge 80 } { 'B' }
+            { $_ -ge 70 } { 'C' }
+            { $_ -ge 60 } { 'D' }
+            default { 'F' }
+        }
+
+        return @{
+            PackId = $PackId
+            TimeRange = $TimeRange
+            Summary = @{
+                TotalTasks = $evaluatedResults.Count
+                PassedTasks = $passed
+                FailedTasks = $failed
+                PassRate = [math]::Round($passRate, 2)
+                AverageConfidence = [math]::Round($avgConfidence, 4)
+                WeightedScore = [math]::Round($finalScore, 2)
+                Grade = $grade
+            }
+            Breakdowns = @{
+                ByCategory = $categoryBreakdown
+                ByDifficulty = $difficultyBreakdown
+                ByTag = $tagBreakdown
+            }
+            Trends = $trends
+            Regression = $regression
+            Timestamp = (Get-Date -Format "yyyy-MM-ddTHH:mm:ssZ")
         }
     }
-
-    $runspacePool.Close()
-    $runspacePool.Dispose()
-
-    return $results
 }
+
+#endregion
+
+#region Invoke-GoldenTaskSuite
 
 <#
 .SYNOPSIS
-    Internal: Converts PSObject to hashtable recursively.
+    Runs all tasks in a golden task suite.
 
 .DESCRIPTION
-    Utility function to convert deserialized JSON objects back to hashtables.
+    Executes all golden tasks within a defined suite. Supports filtering,
+    parallel execution, and result recording. This is the suite-level
+    equivalent of Invoke-PackGoldenTasks but operates on a suite object.
+
+.PARAMETER Suite
+    The golden task suite to run (hashtable from New-GoldenTaskSuite or Import-GoldenTaskSuite)
+
+.PARAMETER SuitePath
+    Path to a suite JSON file to load and run
+
+.PARAMETER Filter
+    Hashtable of filters (category, difficulty, tags, excludeTags)
+
+.PARAMETER Parallel
+    Run tasks in parallel
+
+.PARAMETER MaxParallelJobs
+    Maximum parallel jobs (default: 4)
+
+.PARAMETER RecordResults
+    Record results to history
+
+.PARAMETER FailFast
+    Stop on first failure
+
+.PARAMETER ExportResults
+    Export results after completion
+
+.PARAMETER ExportPath
+    Path for exported results
+
+.PARAMETER ExportFormat
+    Format for exported results (json, csv)
+
+.EXAMPLE
+    $suite = New-GoldenTaskSuite -SuiteName "Regression Tests" -Tasks $tasks
+    Invoke-GoldenTaskSuite -Suite $suite -RecordResults
+
+.EXAMPLE
+    Invoke-GoldenTaskSuite -SuitePath "./suites/test-suite.json" -Parallel
+
+.OUTPUTS
+    [hashtable] Suite execution results including summary and individual task results
 #>
-function ConvertTo-Hashtable {
+function Invoke-GoldenTaskSuite {
+    [CmdletBinding()]
+    [OutputType([hashtable])]
     param(
-        $InputObject
+        [Parameter(Mandatory = $true, ParameterSetName = 'SuiteObject')]
+        [hashtable]$Suite,
+
+        [Parameter(Mandatory = $true, ParameterSetName = 'SuitePath')]
+        [string]$SuitePath,
+
+        [Parameter(Mandatory = $false)]
+        [hashtable]$Filter = @{},
+
+        [Parameter(Mandatory = $false)]
+        [switch]$Parallel,
+
+        [Parameter(Mandatory = $false)]
+        [int]$MaxParallelJobs = $script:GoldenTaskConfig.MaxParallelJobs,
+
+        [Parameter(Mandatory = $false)]
+        [switch]$RecordResults,
+
+        [Parameter(Mandatory = $false)]
+        [switch]$FailFast,
+
+        [Parameter(Mandatory = $false)]
+        [switch]$ExportResults,
+
+        [Parameter(Mandatory = $false)]
+        [string]$ExportPath = "",
+
+        [Parameter(Mandatory = $false)]
+        [ValidateSet('json', 'csv')]
+        [string]$ExportFormat = 'json'
     )
 
-    if ($InputObject -is [System.Collections.Hashtable]) {
-        return $InputObject
-    }
-    
-    if ($InputObject -is [System.Collections.IEnumerable] -and $InputObject -isnot [string]) {
-        return @($InputObject | ForEach-Object { ConvertTo-Hashtable -InputObject $_ })
-    }
-    
-    if ($InputObject -is [pscustomobject] -or $InputObject -is [System.Management.Automation.PSCustomObject]) {
-        $hash = @{}
-        foreach ($property in $InputObject.PSObject.Properties) {
-            $hash[$property.Name] = ConvertTo-Hashtable -InputObject $property.Value
+    begin {
+        Write-Verbose "Starting golden task suite execution"
+
+        # Load suite if path provided
+        if ($SuitePath) {
+            $Suite = Import-GoldenTaskSuite -Path $SuitePath
         }
-        return $hash
+
+        Write-Verbose "Suite: $($Suite.suiteName) with $($Suite.tasks.Count) tasks"
     }
-    
-    return $InputObject
+
+    process {
+        try {
+            $startTime = Get-Date
+            $allTasks = $Suite.tasks
+
+            # Apply filters
+            $filteredTasks = $allTasks | Where-Object {
+                $task = $_
+                $include = $true
+
+                if ($Filter.category -and $task.category -ne $Filter.category) { $include = $false }
+                if ($Filter.difficulty -and $task.difficulty -ne $Filter.difficulty) { $include = $false }
+                if ($Filter.tags) {
+                    foreach ($tag in $Filter.tags) {
+                        if ($task.tags -notcontains $tag) { $include = $false; break }
+                    }
+                }
+                if ($Filter.excludeTags) {
+                    foreach ($tag in $Filter.excludeTags) {
+                        if ($task.tags -contains $tag) { $include = $false; break }
+                    }
+                }
+
+                $include
+            }
+
+            $tasksToRun = @($filteredTasks)
+            Write-Verbose "Running $($tasksToRun.Count) tasks after filtering"
+
+            # Run tasks
+            $results = @()
+            if ($Parallel -and $tasksToRun.Count -gt 1) {
+                $results = Invoke-ParallelGoldenTasks -Tasks $tasksToRun -MaxParallelJobs $MaxParallelJobs `
+                    -RecordResults:$RecordResults -FailFast:$FailFast
+            } else {
+                foreach ($task in $tasksToRun) {
+                    Write-Verbose "Running task: $($task.taskId)"
+                    $result = Invoke-GoldenTask -Task $task -RecordResults:$RecordResults
+                    $results += $result
+
+                    if ($FailFast -and -not $result.Validation.Success) {
+                        Write-Warning "Task '$($task.taskId)' failed and FailFast is enabled. Stopping."
+                        break
+                    }
+                }
+            }
+
+            $endTime = Get-Date
+            $duration = ($endTime - $startTime).TotalSeconds
+
+            # Calculate statistics
+            $passed = ($results | Where-Object { $_.Validation.Success }).Count
+            $failed = $results.Count - $passed
+            $passRate = if ($results.Count -gt 0) { ($passed / $results.Count) * 100 } else { 0 }
+            $avgConfidence = if ($results.Count -gt 0) {
+                ($results | Measure-Object -Property { $_.Validation.Confidence } -Average).Average
+            } else { 0 }
+
+            # Category breakdown
+            $categoryStats = @{}
+            foreach ($result in $results) {
+                $cat = $result.Task.Category
+                if (-not $categoryStats.ContainsKey($cat)) {
+                    $categoryStats[$cat] = @{ Passed = 0; Failed = 0; Total = 0 }
+                }
+                $categoryStats[$cat].Total++
+                if ($result.Validation.Success) {
+                    $categoryStats[$cat].Passed++
+                } else {
+                    $categoryStats[$cat].Failed++
+                }
+            }
+
+            # Difficulty breakdown
+            $difficultyStats = @{}
+            foreach ($result in $results) {
+                $diff = $result.Task.Difficulty
+                if (-not $difficultyStats.ContainsKey($diff)) {
+                    $difficultyStats[$diff] = @{ Passed = 0; Failed = 0; Total = 0 }
+                }
+                $difficultyStats[$diff].Total++
+                if ($result.Validation.Success) {
+                    $difficultyStats[$diff].Passed++
+                } else {
+                    $difficultyStats[$diff].Failed++
+                }
+            }
+
+            $summary = @{
+                SuiteName = $Suite.suiteName
+                SuiteVersion = $Suite.version
+                TasksRun = $results.Count
+                Passed = $passed
+                Failed = $failed
+                PassRate = [math]::Round($passRate, 2)
+                AverageConfidence = [math]::Round($avgConfidence, 4)
+                DurationSeconds = [math]::Round($duration, 2)
+                CategoryBreakdown = $categoryStats
+                DifficultyBreakdown = $difficultyStats
+                Filter = $Filter
+                Tasks = $results
+                StartedAt = $startTime.ToString("yyyy-MM-ddTHH:mm:ssZ")
+                CompletedAt = $endTime.ToString("yyyy-MM-ddTHH:mm:ssZ")
+            }
+
+            # Export results if requested
+            if ($ExportResults) {
+                if (-not $ExportPath) {
+                    $ExportPath = Join-Path $script:GoldenTaskConfig.ResultsDirectory `
+                        "suite-$($Suite.suiteName)-$(Get-Date -Format 'yyyyMMdd-HHmmss').$ExportFormat"
+                }
+                Export-GoldenTaskResults -OutputPath $ExportPath -Format $ExportFormat
+                $summary.ExportPath = $ExportPath
+            }
+
+            Write-Host "`nGolden Task Suite Summary - '$($Suite.suiteName)'" -ForegroundColor Cyan
+            Write-Host "  Tasks Run: $($summary.TasksRun)" -ForegroundColor White
+            Write-Host "  Passed: $($summary.Passed)" -ForegroundColor Green
+            Write-Host "  Failed: $($summary.Failed)" -ForegroundColor Red
+            Write-Host "  Pass Rate: $($summary.PassRate)%" -ForegroundColor Yellow
+            Write-Host "  Avg Confidence: $($summary.AverageConfidence)" -ForegroundColor White
+
+            return $summary
+        }
+        catch {
+            Write-Error "Suite execution failed: $_"
+            throw
+        }
+    }
+}
+
+#endregion
+
+#region Compare-GoldenTaskRuns
+
+<#
+.SYNOPSIS
+    Compares golden task results across multiple runs for regression detection.
+
+.DESCRIPTION
+    Compares golden task evaluation results between two or more runs to detect
+    regressions, improvements, and stability issues. Generates a detailed
+    comparison report showing changes in pass/fail status, confidence scores,
+    and execution times.
+
+.PARAMETER PackId
+    Pack ID to compare
+
+.PARAMETER BaselineRun
+    Date/time of the baseline run to compare against
+
+.PARAMETER ComparisonRun
+    Date/time of the comparison run (default: most recent)
+
+.PARAMETER TaskId
+    Specific task ID to compare
+
+.PARAMETER Threshold
+    Confidence difference threshold for flagging changes (default: 0.05)
+
+.PARAMETER FailOnRegression
+    Return non-success status if regressions are detected
+
+.EXAMPLE
+    $comparison = Compare-GoldenTaskRuns -PackId "rpgmaker-mz" -BaselineRun (Get-Date).AddDays(-7)
+
+.EXAMPLE
+    Compare-GoldenTaskRuns -TaskId "gt-rpgmaker-mz-001" -BaselineRun "2026-04-01" -FailOnRegression
+
+.OUTPUTS
+    [hashtable] Comparison results including regressions, improvements, and summary statistics
+#>
+function Compare-GoldenTaskRuns {
+    [CmdletBinding()]
+    [OutputType([hashtable])]
+    param(
+        [Parameter(Mandatory = $true, ParameterSetName = 'PackCompare')]
+        [string]$PackId,
+
+        [Parameter(Mandatory = $true, ParameterSetName = 'TaskCompare')]
+        [string]$TaskId,
+
+        [Parameter(Mandatory = $true)]
+        [DateTime]$BaselineRun,
+
+        [Parameter(Mandatory = $false)]
+        [DateTime]$ComparisonRun = (Get-Date),
+
+        [Parameter(Mandatory = $false)]
+        [double]$Threshold = 0.05,
+
+        [Parameter(Mandatory = $false)]
+        [switch]$FailOnRegression
+    )
+
+    begin {
+        Write-Verbose "Comparing golden task runs"
+        Write-Verbose "Baseline: $BaselineRun"
+        Write-Verbose "Comparison: $ComparisonRun"
+    }
+
+    process {
+        try {
+            # Get baseline results
+            $baselineParams = @{
+                FromDate = $BaselineRun.Date
+                ToDate = $BaselineRun.Date.AddDays(1)
+            }
+            if ($PackId) { $baselineParams['PackId'] = $PackId }
+            if ($TaskId) { $baselineParams['TaskId'] = $TaskId }
+            
+            $baselineResults = Get-GoldenTaskResults @baselineParams | 
+                Group-Object { $_.Task.TaskId } | 
+                ForEach-Object { $_.Group | Sort-Object { $_.Timing.CompletedAt } -Descending | Select-Object -First 1 }
+
+            # Get comparison results
+            $comparisonParams = @{
+                FromDate = $ComparisonRun.Date.AddDays(-7)
+                ToDate = $ComparisonRun
+            }
+            if ($PackId) { $comparisonParams['PackId'] = $PackId }
+            if ($TaskId) { $comparisonParams['TaskId'] = $TaskId }
+            
+            $comparisonResults = Get-GoldenTaskResults @comparisonParams | 
+                Group-Object { $_.Task.TaskId } | 
+                ForEach-Object { $_.Group | Sort-Object { $_.Timing.CompletedAt } -Descending | Select-Object -First 1 }
+
+            # Initialize comparison collections
+            $regressions = @()
+            $improvements = @()
+            $stable = @()
+            $newTasks = @()
+            $missingTasks = @()
+
+            # Create lookup dictionaries
+            $baselineLookup = @{}
+            foreach ($result in $baselineResults) {
+                $baselineLookup[$result.Task.TaskId] = $result
+            }
+
+            $comparisonLookup = @{}
+            foreach ($result in $comparisonResults) {
+                $comparisonLookup[$result.Task.TaskId] = $result
+            }
+
+            # Compare all tasks from comparison run
+            foreach ($taskId in $comparisonLookup.Keys) {
+                $current = $comparisonLookup[$taskId]
+                
+                if (-not $baselineLookup.ContainsKey($taskId)) {
+                    $newTasks += @{
+                        TaskId = $taskId
+                        TaskName = $current.Task.Name
+                        CurrentStatus = if ($current.Validation.Success) { "PASSED" } else { "FAILED" }
+                        CurrentConfidence = $current.Validation.Confidence
+                    }
+                    continue
+                }
+
+                $baseline = $baselineLookup[$taskId]
+                
+                $baselineSuccess = $baseline.Validation.Success
+                $currentSuccess = $current.Validation.Success
+                $baselineConfidence = $baseline.Validation.Confidence
+                $currentConfidence = $current.Validation.Confidence
+                $confidenceDelta = $currentConfidence - $baselineConfidence
+
+                $comparisonItem = @{
+                    TaskId = $taskId
+                    TaskName = $current.Task.Name
+                    BaselineStatus = if ($baselineSuccess) { "PASSED" } else { "FAILED" }
+                    CurrentStatus = if ($currentSuccess) { "PASSED" } else { "FAILED" }
+                    BaselineConfidence = [math]::Round($baselineConfidence, 4)
+                    CurrentConfidence = [math]::Round($currentConfidence, 4)
+                    ConfidenceDelta = [math]::Round($confidenceDelta, 4)
+                    BaselineDuration = $baseline.Timing.DurationSeconds
+                    CurrentDuration = $current.Timing.DurationSeconds
+                    DurationDelta = [math]::Round($current.Timing.DurationSeconds - $baseline.Timing.DurationSeconds, 2)
+                }
+
+                # Detect regression (was passing, now failing)
+                if ($baselineSuccess -and -not $currentSuccess) {
+                    $comparisonItem.RegressionType = "CRITICAL - Pass to Fail"
+                    $regressions += $comparisonItem
+                }
+                # Detect pass but confidence drop below threshold
+                elseif ($baselineSuccess -and $currentSuccess -and $confidenceDelta -lt -$Threshold) {
+                    $comparisonItem.RegressionType = "WARNING - Confidence Drop"
+                    $regressions += $comparisonItem
+                }
+                # Detect improvement (was failing, now passing)
+                elseif (-not $baselineSuccess -and $currentSuccess) {
+                    $comparisonItem.ImprovementType = "RECOVERED - Fail to Pass"
+                    $improvements += $comparisonItem
+                }
+                # Detect confidence improvement above threshold
+                elseif ($baselineSuccess -and $currentSuccess -and $confidenceDelta -gt $Threshold) {
+                    $comparisonItem.ImprovementType = "ENHANCED - Confidence Gain"
+                    $improvements += $comparisonItem
+                }
+                else {
+                    $stable += $comparisonItem
+                }
+            }
+
+            # Find missing tasks (in baseline but not in current)
+            foreach ($taskId in $baselineLookup.Keys) {
+                if (-not $comparisonLookup.ContainsKey($taskId)) {
+                    $baseline = $baselineLookup[$taskId]
+                    $missingTasks += @{
+                        TaskId = $taskId
+                        TaskName = $baseline.Task.Name
+                        BaselineStatus = if ($baseline.Validation.Success) { "PASSED" } else { "FAILED" }
+                        BaselineConfidence = $baseline.Validation.Confidence
+                    }
+                }
+            }
+
+            # Calculate statistics
+            $totalCompared = $regressions.Count + $improvements.Count + $stable.Count
+            $regressionRate = if ($totalCompared -gt 0) { ($regressions.Count / $totalCompared) * 100 } else { 0 }
+            $improvementRate = if ($totalCompared -gt 0) { ($improvements.Count / $totalCompared) * 100 } else { 0 }
+
+            # Determine overall status
+            $criticalRegressions = ($regressions | Where-Object { $_.RegressionType -eq "CRITICAL - Pass to Fail" }).Count
+            $hasRegression = $criticalRegressions -gt 0
+
+            $result = @{
+                PackId = $PackId
+                TaskId = $TaskId
+                BaselineRun = $BaselineRun.ToString("yyyy-MM-ddTHH:mm:ssZ")
+                ComparisonRun = $ComparisonRun.ToString("yyyy-MM-ddTHH:mm:ssZ")
+                Summary = @{
+                    TotalTasksCompared = $totalCompared
+                    TotalRegressions = $regressions.Count
+                    CriticalRegressions = $criticalRegressions
+                    TotalImprovements = $improvements.Count
+                    StableTasks = $stable.Count
+                    NewTasks = $newTasks.Count
+                    MissingTasks = $missingTasks.Count
+                    RegressionRate = [math]::Round($regressionRate, 2)
+                    ImprovementRate = [math]::Round($improvementRate, 2)
+                    HasRegression = $hasRegression
+                    Status = if ($hasRegression) { "REGRESSION_DETECTED" } elseif ($improvements.Count -gt 0) { "IMPROVED" } else { "STABLE" }
+                }
+                Regressions = $regressions
+                Improvements = $improvements
+                Stable = $stable
+                NewTasks = $newTasks
+                MissingTasks = $missingTasks
+                Threshold = $Threshold
+                GeneratedAt = (Get-Date -Format "yyyy-MM-ddTHH:mm:ssZ")
+            }
+
+            # Output summary
+            Write-Host "`nGolden Task Run Comparison" -ForegroundColor Cyan
+            Write-Host "  Pack: $PackId$(if($TaskId){" / Task: $TaskId"})" -ForegroundColor White
+            Write-Host "  Baseline: $($result.BaselineRun)" -ForegroundColor Gray
+            Write-Host "  Comparison: $($result.ComparisonRun)" -ForegroundColor Gray
+            Write-Host "  Tasks Compared: $($result.Summary.TotalTasksCompared)" -ForegroundColor White
+            
+            if ($result.Summary.CriticalRegressions -gt 0) {
+                Write-Host "  CRITICAL REGRESSIONS: $($result.Summary.CriticalRegressions)" -ForegroundColor Red
+            }
+            if ($result.Summary.TotalRegressions -gt 0) {
+                Write-Host "  Total Regressions: $($result.Summary.TotalRegressions)" -ForegroundColor Yellow
+            }
+            if ($result.Summary.TotalImprovements -gt 0) {
+                Write-Host "  Improvements: $($result.Summary.TotalImprovements)" -ForegroundColor Green
+            }
+            Write-Host "  Status: $($result.Summary.Status)" -ForegroundColor $(if ($hasRegression) { "Red" } else { "Green" })
+
+            if ($FailOnRegression -and $hasRegression) {
+                Write-Error "Regressions detected in golden task comparison"
+            }
+
+            return $result
+        }
+        catch {
+            Write-Error "Failed to compare golden task runs: $_"
+            throw
+        }
+    }
 }
 
 #endregion
@@ -1813,16 +2513,33 @@ function ConvertTo-Hashtable {
 
 # Export all public functions
 Export-ModuleMember -Function @(
-    'New-GoldenTask',
-    'Invoke-GoldenTaskEval',
-    'Invoke-PackGoldenTasks',
-    'Test-GoldenTaskResult',
-    'Test-PropertyBasedExpectation',
-    'Get-GoldenTaskResults',
-    'Get-PredefinedGoldenTasks',
-    'New-GoldenTaskSuite',
-    'Export-GoldenTaskSuite',
+    # Core golden task functions
+    'New-GoldenTask'
+    'Invoke-GoldenTask'
+    'Test-GoldenTaskResult'
+    'Get-GoldenTaskScore'
+    'Get-GoldenTaskMetrics'
+    'Export-GoldenTaskReport'
+    'Export-GoldenTaskResults'
+    
+    # Pack evaluation
+    'Invoke-PackGoldenTasks'
+    'Get-PredefinedGoldenTasks'
+    
+    # Results and history
+    'Get-GoldenTaskResults'
+    
+    # Suite management
+    'New-GoldenTaskSuite'
+    'Export-GoldenTaskSuite'
     'Import-GoldenTaskSuite'
+    'Invoke-GoldenTaskSuite'
+    
+    # Comparison and regression
+    'Compare-GoldenTaskRuns'
+    
+    # Validation helpers
+    'Test-PropertyBasedExpectation'
 )
 
 #endregion

@@ -111,15 +111,15 @@ function Write-DashboardHeader {
     if ($UseAnsi) {
         $a = $script:Ansi
         Write-Host "$($a.Bold)$($a.Cyan)========================================$($a.Reset)"
-        Write-Host "$($a.Bold)$($a.Cyan)   LLM WORKFLOW DASHBOARD $($a.BrightYellow)v0.2.0$($a.Reset)"
+        Write-Host "$($a.Bold)$($a.Cyan)   LLM WORKFLOW DASHBOARD $($a.BrightYellow)v0.9.6$($a.Reset)"
         Write-Host "$($a.Bold)$($a.Cyan)========================================$($a.Reset)"
     } elseif ($UseColors) {
         Write-Host "========================================" -ForegroundColor Cyan
-        Write-Host "   LLM WORKFLOW DASHBOARD v0.2.0" -ForegroundColor Cyan
+        Write-Host "   LLM WORKFLOW DASHBOARD v0.9.6" -ForegroundColor Cyan
         Write-Host "========================================" -ForegroundColor Cyan
     } else {
         Write-Output "========================================"
-        Write-Output "   LLM WORKFLOW DASHBOARD v0.2.0"
+        Write-Output "   LLM WORKFLOW DASHBOARD v0.9.6"
         Write-Output "========================================"
     }
 }
@@ -844,3 +844,4 @@ if ($failed.Count -gt 0) { exit 1 }
 exit 0
 
 #endregion
+

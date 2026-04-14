@@ -23,6 +23,11 @@ jobs:
         run: |
           .\tools\ci\validate-compatibility-lock.ps1
 
+      - name: Validate Documentation Truth
+        shell: powershell
+        run: |
+          .\tools\ci\validate-docs-truth.ps1
+
   lint:
     needs: drift-guard
     runs-on: ubuntu-latest
@@ -81,8 +86,7 @@ jobs:
       - name: Install Module Smoke
         shell: ${{ matrix.shell }}
         run: |
-          .\install-module.ps1 -NoProfileUpdate
-          Import-Module LLMWorkflow -Force
+          Import-Module .\module\LLMWorkflow\LLMWorkflow.psd1 -Force
           $projectRoot = Join-Path $env:RUNNER_TEMP "llmworkflow-smoke"
           if (Test-Path -LiteralPath $projectRoot) {
             Remove-Item -LiteralPath $projectRoot -Recurse -Force
@@ -114,14 +118,7 @@ jobs:
       - name: Run Pester
         shell: ${{ matrix.shell }}
         run: |
-          $pesterModule = Get-Module -ListAvailable Pester | Sort-Object Version -Descending | Select-Object -First 1
-          if (-not $pesterModule) { throw "Pester is not available." }
-          Import-Module $pesterModule.Path -Force
-          if ($pesterModule.Version.Major -ge 5) {
-            Invoke-Pester -Path .\tests -CI
-          } else {
-            Invoke-Pester -Path .\tests
-          }
+          .\tools\ci\invoke-pester-safe.ps1 -Path .\tests -CI
 
   linux-ci:
     name: Linux CI (Experimental)
@@ -146,8 +143,7 @@ jobs:
       - name: Install Module Smoke
         shell: pwsh
         run: |
-          ./install-module.ps1 -NoProfileUpdate
-          Import-Module LLMWorkflow -Force
+          Import-Module ./module/LLMWorkflow/LLMWorkflow.psd1 -Force
           $projectRoot = Join-Path $env:RUNNER_TEMP "llmworkflow-smoke"
           if (Test-Path -LiteralPath $projectRoot) {
             Remove-Item -LiteralPath $projectRoot -Recurse -Force
@@ -179,14 +175,7 @@ jobs:
       - name: Run Pester
         shell: pwsh
         run: |
-          $pesterModule = Get-Module -ListAvailable Pester | Sort-Object Version -Descending | Select-Object -First 1
-          if (-not $pesterModule) { throw "Pester is not available." }
-          Import-Module $pesterModule.Path -Force
-          if ($pesterModule.Version.Major -ge 5) {
-            Invoke-Pester -Path ./tests -CI
-          } else {
-            Invoke-Pester -Path ./tests
-          }
+          ./tools/ci/invoke-pester-safe.ps1 -Path ./tests -CI
 
   macos-ci:
     name: macOS CI (Experimental)
@@ -211,8 +200,7 @@ jobs:
       - name: Install Module Smoke
         shell: pwsh
         run: |
-          ./install-module.ps1 -NoProfileUpdate
-          Import-Module LLMWorkflow -Force
+          Import-Module ./module/LLMWorkflow/LLMWorkflow.psd1 -Force
           $projectRoot = Join-Path $env:RUNNER_TEMP "llmworkflow-smoke"
           if (Test-Path -LiteralPath $projectRoot) {
             Remove-Item -LiteralPath $projectRoot -Recurse -Force
@@ -244,14 +232,7 @@ jobs:
       - name: Run Pester
         shell: pwsh
         run: |
-          $pesterModule = Get-Module -ListAvailable Pester | Sort-Object Version -Descending | Select-Object -First 1
-          if (-not $pesterModule) { throw "Pester is not available." }
-          Import-Module $pesterModule.Path -Force
-          if ($pesterModule.Version.Major -ge 5) {
-            Invoke-Pester -Path ./tests -CI
-          } else {
-            Invoke-Pester -Path ./tests
-          }
+          ./tools/ci/invoke-pester-safe.ps1 -Path ./tests -CI
 
   e2e-integration:
     name: E2E Integration Tests
@@ -275,7 +256,7 @@ jobs:
       - name: Install Module
         shell: powershell
         run: |
-          .\install-module.ps1 -NoProfileUpdate
+          Import-Module .\module\LLMWorkflow\LLMWorkflow.psd1 -Force
 
       - name: Install Pester
         shell: powershell
@@ -289,19 +270,13 @@ jobs:
       - name: Run E2E Integration Tests
         shell: powershell
         run: |
-          $pesterModule = Get-Module -ListAvailable Pester | Sort-Object Version -Descending | Select-Object -First 1
-          if (-not $pesterModule) { throw "Pester is not available." }
-          Import-Module $pesterModule.Path -Force
-          
           Write-Host "Starting E2E Integration Tests with Mock ContextLattice Server..."
-          
-          $config = New-PesterConfiguration
-          $config.Run.Path = ".\tests\Integration.ContextLattice.Tests.ps1"
-          $config.TestResult.Enabled = $true
-          $config.TestResult.OutputPath = "e2e-test-results.xml"
-          $config.Output.Verbosity = "Detailed"
-          
-          Invoke-Pester -Configuration $config
+          Import-Module .\module\LLMWorkflow\LLMWorkflow.psd1 -Force
+          .\tools\ci\invoke-pester-safe.ps1 `
+            -Path .\tests\Integration.ContextLattice.Tests.ps1 `
+            -CI `
+            -Verbosity Detailed `
+            -TestResultPath e2e-test-results.xml
 
       - name: Upload E2E Test Results
         uses: actions/upload-artifact@v4

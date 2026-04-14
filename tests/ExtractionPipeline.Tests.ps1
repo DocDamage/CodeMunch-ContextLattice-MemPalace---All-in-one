@@ -2,7 +2,8 @@
 # Tests for Phase 4 Structured Extraction Pipeline
 
 BeforeAll {
-    $ModulePath = Join-Path $PSScriptRoot '..' 'module' 'LLMWorkflow' 'extraction'
+    $ModulePath = Join-Path $PSScriptRoot '..' 'module' 'LLMWorkflow' 'ingestion'
+    $ParserPath = Join-Path $ModulePath 'parsers'
     
     # Import all extraction modules
     @(
@@ -12,9 +13,9 @@ BeforeAll {
         'RPGMakerPluginParser.ps1',
         'BlenderPythonParser.ps1',
         'GeometryNodesParser.ps1',
-        'ShaderParameterParser.ps1'
+        'ShaderParser.ps1'
     ) | ForEach-Object {
-        $path = Join-Path $ModulePath $_
+        $path = if ($_ -eq 'ExtractionPipeline.ps1') { Join-Path $ModulePath $_ } else { Join-Path $ParserPath $_ }
         if (Test-Path $path) {
             . $path
         }

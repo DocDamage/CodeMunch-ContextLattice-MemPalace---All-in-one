@@ -645,8 +645,12 @@ function Unregister-MCPTool {
     # Check if it's a built-in tool
     $builtInTools = @('godot_version', 'godot_project_list', 'godot_project_info', 
                       'godot_launch_editor', 'godot_run_project', 'godot_create_scene',
-                      'godot_add_node', 'godot_get_debug_output', 
-                      'blender_version', 'blender_operator', 'blender_export_mesh_library',
+                      'godot_add_node', 'godot_get_debug_output', 'godot_export_project',
+                      'godot_build_project', 'godot_run_tests', 'godot_check_syntax',
+                      'godot_get_scene_tree', 'blender_version', 'blender_operator', 
+                      'blender_export_mesh_library', 'blender_import_mesh', 
+                      'blender_render_scene', 'blender_list_materials',
+                      'blender_apply_modifier', 'blender_export_godot',
                       'pack_query', 'pack_status')
     
     if ($builtInTools -contains $Name -and -not $Force) {
@@ -1126,1282 +1130,76 @@ function Test-MCPParameterSchema {
 }
 
 #===============================================================================
-# Godot Integration Tools
+# MCP Stdio Transport Functions
 #===============================================================================
 
 <#
 .SYNOPSIS
-    Executes a Godot tool via MCP.
-.DESCRIPTION
-    Invokes a registered Godot-related MCP tool with the specified parameters.
-.PARAMETER ToolName
-    The name of the Godot tool to execute.
-.PARAMETER Parameters
-    Hashtable of parameters to pass to the tool.
-.OUTPUTS
-    System.Management.Automation.PSCustomObject with tool execution results.
-.EXAMPLE
-    PS C:\> Invoke-MCPGodotTool -ToolName "godot_version" -Parameters @{}
-    
-    Gets the Godot version.
-#>
-function Invoke-MCPGodotTool {
-    [CmdletBinding()]
-    [OutputType([pscustomobject])]
-    param(
-        [Parameter(Mandatory = $true)]
-        [ValidateSet('godot_version', 'godot_project_list', 'godot_project_info', 
-                     'godot_launch_editor', 'godot_run_project', 'godot_create_scene',
-                     'godot_add_node', 'godot_get_debug_output')]
-        [string]$ToolName,
-        
-        [Parameter()]
-        [hashtable]$Parameters = @{}
-    )
-    
-    return Invoke-MCPTool -ToolName $ToolName -Parameters $Parameters
-}
+    Starts the MCP stdio transport loop.
 
-<#
-.SYNOPSIS
-    Gets the installed Godot version.
 .DESCRIPTION
-    Queries the system for the installed Godot Engine version.
-.PARAMETER GodotPath
-    Optional path to the Godot executable.
-.OUTPUTS
-    System.Management.Automation.PSCustomObject with version information.
+    Processes JSON-RPC 2.0 requests from stdin and writes responses to stdout.
+    This is the main processing loop for stdio transport mode.
+
 .EXAMPLE
-    PS C:\> Get-MCPGodotVersion
+    PS C:\> Start-MCPStdioLoop
     
-    Returns the Godot version information.
+    Starts processing MCP requests from stdin.
 #>
-function Get-MCPGodotVersion {
+function Start-MCPStdioLoop {
     [CmdletBinding()]
-    [OutputType([pscustomobject])]
-    param(
-        [Parameter()]
-        [string]$GodotPath = ''
-    )
+    param()
+    
+    Write-MCPLog -Level INFO -Message "Starting MCP stdio loop"
     
     try {
-        $godot = Find-GodotExecutable -Path $GodotPath
-        
-        if (-not $godot) {
-            return [pscustomobject]@{
-                installed = $false
-                version = $null
-                versionString = $null
-                error = 'Godot executable not found'
-            }
-        }
-        
-        # Get version
-        $versionOutput = & $godot --version 2>&1 | Out-String
-        $versionString = $versionOutput.Trim()
-        
-        # Parse version (format: 4.x.x.stable or 3.x.x.stable)
-        $versionMatch = $versionString -match '(\d+)\.(\d+)\.(\d+)'
-        $version = if ($versionMatch) {
-            @{
-                major = [int]$matches[1]
-                minor = [int]$matches[2]
-                patch = [int]$matches[3]
-                full = $versionString
-            }
-        } else { $null }
-        
-        return [pscustomobject]@{
-            installed = $true
-            version = $version
-            versionString = $versionString
-            executable = $godot
-            error = $null
-        }
-    }
-    catch {
-        Write-MCPLog -Level ERROR -Message "Failed to get Godot version: $_"
-        return [pscustomobject]@{
-            installed = $false
-            version = $null
-            versionString = $null
-            error = $_.Exception.Message
-        }
-    }
-}
-
-<#
-.SYNOPSIS
-    Lists available Godot projects.
-.DESCRIPTION
-    Scans the workspace for Godot project files (project.godot).
-.PARAMETER SearchPath
-    The path to search for Godot projects. Default: current directory.
-.PARAMETER Recursive
-    If specified, searches recursively.
-.OUTPUTS
-    System.Management.Automation.PSCustomObject[] with project information.
-.EXAMPLE
-    PS C:\> Get-MCPGodotProjectList -SearchPath "." -Recursive
-    
-    Lists all Godot projects recursively.
-#>
-function Get-MCPGodotProjectList {
-    [CmdletBinding()]
-    [OutputType([array])]
-    param(
-        [Parameter()]
-        [string]$SearchPath = '.',
-        
-        [Parameter()]
-        [switch]$Recursive
-    )
-    
-    $projects = [System.Collections.Generic.List[object]]::new()
-    
-    try {
-        $resolvedPath = Resolve-Path -Path $SearchPath -ErrorAction Stop | Select-Object -ExpandProperty Path
-        
-        $projectFiles = Get-ChildItem -Path $resolvedPath -Filter 'project.godot' -Recurse:$Recursive -ErrorAction SilentlyContinue
-        
-        foreach ($file in $projectFiles) {
-            $projectDir = $file.DirectoryName
-            $projectName = $file.Directory.Name
+        while ($script:ServerState.IsRunning) {
+            # Read line from stdin
+            $line = [Console]::In.ReadLine()
             
-            # Parse project.godot for basic info
-            $config = @{}
-            try {
-                $content = Get-Content -LiteralPath $file.FullName -Raw -ErrorAction SilentlyContinue
-                if ($content -match 'config/features=PackedStringArray\("([^"]+)"\)') {
-                    $config['features'] = $matches[1] -split ',\s*'
-                }
-                if ($content -match 'application/config/name="([^"]+)"') {
-                    $config['name'] = $matches[1]
-                }
-            }
-            catch {
-                # Continue with minimal info
+            if ([string]::IsNullOrEmpty($line)) {
+                continue
             }
             
-            $projects.Add([pscustomobject]@{
-                name = if ($config['name']) { $config['name'] } else { $projectName }
-                path = $projectDir
-                projectFile = $file.FullName
-                config = $config
-            })
-        }
-    }
-    catch {
-        Write-MCPLog -Level ERROR -Message "Failed to list Godot projects: $_"
-    }
-    
-    return $projects.ToArray()
-}
-
-<#
-.SYNOPSIS
-    Gets detailed information about a Godot project.
-.DESCRIPTION
-    Analyzes a Godot project directory and returns detailed information
-    including scenes, scripts, and configuration.
-.PARAMETER ProjectPath
-    The path to the Godot project directory.
-.OUTPUTS
-    System.Management.Automation.PSCustomObject with project details.
-.EXAMPLE
-    PS C:\> Get-MCPGodotProjectInfo -ProjectPath "./MyGame"
-    
-    Returns detailed information about the MyGame project.
-#>
-function Get-MCPGodotProjectInfo {
-    [CmdletBinding()]
-    [OutputType([pscustomobject])]
-    param(
-        [Parameter(Mandatory = $true)]
-        [ValidateScript({ Test-Path -LiteralPath $_ })]
-        [string]$ProjectPath
-    )
-    
-    try {
-        $resolvedPath = Resolve-Path -LiteralPath $ProjectPath | Select-Object -ExpandProperty Path
-        $projectFile = Join-Path $resolvedPath 'project.godot'
-        
-        if (-not (Test-Path -LiteralPath $projectFile)) {
-            throw "Not a valid Godot project: project.godot not found"
-        }
-        
-        # Read project configuration
-        $config = @{}
-        $content = Get-Content -LiteralPath $projectFile -Raw
-        
-        # Parse basic info
-        if ($content -match 'application/config/name="([^"]+)"') {
-            $config['name'] = $matches[1]
-        }
-        if ($content -match 'application/config/description="([^"]*)"') {
-            $config['description'] = $matches[1]
-        }
-        if ($content -match 'config/features=PackedStringArray\("([^"]+)"\)') {
-            $config['features'] = $matches[1] -split ',\s*'
-        }
-        
-        # Find scenes
-        $scenes = Get-ChildItem -Path $resolvedPath -Filter '*.tscn' -Recurse -ErrorAction SilentlyContinue | 
-            Select-Object -ExpandProperty FullName |
-            ForEach-Object { $_.Substring($resolvedPath.Length + 1) }
-        
-        # Find scripts
-        $scripts = Get-ChildItem -Path $resolvedPath -Filter '*.gd' -Recurse -ErrorAction SilentlyContinue | 
-            Select-Object -ExpandProperty FullName |
-            ForEach-Object { $_.Substring($resolvedPath.Length + 1) }
-        
-        # Count resources
-        $resourceCount = (Get-ChildItem -Path $resolvedPath -Recurse -File -ErrorAction SilentlyContinue | 
-            Where-Object { $_.Extension -in @('.tres', '.res', '.png', '.jpg', '.wav', '.ogg', '.mp3') }).Count
-        
-        return [pscustomobject]@{
-            name = if ($config['name']) { $config['name'] } else { Split-Path -Leaf $resolvedPath }
-            path = $resolvedPath
-            config = $config
-            scenes = $scenes
-            sceneCount = $scenes.Count
-            scripts = $scripts
-            scriptCount = $scripts.Count
-            resourceCount = $resourceCount
-            lastModified = (Get-Item -LiteralPath $projectFile).LastWriteTimeUtc.ToString('O')
-        }
-    }
-    catch {
-        Write-MCPLog -Level ERROR -Message "Failed to get Godot project info: $_"
-        throw
-    }
-}
-
-<#
-.SYNOPSIS
-    Launches the Godot editor for a project.
-.DESCRIPTION
-    Opens the Godot editor with the specified project.
-.PARAMETER ProjectPath
-    The path to the Godot project directory.
-.PARAMETER GodotPath
-    Optional path to the Godot executable.
-.PARAMETER EditorFlags
-    Additional flags to pass to the Godot editor.
-.OUTPUTS
-    System.Management.Automation.PSCustomObject with launch result.
-.EXAMPLE
-    PS C:\> Invoke-MCPGodotLaunchEditor -ProjectPath "./MyGame"
-    
-    Launches the Godot editor for MyGame.
-#>
-function Invoke-MCPGodotLaunchEditor {
-    [CmdletBinding()]
-    [OutputType([pscustomobject])]
-    param(
-        [Parameter(Mandatory = $true)]
-        [ValidateScript({ Test-Path -LiteralPath (Join-Path $_ 'project.godot') })]
-        [string]$ProjectPath,
-        
-        [Parameter()]
-        [string]$GodotPath = '',
-        
-        [Parameter()]
-        [string[]]$EditorFlags = @()
-    )
-    
-    # Check execution mode
-    Assert-MCPExecutionMode -ToolName 'godot_launch_editor' -CurrentMode $script:ServerState.ExecutionMode
-    
-    try {
-        $godot = Find-GodotExecutable -Path $GodotPath
-        if (-not $godot) {
-            throw 'Godot executable not found'
-        }
-        
-        $resolvedPath = Resolve-Path -LiteralPath $ProjectPath | Select-Object -ExpandProperty Path
-        $projectFile = Join-Path $resolvedPath 'project.godot'
-        
-        $arguments = @('-e', $projectFile) + $EditorFlags
-        
-        $process = Start-Process -FilePath $godot -ArgumentList $arguments -PassThru
-        
-        Write-MCPLog -Level INFO -Message "Launched Godot editor" -Metadata @{
-            project = $resolvedPath
-            processId = $process.Id
-        }
-        
-        return [pscustomobject]@{
-            success = $true
-            processId = $process.Id
-            project = $resolvedPath
-            message = "Godot editor launched successfully"
-        }
-    }
-    catch {
-        Write-MCPLog -Level ERROR -Message "Failed to launch Godot editor: $_"
-        return [pscustomobject]@{
-            success = $false
-            error = $_.Exception.Message
-        }
-    }
-}
-
-<#
-.SYNOPSIS
-    Runs a Godot project.
-.DESCRIPTION
-    Executes the specified Godot project.
-.PARAMETER ProjectPath
-    The path to the Godot project directory.
-.PARAMETER GodotPath
-    Optional path to the Godot executable.
-.PARAMETER Scene
-    Optional specific scene to run.
-.PARAMETER Debug
-    If specified, runs with debugging enabled.
-.OUTPUTS
-    System.Management.Automation.PSCustomObject with run result.
-.EXAMPLE
-    PS C:\> Invoke-MCPGodotRunProject -ProjectPath "./MyGame"
-    
-    Runs the MyGame project.
-#>
-function Invoke-MCPGodotRunProject {
-    [CmdletBinding()]
-    [OutputType([pscustomobject])]
-    param(
-        [Parameter(Mandatory = $true)]
-        [ValidateScript({ Test-Path -LiteralPath (Join-Path $_ 'project.godot') })]
-        [string]$ProjectPath,
-        
-        [Parameter()]
-        [string]$GodotPath = '',
-        
-        [Parameter()]
-        [string]$Scene = '',
-        
-        [Parameter()]
-        [switch]$Debug
-    )
-    
-    # Check execution mode
-    Assert-MCPExecutionMode -ToolName 'godot_run_project' -CurrentMode $script:ServerState.ExecutionMode
-    
-    try {
-        $godot = Find-GodotExecutable -Path $GodotPath
-        if (-not $godot) {
-            throw 'Godot executable not found'
-        }
-        
-        $resolvedPath = Resolve-Path -LiteralPath $ProjectPath | Select-Object -ExpandProperty Path
-        $projectFile = Join-Path $resolvedPath 'project.godot'
-        
-        $arguments = @($projectFile)
-        
-        if ($Debug) {
-            $arguments += '--debug'
-        }
-        
-        if (-not [string]::IsNullOrEmpty($Scene)) {
-            $scenePath = Join-Path $resolvedPath $Scene
-            if (Test-Path -LiteralPath $scenePath) {
-                $arguments += "--scene=$Scene"
+            # Check for shutdown signal
+            if ($line -eq 'shutdown' -or $line -eq 'exit') {
+                Write-MCPLog -Level INFO -Message "Received shutdown signal via stdin"
+                break
             }
-            else {
-                throw "Scene not found: $Scene"
-            }
-        }
-        
-        $process = Start-Process -FilePath $godot -ArgumentList $arguments -PassThru
-        
-        Write-MCPLog -Level INFO -Message "Running Godot project" -Metadata @{
-            project = $resolvedPath
-            scene = $Scene
-            debug = $Debug.IsPresent
-            processId = $process.Id
-        }
-        
-        return [pscustomobject]@{
-            success = $true
-            processId = $process.Id
-            project = $resolvedPath
-            scene = $Scene
-            message = "Project running"
-        }
-    }
-    catch {
-        Write-MCPLog -Level ERROR -Message "Failed to run Godot project: $_"
-        return [pscustomobject]@{
-            success = $false
-            error = $_.Exception.Message
-        }
-    }
-}
-
-<#
-.SYNOPSIS
-    Creates a new Godot scene file.
-.DESCRIPTION
-    Generates a new .tscn scene file with the specified configuration.
-.PARAMETER ProjectPath
-    The path to the Godot project directory.
-.PARAMETER SceneName
-    The name of the scene (without extension).
-.PARAMETER RootType
-    The root node type. Default: Node2D.
-.PARAMETER Directory
-    The directory within the project to create the scene. Default: scenes.
-.OUTPUTS
-    System.Management.Automation.PSCustomObject with creation result.
-.EXAMPLE
-    PS C:\> Invoke-MCPGodotCreateScene -ProjectPath "./MyGame" -SceneName "Level1" -RootType "Node2D"
-    
-    Creates a new Level1.tscn scene.
-#>
-function Invoke-MCPGodotCreateScene {
-    [CmdletBinding()]
-    [OutputType([pscustomobject])]
-    param(
-        [Parameter(Mandatory = $true)]
-        [ValidateScript({ Test-Path -LiteralPath (Join-Path $_ 'project.godot') })]
-        [string]$ProjectPath,
-        
-        [Parameter(Mandatory = $true)]
-        [ValidateNotNullOrEmpty()]
-        [string]$SceneName,
-        
-        [Parameter()]
-        [string]$RootType = 'Node2D',
-        
-        [Parameter()]
-        [string]$Directory = 'scenes'
-    )
-    
-    # Check execution mode
-    Assert-MCPExecutionMode -ToolName 'godot_create_scene' -CurrentMode $script:ServerState.ExecutionMode
-    
-    try {
-        $resolvedPath = Resolve-Path -LiteralPath $ProjectPath | Select-Object -ExpandProperty Path
-        $sceneDir = Join-Path $resolvedPath $Directory
-        
-        # Ensure directory exists
-        if (-not (Test-Path -LiteralPath $sceneDir)) {
-            New-Item -ItemType Directory -Path $sceneDir -Force | Out-Null
-        }
-        
-        $sceneFile = Join-Path $sceneDir "$SceneName.tscn"
-        
-        # Check if file already exists
-        if (Test-Path -LiteralPath $sceneFile) {
-            throw "Scene already exists: $sceneFile"
-        }
-        
-        # Create scene content
-        $sceneContent = @"
-[gd_scene load_steps=1 format=3 uid="uid://$([Guid]::NewGuid().ToString("N").Substring(0, 13))"]
-
-[node name="$SceneName" type="$RootType"]
-"@
-        
-        $sceneContent | Set-Content -LiteralPath $sceneFile -Encoding UTF8 -NoNewline
-        
-        Write-MCPLog -Level INFO -Message "Created Godot scene" -Metadata @{
-            scene = $SceneName
-            path = $sceneFile
-            rootType = $RootType
-        }
-        
-        return [pscustomobject]@{
-            success = $true
-            sceneName = $SceneName
-            scenePath = $sceneFile
-            relativePath = "$Directory/$SceneName.tscn"
-            rootType = $RootType
-            message = "Scene created successfully"
-        }
-    }
-    catch {
-        Write-MCPLog -Level ERROR -Message "Failed to create Godot scene: $_"
-        return [pscustomobject]@{
-            success = $false
-            error = $_.Exception.Message
-        }
-    }
-}
-
-<#
-.SYNOPSIS
-    Adds a node to a Godot scene file.
-.DESCRIPTION
-    Appends a new node to an existing .tscn scene file.
-.PARAMETER ProjectPath
-    The path to the Godot project directory.
-.PARAMETER ScenePath
-    The relative path to the scene file within the project.
-.PARAMETER NodeName
-    The name of the new node.
-.PARAMETER NodeType
-    The type of node to add (e.g., Sprite2D, Camera2D, etc.).
-.PARAMETER ParentPath
-    Optional parent node path. Default: root node.
-.PARAMETER Properties
-    Optional hashtable of initial properties to set.
-.OUTPUTS
-    System.Management.Automation.PSCustomObject with the result.
-.EXAMPLE
-    PS C:\> Invoke-MCPGodotAddNode -ProjectPath "./MyGame" -ScenePath "scenes/Level1.tscn" `
-        -NodeName "PlayerSprite" -NodeType "Sprite2D"
-    
-    Adds a Sprite2D node named PlayerSprite to the scene.
-#>
-function Invoke-MCPGodotAddNode {
-    [CmdletBinding()]
-    [OutputType([pscustomobject])]
-    param(
-        [Parameter(Mandatory = $true)]
-        [ValidateScript({ Test-Path -LiteralPath (Join-Path $_ 'project.godot') })]
-        [string]$ProjectPath,
-        
-        [Parameter(Mandatory = $true)]
-        [ValidateNotNullOrEmpty()]
-        [string]$ScenePath,
-        
-        [Parameter(Mandatory = $true)]
-        [ValidateNotNullOrEmpty()]
-        [string]$NodeName,
-        
-        [Parameter(Mandatory = $true)]
-        [ValidateNotNullOrEmpty()]
-        [string]$NodeType,
-        
-        [Parameter()]
-        [string]$ParentPath = '',
-        
-        [Parameter()]
-        [hashtable]$Properties = @{}
-    )
-    
-    # Check execution mode
-    Assert-MCPExecutionMode -ToolName 'godot_add_node' -CurrentMode $script:ServerState.ExecutionMode
-    
-    try {
-        $resolvedPath = Resolve-Path -LiteralPath $ProjectPath | Select-Object -ExpandProperty Path
-        $sceneFullPath = Join-Path $resolvedPath $ScenePath
-        
-        if (-not (Test-Path -LiteralPath $sceneFullPath)) {
-            throw "Scene not found: $sceneFullPath"
-        }
-        
-        # Read existing scene content
-        $content = Get-Content -LiteralPath $sceneFullPath -Raw
-        
-        # Determine parent
-        $parent = if ($ParentPath) { $ParentPath } else { '.' }
-        
-        # Build node entry
-        $nodeEntry = "`n[node name=`"$NodeName`" type=`"$NodeType`" parent=`"$parent`"]"
-        
-        # Add properties if provided
-        foreach ($prop in $Properties.Keys) {
-            $value = $Properties[$prop]
-            if ($value -is [string]) {
-                $nodeEntry += "`n$prop = `"$value`""
-            }
-            elseif ($value -is [bool]) {
-                $nodeEntry += "`n$prop = $($value.ToString().ToLower())"
-            }
-            else {
-                $nodeEntry += "`n$prop = $value"
-            }
-        }
-        
-        # Append to scene file
-        Add-Content -LiteralPath $sceneFullPath -Value $nodeEntry -Encoding UTF8 -NoNewline
-        
-        Write-MCPLog -Level INFO -Message "Added node to Godot scene" -Metadata @{
-            scene = $ScenePath
-            nodeName = $NodeName
-            nodeType = $NodeType
-            parent = $parent
-        }
-        
-        return [pscustomobject]@{
-            success = $true
-            scenePath = $ScenePath
-            nodeName = $NodeName
-            nodeType = $NodeType
-            parent = $parent
-            message = "Node added successfully"
-        }
-    }
-    catch {
-        Write-MCPLog -Level ERROR -Message "Failed to add node to Godot scene: $_"
-        return [pscustomobject]@{
-            success = $false
-            error = $_.Exception.Message
-        }
-    }
-}
-
-<#
-.SYNOPSIS
-    Gets debug output from a Godot project.
-.DESCRIPTION
-    Retrieves recent debug logs and output from a Godot project.
-.PARAMETER ProjectPath
-    The path to the Godot project directory.
-.PARAMETER LogFile
-    Specific log file to read. If not specified, finds the most recent log.
-.PARAMETER Lines
-    Number of lines to return. Default: 100.
-.OUTPUTS
-    System.Management.Automation.PSCustomObject with debug output.
-.EXAMPLE
-    PS C:\> Get-MCPGodotDebugOutput -ProjectPath "./MyGame" -Lines 50
-    
-    Gets the last 50 lines of debug output.
-#>
-function Get-MCPGodotDebugOutput {
-    [CmdletBinding()]
-    [OutputType([pscustomobject])]
-    param(
-        [Parameter(Mandatory = $true)]
-        [ValidateScript({ Test-Path -LiteralPath (Join-Path $_ 'project.godot') })]
-        [string]$ProjectPath,
-        
-        [Parameter()]
-        [string]$LogFile = '',
-        
-        [Parameter()]
-        [ValidateRange(1, 1000)]
-        [int]$Lines = 100
-    )
-    
-    try {
-        $resolvedPath = Resolve-Path -LiteralPath $ProjectPath | Select-Object -ExpandProperty Path
-        
-        # Determine log file path
-        $logPath = if ($LogFile -and (Test-Path -LiteralPath $LogFile)) {
-            $LogFile
-        }
-        else {
-            # Look for Godot logs in user data directory
-            $godotUserDir = Join-Path $env:APPDATA 'Godot'
-            $projectName = Split-Path -Leaf $resolvedPath
-            
-            # Try to find logs in various locations
-            $possibleLogPaths = @(
-                Join-Path $resolvedPath 'logs'
-                Join-Path $godotUserDir 'app_logs'
-            )
-            
-            $foundLog = $null
-            foreach ($dir in $possibleLogPaths) {
-                if (Test-Path -LiteralPath $dir) {
-                    $logFiles = Get-ChildItem -Path $dir -Filter '*.log' -ErrorAction SilentlyContinue | 
-                        Sort-Object -Property LastWriteTime -Descending | 
-                        Select-Object -First 1
-                    if ($logFiles) {
-                        $foundLog = $logFiles.FullName
-                        break
-                    }
-                }
-            }
-            $foundLog
-        }
-        
-        if (-not $logPath -or -not (Test-Path -LiteralPath $logPath)) {
-            return [pscustomobject]@{
-                success = $true
-                logFile = $null
-                lines = @()
-                totalLines = 0
-                message = "No log files found"
-            }
-        }
-        
-        # Read log content
-        $content = Get-Content -LiteralPath $logPath -Tail $Lines -ErrorAction SilentlyContinue
-        
-        return [pscustomobject]@{
-            success = $true
-            logFile = $logPath
-            lines = @($content)
-            totalLines = $content.Count
-            projectPath = $resolvedPath
-        }
-    }
-    catch {
-        Write-MCPLog -Level ERROR -Message "Failed to get Godot debug output: $_"
-        return [pscustomobject]@{
-            success = $false
-            error = $_.Exception.Message
-        }
-    }
-}
-
-#===============================================================================
-# Blender Integration Tools
-#===============================================================================
-
-<#
-.SYNOPSIS
-    Executes a Blender tool via MCP.
-.DESCRIPTION
-    Invokes a registered Blender-related MCP tool with the specified parameters.
-.PARAMETER ToolName
-    The name of the Blender tool to execute.
-.PARAMETER Parameters
-    Hashtable of parameters to pass to the tool.
-.OUTPUTS
-    System.Management.Automation.PSCustomObject with tool execution results.
-.EXAMPLE
-    PS C:\> Invoke-MCPBlenderTool -ToolName "blender_version" -Parameters @{}
-    
-    Gets the Blender version.
-#>
-function Invoke-MCPBlenderTool {
-    [CmdletBinding()]
-    [OutputType([pscustomobject])]
-    param(
-        [Parameter(Mandatory = $true)]
-        [ValidateSet('blender_version', 'blender_operator', 'blender_export_mesh_library')]
-        [string]$ToolName,
-        
-        [Parameter()]
-        [hashtable]$Parameters = @{}
-    )
-    
-    return Invoke-MCPTool -ToolName $ToolName -Parameters $Parameters
-}
-
-<#
-.SYNOPSIS
-    Gets the installed Blender version.
-.DESCRIPTION
-    Queries the system for the installed Blender version.
-.PARAMETER BlenderPath
-    Optional path to the Blender executable.
-.OUTPUTS
-    System.Management.Automation.PSCustomObject with version information.
-.EXAMPLE
-    PS C:\> Get-MCPBlenderVersion
-    
-    Returns the Blender version information.
-#>
-function Get-MCPBlenderVersion {
-    [CmdletBinding()]
-    [OutputType([pscustomobject])]
-    param(
-        [Parameter()]
-        [string]$BlenderPath = ''
-    )
-    
-    try {
-        $blender = Find-BlenderExecutable -Path $BlenderPath
-        
-        if (-not $blender) {
-            return [pscustomobject]@{
-                installed = $false
-                version = $null
-                versionString = $null
-                error = 'Blender executable not found'
-            }
-        }
-        
-        # Get version using --version flag
-        $versionOutput = & $blender --version 2>&1 | Out-String
-        $lines = $versionOutput -split "`r?`n"
-        $versionString = $lines[0].Trim()
-        
-        # Parse version (format: Blender 3.6.0 or Blender 4.0.0)
-        $versionMatch = $versionString -match 'Blender\s+(\d+)\.(\d+)\.(\d+)'
-        $version = if ($versionMatch) {
-            @{
-                major = [int]$matches[1]
-                minor = [int]$matches[2]
-                patch = [int]$matches[3]
-                full = $versionString
-            }
-        } else { $null }
-        
-        return [pscustomobject]@{
-            installed = $true
-            version = $version
-            versionString = $versionString
-            executable = $blender
-            error = $null
-        }
-    }
-    catch {
-        Write-MCPLog -Level ERROR -Message "Failed to get Blender version: $_"
-        return [pscustomobject]@{
-            installed = $false
-            version = $null
-            versionString = $null
-            error = $_.Exception.Message
-        }
-    }
-}
-
-<#
-.SYNOPSIS
-    Executes a Blender operator via bpy.
-.DESCRIPTION
-    Runs a Blender Python operator using the bpy module.
-.PARAMETER Operator
-    The bpy operator to execute (e.g., 'mesh.primitive_cube_add').
-.PARAMETER Parameters
-    Hashtable of parameters for the operator.
-.PARAMETER BlenderPath
-    Optional path to the Blender executable.
-.PARAMETER Background
-    If specified, runs Blender in background mode (default: true for operators).
-.OUTPUTS
-    System.Management.Automation.PSCustomObject with execution result.
-.EXAMPLE
-    PS C:\> Invoke-MCPBlenderOperator -Operator "mesh.primitive_cube_add" -Parameters @{ size = 2 }
-    
-    Creates a cube in Blender.
-#>
-function Invoke-MCPBlenderOperator {
-    [CmdletBinding()]
-    [OutputType([pscustomobject])]
-    param(
-        [Parameter(Mandatory = $true)]
-        [ValidateNotNullOrEmpty()]
-        [string]$Operator,
-        
-        [Parameter()]
-        [hashtable]$Parameters = @{},
-        
-        [Parameter()]
-        [string]$BlenderPath = '',
-        
-        [Parameter()]
-        [switch]$Background = $true
-    )
-    
-    # Check execution mode
-    Assert-MCPExecutionMode -ToolName 'blender_operator' -CurrentMode $script:ServerState.ExecutionMode
-    
-    try {
-        $blender = Find-BlenderExecutable -Path $BlenderPath
-        if (-not $blender) {
-            throw 'Blender executable not found'
-        }
-        
-        # Build Python script
-        $paramList = @()
-        foreach ($key in $Parameters.Keys) {
-            $value = $Parameters[$key]
-            if ($value -is [string]) {
-                $paramList += "$key=`"$value`""
-            }
-            elseif ($value -is [bool]) {
-                $paramList += "$key=$($value.ToString().ToLower())"
-            }
-            else {
-                $paramList += "$key=$value"
-            }
-        }
-        $paramString = if ($paramList.Count -gt 0) { ", $($paramList -join ', ')" } else { '' }
-        
-        $pythonScript = @"
-import bpy
-import sys
-import json
-
-try:
-    bpy.ops.$Operator($($paramString.TrimStart(', ')))
-    result = {"success": True, "message": "Operator executed successfully"}
-except Exception as e:
-    result = {"success": False, "error": str(e)}
-
-print("MCP_RESULT:" + json.dumps(result))
-"@
-        
-        $arguments = @()
-        if ($Background) {
-            $arguments += '--background'
-        }
-        $arguments += '--python-expr'
-        $arguments += $pythonScript
-        
-        $output = & $blender @arguments 2>&1 | Out-String
-        
-        # Parse result from output
-        $resultMatch = $output -match 'MCP_RESULT:(\{[^}]+\})'
-        $result = if ($resultMatch) {
-            $resultMatch[1] | ConvertFrom-Json
-        } else {
-            @{ success = $true; rawOutput = $output }
-        }
-        
-        Write-MCPLog -Level INFO -Message "Executed Blender operator" -Metadata @{
-            operator = $Operator
-            success = $result.success
-        }
-        
-        return [pscustomobject]$result
-    }
-    catch {
-        Write-MCPLog -Level ERROR -Message "Failed to execute Blender operator: $_"
-        return [pscustomobject]@{
-            success = $false
-            error = $_.Exception.Message
-        }
-    }
-}
-
-<#
-.SYNOPSIS
-    Exports a mesh library from Blender.
-.DESCRIPTION
-    Exports selected or all meshes from a Blender file to a mesh library format.
-.PARAMETER BlendFile
-    The path to the .blend file to export from.
-.PARAMETER OutputPath
-    The output path for the exported mesh library.
-.PARAMETER Format
-    The export format: 'gltf', 'fbx', or 'obj'. Default: gltf.
-.PARAMETER SelectedOnly
-    If specified, exports only selected meshes.
-.PARAMETER BlenderPath
-    Optional path to the Blender executable.
-.OUTPUTS
-    System.Management.Automation.PSCustomObject with export result.
-.EXAMPLE
-    PS C:\> Invoke-MCPBlenderExportMeshLibrary -BlendFile "./models.blend" -OutputPath "./mesh_library.gltf"
-    
-    Exports meshes from the blend file to glTF format.
-#>
-function Invoke-MCPBlenderExportMeshLibrary {
-    [CmdletBinding()]
-    [OutputType([pscustomobject])]
-    param(
-        [Parameter(Mandatory = $true)]
-        [ValidateScript({ Test-Path -LiteralPath $_ })]
-        [string]$BlendFile,
-        
-        [Parameter(Mandatory = $true)]
-        [ValidateNotNullOrEmpty()]
-        [string]$OutputPath,
-        
-        [Parameter()]
-        [ValidateSet('gltf', 'fbx', 'obj')]
-        [string]$Format = 'gltf',
-        
-        [Parameter()]
-        [switch]$SelectedOnly,
-        
-        [Parameter()]
-        [string]$BlenderPath = ''
-    )
-    
-    # Check execution mode
-    Assert-MCPExecutionMode -ToolName 'blender_export_mesh_library' -CurrentMode $script:ServerState.ExecutionMode
-    
-    try {
-        $blender = Find-BlenderExecutable -Path $BlenderPath
-        if (-not $blender) {
-            throw 'Blender executable not found'
-        }
-        
-        $resolvedBlendFile = Resolve-Path -LiteralPath $BlendFile | Select-Object -ExpandProperty Path
-        $resolvedOutputPath = $ExecutionContext.SessionState.Path.GetUnresolvedProviderPathFromPSPath($OutputPath)
-        
-        # Build Python script for export
-        $exportScript = @"
-import bpy
-import json
-import os
-
-try:
-    # Clear default scene
-    bpy.ops.object.select_all(action='SELECT')
-    bpy.ops.object.delete(use_global=False)
-    
-    # Load blend file
-    bpy.ops.wm.open_mainfile(filepath=r'$resolvedBlendFile')
-    
-    # Select meshes
-    bpy.ops.object.select_all(action='DESELECT')
-    for obj in bpy.context.scene.objects:
-        if obj.type == 'MESH':
-            obj.select_set(True)
-    
-    # Export based on format
-    format_lower = '$Format'.lower()
-    output_path = r'$resolvedOutputPath'
-    
-    if format_lower == 'gltf':
-        bpy.ops.export_scene.gltf(filepath=output_path, use_selection=True)
-    elif format_lower == 'fbx':
-        bpy.ops.export_scene.fbx(filepath=output_path, use_selection=True)
-    elif format_lower == 'obj':
-        bpy.ops.export_scene.obj(filepath=output_path, use_selection=True)
-    
-    result = {"success": True, "message": f"Exported mesh library to {output_path}"}
-except Exception as e:
-    result = {"success": False, "error": str(e)}
-
-print("MCP_RESULT:" + json.dumps(result))
-"@
-        
-        $arguments = @(
-            '--background'
-            '--python-expr'
-            $exportScript
-        )
-        
-        $output = & $blender @arguments 2>&1 | Out-String
-        
-        # Parse result from output
-        $resultMatch = $output -match 'MCP_RESULT:(\{[^}]+\})'
-        $result = if ($resultMatch) {
-            $resultMatch[1] | ConvertFrom-Json
-        } else {
-            @{ success = $true; rawOutput = $output }
-        }
-        
-        Write-MCPLog -Level INFO -Message "Exported Blender mesh library" -Metadata @{
-            blendFile = $resolvedBlendFile
-            outputPath = $resolvedOutputPath
-            format = $Format
-            success = $result.success
-        }
-        
-        return [pscustomobject]@{
-            success = $result.success
-            message = if ($result.message) { $result.message } else { "Export completed" }
-            error = if ($result.error) { $result.error } else { $null }
-            blendFile = $resolvedBlendFile
-            outputPath = $resolvedOutputPath
-            format = $Format
-        }
-    }
-    catch {
-        Write-MCPLog -Level ERROR -Message "Failed to export Blender mesh library: $_"
-        return [pscustomobject]@{
-            success = $false
-            error = $_.Exception.Message
-        }
-    }
-}
-
-#===============================================================================
-# Pack Query Tools
-#===============================================================================
-
-<#
-.SYNOPSIS
-    Queries pack knowledge via MCP.
-.DESCRIPTION
-    Performs a knowledge query across configured packs using the
-    ContextLattice retrieval system.
-.PARAMETER Query
-    The search query string.
-.PARAMETER PackIds
-    Optional array of pack IDs to search. Default: all packs.
-.PARAMETER Limit
-    Maximum number of results. Default: 5.
-.PARAMETER ContextWindow
-    Context window size for results. Default: 2000.
-.OUTPUTS
-    System.Management.Automation.PSCustomObject with query results.
-.EXAMPLE
-    PS C:\> Invoke-MCPPackQuery -Query "how to create a node in Godot"
-    
-    Searches for Godot node creation documentation.
-#>
-function Invoke-MCPPackQuery {
-    [CmdletBinding()]
-    [OutputType([pscustomobject])]
-    param(
-        [Parameter(Mandatory = $true)]
-        [ValidateNotNullOrEmpty()]
-        [string]$Query,
-        
-        [Parameter()]
-        [string[]]$PackIds = @(),
-        
-        [Parameter()]
-        [ValidateRange(1, 50)]
-        [int]$Limit = 5,
-        
-        [Parameter()]
-        [ValidateRange(100, 10000)]
-        [int]$ContextWindow = 2000
-    )
-    
-    try {
-        # Build query parameters
-        $queryParams = @{
-            query = $Query
-            limit = $Limit
-            contextWindow = $ContextWindow
-        }
-        
-        if ($PackIds.Count -gt 0) {
-            $queryParams['packIds'] = $PackIds
-        }
-        
-        Write-MCPLog -Level INFO -Message "Executing pack query" -Metadata @{
-            query = $Query
-            packCount = $PackIds.Count
-            limit = $Limit
-        }
-        
-        # Try to use ContextLattice if available
-        $contextLatticeUrl = [Environment]::GetEnvironmentVariable('CONTEXTLATTICE_ORCHESTRATOR_URL')
-        $apiKey = [Environment]::GetEnvironmentVariable('CONTEXTLATTICE_ORCHESTRATOR_API_KEY')
-        
-        if (-not [string]::IsNullOrEmpty($contextLatticeUrl) -and -not [string]::IsNullOrEmpty($apiKey)) {
-            # Use ContextLattice API
-            $headers = @{
-                'Content-Type' = 'application/json'
-                'x-api-key' = $apiKey
-            }
-            
-            $body = @{
-                query = $Query
-                limit = $Limit
-            } | ConvertTo-Json
-            
-            $url = "$($contextLatticeUrl.TrimEnd('/'))/query"
             
             try {
-                $response = Invoke-RestMethod -Uri $url -Method POST -Headers $headers -Body $body -TimeoutSec 30
+                # Parse JSON-RPC request
+                $request = $line | ConvertFrom-Json -ErrorAction Stop
                 
-                return [pscustomobject]@{
-                    success = $true
-                    query = $Query
-                    results = $response.results
-                    totalResults = $response.results.Count
-                    source = 'contextlattice'
-                    timestamp = [DateTime]::UtcNow.ToString('O')
-                }
+                # Process the request
+                $response = Process-MCPRequest -Request $request
+                
+                # Write response to stdout
+                $responseJson = $response | ConvertTo-Json -Depth 10 -Compress
+                [Console]::Out.WriteLine($responseJson)
             }
             catch {
-                Write-MCPLog -Level WARN -Message "ContextLattice query failed, falling back to local: $_"
+                # Return JSON-RPC parse error
+                $errorResponse = @{
+                    jsonrpc = '2.0'
+                    id = $null
+                    error = @{
+                        code = -32700
+                        message = 'Parse error'
+                        data = $_.Exception.Message
+                    }
+                } | ConvertTo-Json -Compress
+                [Console]::Out.WriteLine($errorResponse)
+                
+                Write-MCPLog -Level ERROR -Message "Failed to process request: $_"
             }
-        }
-        
-        # Fallback: search local pack files
-        $localResults = Search-LocalPackContent -Query $Query -PackIds $PackIds -Limit $Limit
-        
-        return [pscustomobject]@{
-            success = $true
-            query = $Query
-            results = $localResults
-            totalResults = $localResults.Count
-            source = 'local'
-            timestamp = [DateTime]::UtcNow.ToString('O')
         }
     }
     catch {
-        Write-MCPLog -Level ERROR -Message "Pack query failed: $_"
-        return [pscustomobject]@{
-            success = $false
-            query = $Query
-            error = $_.Exception.Message
-            results = @()
-            totalResults = 0
-            timestamp = [DateTime]::UtcNow.ToString('O')
-        }
+        Write-MCPLog -Level ERROR -Message "Stdio loop error: $_"
     }
-}
-
-<#
-.SYNOPSIS
-    Gets pack health and status information.
-.DESCRIPTION
-    Returns status information about configured packs including
-    availability, version, and health scores.
-.PARAMETER PackId
-    Optional specific pack ID to check.
-.OUTPUTS
-    System.Management.Automation.PSCustomObject with pack status.
-.EXAMPLE
-    PS C:\> Get-MCPPackStatus
-    
-    Returns status for all packs.
-#>
-function Get-MCPPackStatus {
-    [CmdletBinding()]
-    [OutputType([pscustomobject])]
-    param(
-        [Parameter()]
-        [string]$PackId = ''
-    )
-    
-    try {
-        $packs = [System.Collections.Generic.List[object]]::new()
-        
-        # Check packs directory
-        $packsDir = 'packs'
-        if (Test-Path -LiteralPath $packsDir) {
-            $packFolders = Get-ChildItem -Path $packsDir -Directory -ErrorAction SilentlyContinue
-            
-            foreach ($folder in $packFolders) {
-                if (-not [string]::IsNullOrEmpty($PackId) -and $folder.Name -ne $PackId) {
-                    continue
-                }
-                
-                $manifestPath = Join-Path $folder.FullName 'pack.json'
-                $manifest = @{}
-                
-                if (Test-Path -LiteralPath $manifestPath) {
-                    try {
-                        $content = Get-Content -LiteralPath $manifestPath -Raw | ConvertFrom-Json
-                        $manifest = @{
-                            name = $content.name
-                            version = $content.version
-                            description = $content.description
-                        }
-                    }
-                    catch {
-                        $manifest = @{ error = 'Invalid manifest' }
-                    }
-                }
-                
-                # Check for indexed content
-                $indexPath = Join-Path $folder.FullName 'index'
-                $hasIndex = Test-Path -LiteralPath $indexPath
-                
-                # Calculate basic health metrics
-                $fileCount = (Get-ChildItem -Path $folder.FullName -Recurse -File -ErrorAction SilentlyContinue).Count
-                $lastModified = (Get-Item -LiteralPath $folder.FullName).LastWriteTimeUtc
-                
-                $packs.Add([pscustomobject]@{
-                    id = $folder.Name
-                    path = $folder.FullName
-                    manifest = $manifest
-                    hasIndex = $hasIndex
-                    fileCount = $fileCount
-                    lastModified = $lastModified.ToString('O')
-                    status = if ($hasIndex) { 'indexed' } else { 'unindexed' }
-                    health = Calculate-PackHealth -FileCount $fileCount -HasIndex $hasIndex -LastModified $lastModified
-                })
-            }
-        }
-        
-        return [pscustomobject]@{
-            success = $true
-            totalPacks = $packs.Count
-            packs = $packs.ToArray()
-            timestamp = [DateTime]::UtcNow.ToString('O')
-        }
-    }
-    catch {
-        Write-MCPLog -Level ERROR -Message "Failed to get pack status: $_"
-        return [pscustomobject]@{
-            success = $false
-            error = $_.Exception.Message
-            timestamp = [DateTime]::UtcNow.ToString('O')
-        }
+    finally {
+        Write-MCPLog -Level INFO -Message "MCP stdio loop ended"
     }
 }
 
@@ -2553,6 +1351,93 @@ function Register-DefaultMCPTools {
         -SafetyLevel 'ReadOnly' `
         -Tags @('godot', 'debug')
     
+    # Godot Export Project Tool
+    Register-MCPTool `
+        -Name 'godot_export_project' `
+        -Description 'Exports a Godot project to various platforms using export presets' `
+        -Parameters @{
+            projectPath = @{ type = 'string'; description = 'Path to the Godot project'; required = $true }
+            exportPreset = @{ type = 'string'; description = 'Export preset name (e.g., "Windows Desktop", "Linux/X11", "Web")'; required = $true }
+            outputPath = @{ type = 'string'; description = 'Output path for the exported build'; required = $true }
+            godotPath = @{ type = 'string'; description = 'Optional path to Godot executable' }
+        } `
+        -Handler { 
+            param($params)
+            $godotPath = if ($params['godotPath']) { $params['godotPath'] } else { '' }
+            Invoke-MCPGodotExportProject -ProjectPath $params['projectPath'] -ExportPreset $params['exportPreset'] -OutputPath $params['outputPath'] -GodotPath $godotPath
+        } `
+        -SafetyLevel 'Mutating' `
+        -Tags @('godot', 'export', 'build')
+    
+    # Godot Build Project Tool
+    Register-MCPTool `
+        -Name 'godot_build_project' `
+        -Description 'Builds/compiles a Godot project by importing and validating resources' `
+        -Parameters @{
+            projectPath = @{ type = 'string'; description = 'Path to the Godot project'; required = $true }
+            godotPath = @{ type = 'string'; description = 'Optional path to Godot executable' }
+            verboseBuild = @{ type = 'boolean'; description = 'Enable verbose build output'; default = $false }
+        } `
+        -Handler { 
+            param($params)
+            $godotPath = if ($params['godotPath']) { $params['godotPath'] } else { '' }
+            $verboseBuild = if ($params.ContainsKey('verboseBuild')) { $params['verboseBuild'] } else { $false }
+            Invoke-MCPGodotBuildProject -ProjectPath $params['projectPath'] -GodotPath $godotPath -VerboseBuild:$verboseBuild
+        } `
+        -SafetyLevel 'Mutating' `
+        -Tags @('godot', 'build', 'compile')
+    
+    # Godot Run Tests Tool
+    Register-MCPTool `
+        -Name 'godot_run_tests' `
+        -Description 'Runs gdUnit4 tests for a Godot project if available' `
+        -Parameters @{
+            projectPath = @{ type = 'string'; description = 'Path to the Godot project'; required = $true }
+            testPath = @{ type = 'string'; description = 'Optional specific test file or directory to run' }
+            godotPath = @{ type = 'string'; description = 'Optional path to Godot executable' }
+        } `
+        -Handler { 
+            param($params)
+            $testPath = if ($params['testPath']) { $params['testPath'] } else { '' }
+            $godotPath = if ($params['godotPath']) { $params['godotPath'] } else { '' }
+            Invoke-MCPGodotRunTests -ProjectPath $params['projectPath'] -TestPath $testPath -GodotPath $godotPath
+        } `
+        -SafetyLevel 'Mutating' `
+        -Tags @('godot', 'test', 'gdunit4')
+    
+    # Godot Check Syntax Tool
+    Register-MCPTool `
+        -Name 'godot_check_syntax' `
+        -Description 'Validates GDScript syntax for project files' `
+        -Parameters @{
+            projectPath = @{ type = 'string'; description = 'Path to the Godot project'; required = $true }
+            scriptPath = @{ type = 'string'; description = 'Optional specific script to validate (relative path)' }
+            godotPath = @{ type = 'string'; description = 'Optional path to Godot executable' }
+        } `
+        -Handler { 
+            param($params)
+            $scriptPath = if ($params['scriptPath']) { $params['scriptPath'] } else { '' }
+            $godotPath = if ($params['godotPath']) { $params['godotPath'] } else { '' }
+            Invoke-MCPGodotCheckSyntax -ProjectPath $params['projectPath'] -ScriptPath $scriptPath -GodotPath $godotPath
+        } `
+        -SafetyLevel 'ReadOnly' `
+        -Tags @('godot', 'syntax', 'validation', 'gdscript')
+    
+    # Godot Get Scene Tree Tool
+    Register-MCPTool `
+        -Name 'godot_get_scene_tree' `
+        -Description 'Parses and returns the scene tree structure from a .tscn file' `
+        -Parameters @{
+            projectPath = @{ type = 'string'; description = 'Path to the Godot project'; required = $true }
+            scenePath = @{ type = 'string'; description = 'Relative path to the scene file'; required = $true }
+        } `
+        -Handler { 
+            param($params)
+            Get-MCPGodotSceneTree -ProjectPath $params['projectPath'] -ScenePath $params['scenePath']
+        } `
+        -SafetyLevel 'ReadOnly' `
+        -Tags @('godot', 'scene', 'parse', 'tree')
+    
     # Blender Version Tool
     Register-MCPTool `
         -Name 'blender_version' `
@@ -2601,6 +1486,116 @@ function Register-DefaultMCPTools {
         -SafetyLevel 'Mutating' `
         -Tags @('blender', 'export', 'mesh')
     
+    # Blender Import Mesh Tool
+    Register-MCPTool `
+        -Name 'blender_import_mesh' `
+        -Description 'Imports mesh files (obj, fbx, gltf) into Blender' `
+        -Parameters @{
+            filePath = @{ type = 'string'; description = 'Path to the mesh file to import'; required = $true }
+            blendFile = @{ type = 'string'; description = 'Optional path to existing .blend file to append to' }
+            format = @{ type = 'string'; description = 'Import format (obj, fbx, gltf, glb)'; default = 'auto' }
+        } `
+        -Handler { 
+            param($params)
+            $blendFile = if ($params['blendFile']) { $params['blendFile'] } else { '' }
+            $format = if ($params['format']) { $params['format'] } else { 'auto' }
+            Invoke-MCPBlenderImportMesh -FilePath $params['filePath'] -BlendFile $blendFile -Format $format
+        } `
+        -SafetyLevel 'Mutating' `
+        -Tags @('blender', 'import', 'mesh')
+    
+    # Blender Render Scene Tool
+    Register-MCPTool `
+        -Name 'blender_render_scene' `
+        -Description 'Renders current scene or animation' `
+        -Parameters @{
+            blendFile = @{ type = 'string'; description = 'Path to the .blend file'; required = $true }
+            outputPath = @{ type = 'string'; description = 'Output path for rendered image/video'; required = $true }
+            animation = @{ type = 'boolean'; description = 'Render full animation instead of single frame'; default = $false }
+            frameStart = @{ type = 'integer'; description = 'Start frame for animation'; default = 1 }
+            frameEnd = @{ type = 'integer'; description = 'End frame for animation'; default = 250 }
+            engine = @{ type = 'string'; description = 'Render engine (CYCLES, BLENDER_EEVEE, BLENDER_WORKBENCH)'; default = 'BLENDER_EEVEE' }
+            resolutionX = @{ type = 'integer'; description = 'Resolution width'; default = 1920 }
+            resolutionY = @{ type = 'integer'; description = 'Resolution height'; default = 1080 }
+        } `
+        -Handler { 
+            param($params)
+            $animation = if ($params.ContainsKey('animation')) { $params['animation'] } else { $false }
+            $frameStart = if ($params['frameStart']) { $params['frameStart'] } else { 1 }
+            $frameEnd = if ($params['frameEnd']) { $params['frameEnd'] } else { 250 }
+            $engine = if ($params['engine']) { $params['engine'] } else { 'BLENDER_EEVEE' }
+            $resolutionX = if ($params['resolutionX']) { $params['resolutionX'] } else { 1920 }
+            $resolutionY = if ($params['resolutionY']) { $params['resolutionY'] } else { 1080 }
+            Invoke-MCPBlenderRenderScene -BlendFile $params['blendFile'] -OutputPath $params['outputPath'] `
+                -Animation:$animation -FrameStart $frameStart -FrameEnd $frameEnd -Engine $engine `
+                -ResolutionX $resolutionX -ResolutionY $resolutionY
+        } `
+        -SafetyLevel 'Mutating' `
+        -Tags @('blender', 'render', 'scene')
+    
+    # Blender List Materials Tool
+    Register-MCPTool `
+        -Name 'blender_list_materials' `
+        -Description 'Lists materials in the blend file' `
+        -Parameters @{
+            blendFile = @{ type = 'string'; description = 'Path to the .blend file'; required = $true }
+            includeOrphans = @{ type = 'boolean'; description = 'Include orphan materials (not assigned to any object)'; default = $false }
+        } `
+        -Handler { 
+            param($params)
+            $includeOrphans = if ($params.ContainsKey('includeOrphans')) { $params['includeOrphans'] } else { $false }
+            Invoke-MCPBlenderListMaterials -BlendFile $params['blendFile'] -IncludeOrphans:$includeOrphans
+        } `
+        -SafetyLevel 'ReadOnly' `
+        -Tags @('blender', 'material', 'list')
+    
+    # Blender Apply Modifier Tool
+    Register-MCPTool `
+        -Name 'blender_apply_modifier' `
+        -Description 'Applies modifiers to objects' `
+        -Parameters @{
+            blendFile = @{ type = 'string'; description = 'Path to the .blend file'; required = $true }
+            objectName = @{ type = 'string'; description = 'Name of the object to apply modifiers to'; required = $true }
+            modifierType = @{ type = 'string'; description = 'Specific modifier type to apply (e.g., SUBSURF, MIRROR, ARRAY)'; default = '' }
+            allModifiers = @{ type = 'boolean'; description = 'Apply all modifiers'; default = $true }
+        } `
+        -Handler { 
+            param($params)
+            $modifierType = if ($params['modifierType']) { $params['modifierType'] } else { '' }
+            $allModifiers = if ($params.ContainsKey('allModifiers')) { $params['allModifiers'] } else { $true }
+            Invoke-MCPBlenderApplyModifier -BlendFile $params['blendFile'] -ObjectName $params['objectName'] `
+                -ModifierType $modifierType -AllModifiers:$allModifiers
+        } `
+        -SafetyLevel 'Mutating' `
+        -Tags @('blender', 'modifier', 'apply')
+    
+    # Blender Export Godot Tool
+    Register-MCPTool `
+        -Name 'blender_export_godot' `
+        -Description 'Exports to Godot-compatible format (gltf with specific settings)' `
+        -Parameters @{
+            blendFile = @{ type = 'string'; description = 'Path to the .blend file'; required = $true }
+            outputPath = @{ type = 'string'; description = 'Output path for .glb/.gltf file'; required = $true }
+            exportMaterials = @{ type = 'boolean'; description = 'Export materials'; default = $true }
+            exportAnimations = @{ type = 'boolean'; description = 'Export animations'; default = $true }
+            exportCameras = @{ type = 'boolean'; description = 'Export cameras'; default = $false }
+            exportLights = @{ type = 'boolean'; description = 'Export lights'; default = $false }
+            yUp = @{ type = 'boolean'; description = 'Use Y-up coordinate system (recommended for Godot)'; default = $true }
+        } `
+        -Handler { 
+            param($params)
+            $exportMaterials = if ($params.ContainsKey('exportMaterials')) { $params['exportMaterials'] } else { $true }
+            $exportAnimations = if ($params.ContainsKey('exportAnimations')) { $params['exportAnimations'] } else { $true }
+            $exportCameras = if ($params.ContainsKey('exportCameras')) { $params['exportCameras'] } else { $false }
+            $exportLights = if ($params.ContainsKey('exportLights')) { $params['exportLights'] } else { $false }
+            $yUp = if ($params.ContainsKey('yUp')) { $params['yUp'] } else { $true }
+            Invoke-MCPBlenderExportGodot -BlendFile $params['blendFile'] -OutputPath $params['outputPath'] `
+                -ExportMaterials:$exportMaterials -ExportAnimations:$exportAnimations `
+                -ExportCameras:$exportCameras -ExportLights:$exportLights -YUp:$yUp
+        } `
+        -SafetyLevel 'Mutating' `
+        -Tags @('blender', 'export', 'godot', 'gltf')
+    
     # Pack Query Tool
     Register-MCPTool `
         -Name 'pack_query' `
@@ -2633,6 +1628,95 @@ function Register-DefaultMCPTools {
         } `
         -SafetyLevel 'ReadOnly' `
         -Tags @('pack', 'status')
+    
+    #===============================================================================
+    # RPG Maker MZ Integration Tools
+    #===============================================================================
+    
+    # RPG Maker Project Info Tool
+    Register-MCPTool `
+        -Name 'rpgmaker_project_info' `
+        -Description 'Gets information about an RPG Maker MZ project' `
+        -Parameters @{
+            projectPath = @{ type = 'string'; description = 'Path to the RPG Maker project directory'; required = $true }
+        } `
+        -Handler { 
+            param($params)
+            Get-MCPRPGMakerProjectInfo -ProjectPath $params['projectPath']
+        } `
+        -SafetyLevel 'ReadOnly' `
+        -Tags @('rpgmaker', 'project', 'mz')
+    
+    # RPG Maker List Plugins Tool
+    Register-MCPTool `
+        -Name 'rpgmaker_list_plugins' `
+        -Description 'Lists installed plugins in an RPG Maker MZ project' `
+        -Parameters @{
+            projectPath = @{ type = 'string'; description = 'Path to the RPG Maker project directory'; required = $true }
+            includeDetails = @{ type = 'boolean'; description = 'Include detailed plugin metadata'; default = $false }
+        } `
+        -Handler { 
+            param($params)
+            $includeDetails = if ($params.ContainsKey('includeDetails')) { $params['includeDetails'] } else { $false }
+            Get-MCPRPGMakerPluginList -ProjectPath $params['projectPath'] -IncludeDetails:$includeDetails
+        } `
+        -SafetyLevel 'ReadOnly' `
+        -Tags @('rpgmaker', 'plugins', 'list')
+    
+    # RPG Maker Analyze Plugin Tool
+    Register-MCPTool `
+        -Name 'rpgmaker_analyze_plugin' `
+        -Description 'Analyzes a specific RPG Maker plugin file for conflicts and metadata' `
+        -Parameters @{
+            projectPath = @{ type = 'string'; description = 'Path to the RPG Maker project directory'; required = $true }
+            pluginName = @{ type = 'string'; description = 'Name of the plugin to analyze (with or without .js extension)'; required = $true }
+            checkConflicts = @{ type = 'boolean'; description = 'Check for conflicts with other plugins'; default = $true }
+        } `
+        -Handler { 
+            param($params)
+            $checkConflicts = if ($params.ContainsKey('checkConflicts')) { $params['checkConflicts'] } else { $true }
+            Invoke-MCPRPGMakerAnalyzePlugin -ProjectPath $params['projectPath'] -PluginName $params['pluginName'] -CheckConflicts:$checkConflicts
+        } `
+        -SafetyLevel 'ReadOnly' `
+        -Tags @('rpgmaker', 'plugins', 'analysis', 'conflict')
+    
+    # RPG Maker Create Plugin Skeleton Tool
+    Register-MCPTool `
+        -Name 'rpgmaker_create_plugin_skeleton' `
+        -Description 'Creates a new RPG Maker MZ plugin file with proper header' `
+        -Parameters @{
+            projectPath = @{ type = 'string'; description = 'Path to the RPG Maker project directory'; required = $true }
+            pluginName = @{ type = 'string'; description = 'Name of the new plugin'; required = $true }
+            author = @{ type = 'string'; description = 'Plugin author name'; default = '' }
+            description = @{ type = 'string'; description = 'Plugin description'; default = '' }
+            target = @{ type = 'string'; description = 'Target engine (MZ, MV, or Both)'; default = 'MZ' }
+        } `
+        -Handler { 
+            param($params)
+            $author = if ($params['author']) { $params['author'] } else { '' }
+            $description = if ($params['description']) { $params['description'] } else { '' }
+            $target = if ($params['target']) { $params['target'] } else { 'MZ' }
+            Invoke-MCPRPGMakerCreatePluginSkeleton -ProjectPath $params['projectPath'] -PluginName $params['pluginName'] `
+                -Author $author -Description $description -Target $target
+        } `
+        -SafetyLevel 'Mutating' `
+        -Tags @('rpgmaker', 'plugins', 'create')
+    
+    # RPG Maker Validate Notetags Tool
+    Register-MCPTool `
+        -Name 'rpgmaker_validate_notetags' `
+        -Description 'Validates notetag syntax in RPG Maker MZ database files' `
+        -Parameters @{
+            projectPath = @{ type = 'string'; description = 'Path to the RPG Maker project directory'; required = $true }
+            databaseFile = @{ type = 'string'; description = 'Specific database file to validate (e.g., Actors.json, Items.json). If not specified, validates all database files.'; default = '' }
+        } `
+        -Handler { 
+            param($params)
+            $databaseFile = if ($params['databaseFile']) { $params['databaseFile'] } else { '' }
+            Test-MCPRPGMakerNotetags -ProjectPath $params['projectPath'] -DatabaseFile $databaseFile
+        } `
+        -SafetyLevel 'ReadOnly' `
+        -Tags @('rpgmaker', 'notetags', 'validation')
 }
 
 <#
@@ -2886,243 +1970,6 @@ function Assert-MCPExecutionMode {
 .OUTPUTS
     String path to the executable or null if not found.
 #>
-function Find-GodotExecutable {
-    [CmdletBinding()]
-    [OutputType([string])]
-    param(
-        [Parameter()]
-        [string]$Path = ''
-    )
-    
-    # Check explicit path first
-    if (-not [string]::IsNullOrEmpty($Path) -and (Test-Path -LiteralPath $Path)) {
-        return $Path
-    }
-    
-    # Check PATH
-    $commands = @('godot', 'godot4', 'Godot')
-    foreach ($cmd in $commands) {
-        $found = Get-Command $cmd -ErrorAction SilentlyContinue
-        if ($found) {
-            return $found.Source
-        }
-    }
-    
-    # Check common installation paths
-    $commonPaths = @(
-        'C:\Program Files\Godot\Godot.exe',
-        'C:\Program Files (x86)\Godot\Godot.exe',
-        '/usr/bin/godot',
-        '/usr/local/bin/godot',
-        '/Applications/Godot.app/Contents/MacOS/Godot'
-    )
-    
-    foreach ($testPath in $commonPaths) {
-        if (Test-Path -LiteralPath $testPath) {
-            return $testPath
-        }
-    }
-    
-    return $null
-}
-
-<#
-.SYNOPSIS
-    Finds the Blender executable.
-.DESCRIPTION
-    Searches for the Blender executable in common locations.
-.PARAMETER Path
-    Optional explicit path to check first.
-.OUTPUTS
-    String path to the executable or null if not found.
-#>
-function Find-BlenderExecutable {
-    [CmdletBinding()]
-    [OutputType([string])]
-    param(
-        [Parameter()]
-        [string]$Path = ''
-    )
-    
-    # Check explicit path first
-    if (-not [string]::IsNullOrEmpty($Path) -and (Test-Path -LiteralPath $Path)) {
-        return $Path
-    }
-    
-    # Check PATH
-    $found = Get-Command 'blender' -ErrorAction SilentlyContinue
-    if ($found) {
-        return $found.Source
-    }
-    
-    # Check common installation paths
-    $commonPaths = @(
-        'C:\Program Files\Blender Foundation\Blender\blender.exe',
-        'C:\Program Files\Blender Foundation\Blender 4.0\blender.exe',
-        'C:\Program Files\Blender Foundation\Blender 3.6\blender.exe',
-        'C:\Program Files\Blender Foundation\Blender 4.1\blender.exe',
-        'C:\Program Files\Blender Foundation\Blender 4.2\blender.exe',
-        '/usr/bin/blender',
-        '/usr/local/bin/blender',
-        '/Applications/Blender.app/Contents/MacOS/Blender'
-    )
-    
-    foreach ($testPath in $commonPaths) {
-        if (Test-Path -LiteralPath $testPath) {
-            return $testPath
-        }
-    }
-    
-    return $null
-}
-
-<#
-.SYNOPSIS
-    Searches local pack content.
-.DESCRIPTION
-    Performs a simple text search across pack files.
-.PARAMETER Query
-    The search query.
-.PARAMETER PackIds
-    Pack IDs to search.
-.PARAMETER Limit
-    Maximum results.
-.OUTPUTS
-    Array of search results.
-#>
-function Search-LocalPackContent {
-    [CmdletBinding()]
-    [OutputType([array])]
-    param(
-        [Parameter(Mandatory = $true)]
-        [string]$Query,
-        
-        [Parameter()]
-        [string[]]$PackIds = @(),
-        
-        [Parameter()]
-        [int]$Limit = 5
-    )
-    
-    $results = [System.Collections.Generic.List[object]]::new()
-    $packsDir = 'packs'
-    
-    if (-not (Test-Path -LiteralPath $packsDir)) {
-        return $results.ToArray()
-    }
-    
-    $searchTerms = $Query.ToLower() -split '\s+' | Where-Object { $_.Length -gt 2 }
-    
-    $packFolders = Get-ChildItem -Path $packsDir -Directory -ErrorAction SilentlyContinue
-    foreach ($folder in $packFolders) {
-        if ($PackIds.Count -gt 0 -and $folder.Name -notin $PackIds) {
-            continue
-        }
-        
-        # Search markdown files
-        $mdFiles = Get-ChildItem -Path $folder.FullName -Filter '*.md' -Recurse -ErrorAction SilentlyContinue | Select-Object -First $Limit
-        
-        foreach ($file in $mdFiles) {
-            try {
-                $content = Get-Content -LiteralPath $file.FullName -Raw -ErrorAction SilentlyContinue
-                $contentLower = $content.ToLower()
-                
-                $score = 0
-                foreach ($term in $searchTerms) {
-                    if ($contentLower.Contains($term)) {
-                        $score += 1
-                    }
-                }
-                
-                if ($score -gt 0) {
-                    # Extract snippet
-                    $snippet = $content.Substring(0, [Math]::Min(200, $content.Length))
-                    $snippet = $snippet -replace "[\r\n]+", ' '
-                    
-                    $results.Add([pscustomobject]@{
-                        title = $file.BaseName
-                        content = $snippet
-                        pack = $folder.Name
-                        score = $score
-                        path = $file.FullName
-                    })
-                }
-            }
-            catch {
-                # Continue to next file
-            }
-        }
-    }
-    
-    # Sort by score and limit
-    return $results | Sort-Object -Property score -Descending | Select-Object -First $Limit
-}
-
-<#
-.SYNOPSIS
-    Calculates a simple pack health score.
-.DESCRIPTION
-    Evaluates pack health based on file count, indexing status, and freshness.
-.PARAMETER FileCount
-    Number of files in the pack.
-.PARAMETER HasIndex
-    Whether the pack has been indexed.
-.PARAMETER LastModified
-    Last modification time.
-.OUTPUTS
-    Hashtable with health metrics.
-#>
-function Calculate-PackHealth {
-    [CmdletBinding()]
-    [OutputType([hashtable])]
-    param(
-        [Parameter(Mandatory = $true)]
-        [int]$FileCount,
-        
-        [Parameter(Mandatory = $true)]
-        [bool]$HasIndex,
-        
-        [Parameter(Mandatory = $true)]
-        [DateTime]$LastModified
-    )
-    
-    $daysSinceUpdate = ([DateTime]::UtcNow - $LastModified).TotalDays
-    
-    $score = 0
-    if ($FileCount -gt 0) { $score += 25 }
-    if ($FileCount -gt 10) { $score += 25 }
-    if ($HasIndex) { $score += 25 }
-    if ($daysSinceUpdate -lt 30) { $score += 25 }
-    
-    $status = switch ($score) {
-        { $_ -ge 80 } { 'healthy' }
-        { $_ -ge 50 } { 'degraded' }
-        default { 'unhealthy' }
-    }
-    
-    return @{
-        score = $score
-        status = $status
-        metrics = @{
-            fileCount = $FileCount
-            hasIndex = $HasIndex
-            daysSinceUpdate = [int]$daysSinceUpdate
-        }
-    }
-}
-
-<#
-.SYNOPSIS
-    Merges MCP configuration.
-.DESCRIPTION
-    Merges override configuration with base defaults.
-.PARAMETER BaseConfig
-    The base configuration.
-.PARAMETER OverrideConfig
-    Configuration to override with.
-.OUTPUTS
-    Merged configuration hashtable.
-#>
 function Merge-MCPConfig {
     [CmdletBinding()]
     [OutputType([hashtable])]
@@ -3230,6 +2077,8 @@ Export-ModuleMember -Function @(
     'Stop-MCPToolkitServer',
     'Get-MCPToolkitServerStatus',
     'Restart-MCPToolkitServer',
+    # Stdio Transport
+    'Start-MCPStdioLoop',
     # Tool Registration
     'Register-MCPTool',
     'Unregister-MCPTool',
@@ -3248,12 +2097,28 @@ Export-ModuleMember -Function @(
     'Invoke-MCPGodotCreateScene',
     'Invoke-MCPGodotAddNode',
     'Get-MCPGodotDebugOutput',
+    'Invoke-MCPGodotExportProject',
+    'Invoke-MCPGodotBuildProject',
+    'Invoke-MCPGodotRunTests',
+    'Invoke-MCPGodotCheckSyntax',
+    'Get-MCPGodotSceneTree',
     # Blender Integration
     'Invoke-MCPBlenderTool',
     'Get-MCPBlenderVersion',
     'Invoke-MCPBlenderOperator',
     'Invoke-MCPBlenderExportMeshLibrary',
+    'Invoke-MCPBlenderImportMesh',
+    'Invoke-MCPBlenderRenderScene',
+    'Invoke-MCPBlenderListMaterials',
+    'Invoke-MCPBlenderApplyModifier',
+    'Invoke-MCPBlenderExportGodot',
     # Pack Query
     'Invoke-MCPPackQuery',
-    'Get-MCPPackStatus'
+    'Get-MCPPackStatus',
+    # RPG Maker MZ Integration
+    'Get-MCPRPGMakerProjectInfo',
+    'Get-MCPRPGMakerPluginList',
+    'Invoke-MCPRPGMakerAnalyzePlugin',
+    'Invoke-MCPRPGMakerCreatePluginSkeleton',
+    'Test-MCPRPGMakerNotetags'
 )

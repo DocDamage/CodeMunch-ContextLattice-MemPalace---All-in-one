@@ -2,10 +2,14 @@
 # Comprehensive RetrievalCache Module Tests
 
 $ErrorActionPreference = "Stop"
-$ProjectRoot = "C:\Users\Doc\Desktop\Projects\CodeMunch-ContextLattice-MemPalace---All-in-one"
+$ProjectRoot = Resolve-Path (Join-Path $PSScriptRoot "..")
+if (-not (Test-Path $ProjectRoot)) { $ProjectRoot = "." }
 
-# Import module (suppress non-critical warnings - Export-ModuleMember warning is expected when dot-sourcing)
-$null = Import-Module (Join-Path $ProjectRoot "module\LLMWorkflow\retrieval\RetrievalCache.ps1") -Force 2>&1
+# Import module
+$modulePath = Join-Path $ProjectRoot "module\LLMWorkflow\retrieval\RetrievalCache.ps1"
+if (Test-Path $modulePath) {
+    . $modulePath
+}
 
 Write-Host "=== RetrievalCache Module Tests ===" -ForegroundColor Cyan
 

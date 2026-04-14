@@ -229,6 +229,15 @@ function New-AnswerPlan {
         }
     }
 
+    $traceAttributes = @{
+        Query = $Query
+        RetrievalProfile = $RetrievalProfile
+        WorkspaceId = $WorkspaceId
+        RunId = $RunId
+    }
+    [void](Write-FunctionTelemetry -CorrelationId $RunId -FunctionName 'New-AnswerPlan' -Attributes $traceAttributes)
+
+
     Write-Verbose "[AnswerPlan] Created plan '$planId' for query: $Query"
     return $plan
 }

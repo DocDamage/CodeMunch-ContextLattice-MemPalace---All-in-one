@@ -129,6 +129,8 @@ $script:AuthorityRequirementMapping = @{
     'any' = @('foundational', 'authoritative', 'exemplar', 'community', 'translation')
 }
 
+$script:TelemetryTraceLog = [System.Collections.ArrayList]::new()
+
 #===============================================================================
 # Core Policy Functions
 #===============================================================================
@@ -175,7 +177,10 @@ function Test-EvidencePolicy {
         [hashtable]$Policy = $null,
 
         [Parameter()]
-        [hashtable]$Context = @{}
+        [hashtable]$Context = @{},
+
+        [Parameter()]
+        [string]$CorrelationId = [Guid]::NewGuid().ToString()
     )
 
     begin {
@@ -183,6 +188,11 @@ function Test-EvidencePolicy {
         if (-not $Policy) {
             $Policy = Get-DefaultEvidencePolicy
         }
+
+        $traceAttributes = @{
+            EvidenceCount = $Evidence.Count
+        }
+        [void](Write-FunctionTelemetry -CorrelationId $CorrelationId -FunctionName 'Test-EvidencePolicy' -Attributes $traceAttributes)
 
         $violations = [System.Collections.Generic.List[hashtable]]::new()
         $warnings = [System.Collections.Generic.List[string]]::new()

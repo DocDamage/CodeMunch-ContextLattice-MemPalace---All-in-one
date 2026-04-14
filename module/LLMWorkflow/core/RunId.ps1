@@ -17,13 +17,25 @@
     Prerequisite   : PowerShell 5.1+
     Copyright      : (c) 2026 LLM Workflow Project
     License        : MIT
+    Version        : 1.1.0
 #>
+
+param(
+    [Parameter()]
+    [string]$Command,
+
+    [Parameter()]
+    [object[]]$CommandArguments = @()
+)
 
 Set-StrictMode -Version Latest
 
 # Script-level variable to cache the current run ID
 $script:CurrentRunId = $null
 $script:CurrentRunIdCreated = $false
+
+# RunId format pattern
+$script:RunIdPattern = '^\d{8}T\d{6}Z-[0-9a-f]{4}$'
 
 <#
 .SYNOPSIS
@@ -70,17 +82,33 @@ function New-RunId {
         [string]$Suffix = ""
     )
     
-    # Format timestamp in ISO 8601 basic format (no separators)
-    $timestampPart = $Timestamp.ToString("yyyyMMddTHHmmssZ", [System.Globalization.CultureInfo]::InvariantCulture)
+    # Format timestamp in ISO 8601 basic format (no separators), always UTC
+    $utcTimestamp = $Timestamp.ToUniversalTime()
+    $timestampPart = $utcTimestamp.ToString("yyyyMMddTHHmmssZ", [System.Globalization.CultureInfo]::InvariantCulture)
     
     # Generate random suffix if not provided
     if ([string]::IsNullOrEmpty($Suffix)) {
-        $random = New-Object System.Random
-        $suffixValue = $random.Next(0, 65536)  # 0 to 0xFFFF
-        $Suffix = $suffixValue.ToString("x4")  # Lowercase 4-digit hex
+        # Use a cryptographically secure random number generator when available
+        try {
+            $rng = [System.Security.Cryptography.RandomNumberGenerator]::Create()
+            $bytes = New-Object byte[] 2
+            $rng.GetBytes($bytes)
+            $randomValue = [BitConverter]::ToUInt16($bytes, 0)
+            $Suffix = $randomValue.ToString("x4")  # Lowercase 4-digit hex
+        }
+        catch {
+            # Fallback to System.Random if crypto RNG is not available
+            $random = New-Object System.Random
+            $suffixValue = $random.Next(0, 65536)  # 0 to 0xFFFF
+            $Suffix = $suffixValue.ToString("x4")  # Lowercase 4-digit hex
+        }
     }
     
-    return "$timestampPart-$Suffix"
+    $runId = "$timestampPart-$Suffix"
+    
+    Write-Verbose "[RunId] Generated new run ID: $runId"
+    
+    return $runId
 }
 
 <#
@@ -218,7 +246,7 @@ function Test-RunIdFormat {
         }
         
         # Pattern: 8 digits, T, 6 digits, Z, -, 4 hex chars
-        return $RunId -match '^\d{8}T\d{6}Z-[0-9a-f]{4}$'
+        return $RunId -match $script:RunIdPattern
     }
 }
 
@@ -271,8 +299,8 @@ function Parse-RunId {
                     [System.Globalization.DateTimeStyles]::AssumeUniversal -bor [System.Globalization.DateTimeStyles]::AdjustToUniversal
                 )
                 
-                # Extract suffix part
-                $result.Suffix = $RunId.Substring(16, 4)
+                # Extract suffix part (after the dash at position 16)
+                $result.Suffix = $RunId.Substring(17, 4)
                 $result.IsValid = $true
             }
             catch {
@@ -308,13 +336,36 @@ function Get-RunIdFunctions {
     }
 }
 
-# Export functions
-Export-ModuleMember -Function @(
-    'New-RunId',
-    'Get-CurrentRunId',
-    'Set-CurrentRunId',
-    'Clear-CurrentRunId',
-    'Test-RunIdFormat',
-    'Parse-RunId',
-    'Get-RunIdFunctions'
-)
+# Support script-style command invocation:
+#   & ./RunId.ps1 -Command New-RunId
+if (-not [string]::IsNullOrWhiteSpace($Command)) {
+    $supportedCommands = @(
+        'New-RunId',
+        'Get-CurrentRunId',
+        'Set-CurrentRunId',
+        'Clear-CurrentRunId',
+        'Test-RunIdFormat',
+        'Parse-RunId',
+        'Get-RunIdFunctions'
+    )
+
+    if ($Command -notin $supportedCommands) {
+        throw "Unsupported RunId command '$Command'. Supported commands: $($supportedCommands -join ', ')"
+    }
+
+    & $Command @CommandArguments
+    return
+}
+
+# Export functions only when this file is loaded as part of a module.
+if ($ExecutionContext.SessionState.Module) {
+    Export-ModuleMember -Function @(
+        'New-RunId',
+        'Get-CurrentRunId',
+        'Set-CurrentRunId',
+        'Clear-CurrentRunId',
+        'Test-RunIdFormat',
+        'Parse-RunId',
+        'Get-RunIdFunctions'
+    )
+}

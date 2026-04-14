@@ -541,11 +541,15 @@ function Should-Redact {
     return $false
 }
 
-# Export functions
-Export-ModuleMember -Function @(
-    'New-LogEntry',
-    'Write-StructuredLog',
-    'Get-LogPath',
-    'Read-StructuredLog',
-    'Set-LogDirectory'
-)
+try {
+    Export-ModuleMember -Function @(
+        'New-LogEntry',
+        'Write-StructuredLog',
+        'Get-LogPath',
+        'Read-StructuredLog',
+        'Set-LogDirectory'
+    )
+}
+catch {
+    # Silently ignore if dot-sourced
+}

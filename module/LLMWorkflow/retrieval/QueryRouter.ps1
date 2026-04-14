@@ -298,6 +298,9 @@ $script:AuthorityRoleScores = @{
     'physics-extension' = 55
 }
 
+# TelemetryTraceLog is managed by telemetry/TelemetryHelpers.ps1
+
+
 #endregion
 
 #region Main Router Functions
@@ -346,6 +349,7 @@ function Invoke-QueryRouting {
     [OutputType([hashtable])]
     param(
         [Parameter(Mandatory = $true)]
+        [AllowEmptyString()]
         [string]$Query,
 
         [Parameter()]
@@ -358,11 +362,20 @@ function Invoke-QueryRouting {
         [array]$AvailablePacks = @(),
 
         [Parameter()]
-        [bool]$EnableArbitration = $true
+        [bool]$EnableArbitration = $true,
+
+        [Parameter()]
+        [string]$CorrelationId = [Guid]::NewGuid().ToString()
     )
 
     begin {
         $routingId = [Guid]::NewGuid().ToString()
+        $traceAttributes = @{
+            Query = $Query
+            RetrievalProfile = $RetrievalProfile
+            EnableArbitration = $EnableArbitration
+        }
+        [void](Write-FunctionTelemetry -CorrelationId $CorrelationId -FunctionName 'Invoke-QueryRouting' -Attributes $traceAttributes)
         Write-Verbose "[QueryRouter] Starting query routing [$routingId]: $Query"
         
         $stopwatch = [System.Diagnostics.Stopwatch]::StartNew()
@@ -371,7 +384,7 @@ function Invoke-QueryRouting {
     process {
         try {
             # Step 1: Detect query intent if profile not specified
-            $detectedIntent = Get-QueryIntent -Query $Query
+            $detectedIntent = Get-QueryIntent -Query $Query -CorrelationId $CorrelationId
             
             if ([string]::IsNullOrWhiteSpace($RetrievalProfile)) {
                 $RetrievalProfile = $detectedIntent.primaryIntent
@@ -392,7 +405,8 @@ function Invoke-QueryRouting {
                 -Query $Query `
                 -AvailablePacks $AvailablePacks `
                 -RetrievalProfile $RetrievalProfile `
-                -WorkspaceContext $WorkspaceContext
+                -WorkspaceContext $WorkspaceContext `
+                -CorrelationId $CorrelationId
 
             # Step 4: Apply cross-pack arbitration if enabled
             $arbitrationResult = $null
@@ -403,7 +417,8 @@ function Invoke-QueryRouting {
                         -Query $Query `
                         -Packs $routingDecision.selectedPacks `
                         -WorkspaceContext $WorkspaceContext `
-                        -RetrievalProfile $RetrievalProfile
+                        -RetrievalProfile $RetrievalProfile `
+                        -CorrelationId $CorrelationId
                 }
             }
 
@@ -411,6 +426,7 @@ function Invoke-QueryRouting {
             $result = [ordered]@{
                 schemaVersion = $script:QueryRouterSchemaVersion
                 routingId = $routingId
+                correlationId = $CorrelationId
                 query = $Query
                 retrievalProfile = $RetrievalProfile
                 profileConfig = $profileConfig
@@ -422,7 +438,7 @@ function Invoke-QueryRouting {
                 confidence = $routingDecision.confidence
                 executionTimeMs = $stopwatch.ElapsedMilliseconds
                 createdAt = [DateTime]::UtcNow.ToString("yyyy-MM-ddTHH:mm:ssZ")
-                workspaceId = if ($WorkspaceContext.workspaceId) { $WorkspaceContext.workspaceId } else { $null }
+                workspaceId = if ($WorkspaceContext.ContainsKey('workspaceId') -and $WorkspaceContext.workspaceId) { $WorkspaceContext.workspaceId } else { $null }
                 arbitrationResult = $arbitrationResult
             }
 
@@ -437,10 +453,16 @@ function Invoke-QueryRouting {
             return [ordered]@{
                 schemaVersion = $script:QueryRouterSchemaVersion
                 routingId = $routingId
+                correlationId = $CorrelationId
                 query = $Query
                 retrievalProfile = $RetrievalProfile
+                profileConfig = $null
+                detectedIntent = $null
                 error = $_.ToString()
                 selectedPacks = @()
+                packOrder = @()
+                primaryPack = $null
+                isCrossPack = $false
                 confidence = 0
                 executionTimeMs = $stopwatch.ElapsedMilliseconds
                 createdAt = [DateTime]::UtcNow.ToString("yyyy-MM-ddTHH:mm:ssZ")
@@ -519,6 +541,7 @@ function Route-QueryToPacks {
     [OutputType([hashtable])]
     param(
         [Parameter(Mandatory = $true)]
+        [AllowEmptyString()]
         [string]$Query,
 
         [Parameter()]
@@ -528,7 +551,10 @@ function Route-QueryToPacks {
         [string]$RetrievalProfile,
 
         [Parameter()]
-        [hashtable]$WorkspaceContext = @{}
+        [hashtable]$WorkspaceContext = @{},
+
+        [Parameter()]
+        [string]$CorrelationId = [Guid]::NewGuid().ToString()
     )
 
     process {
@@ -581,7 +607,7 @@ function Route-QueryToPacks {
         }
 
         # Sort by score descending
-        $orderedPacks = $scoredPacks | Sort-Object -Property score -Descending
+        $orderedPacks = @($scoredPacks | Sort-Object -Property score -Descending)
 
         # Determine if this is a cross-pack query
         $isCrossPack = $false
@@ -596,7 +622,7 @@ function Route-QueryToPacks {
             $maxPacks = 2
         }
 
-        $selectedPacks = $orderedPacks | Select-Object -First $maxPacks
+        $selectedPacks = @($orderedPacks | Select-Object -First $maxPacks)
 
         # Calculate overall confidence
         $confidence = if ($selectedPacks.Count -gt 0) { $selectedPacks[0].score } else { 0 }
@@ -638,10 +664,19 @@ function Get-QueryIntent {
     [OutputType([hashtable])]
     param(
         [Parameter(Mandatory = $true)]
-        [string]$Query
+        [AllowEmptyString()]
+        [string]$Query,
+
+        [Parameter()]
+        [string]$CorrelationId = [Guid]::NewGuid().ToString()
     )
 
     process {
+        $traceAttributes = @{
+            Query = $Query
+        }
+        [void](Write-FunctionTelemetry -CorrelationId $CorrelationId -FunctionName 'Get-QueryIntent' -Attributes $traceAttributes)
+
         $queryLower = $Query.ToLower()
         $intentScores = @{}
         $matchedKeywords = @{}
@@ -676,10 +711,27 @@ function Get-QueryIntent {
             $matchedKeywords[$intentName] = $keywordsFound
         }
 
+        # Diagnostic language should outweigh generic "plugin" wording when both are present.
+        if ($queryLower -match '(conflict|error|debug|compatibility|typeerror|exception|issue|problem|crash|broken|fail)') {
+            $intentScores['conflict-diagnosis'] += 120
+        }
+
         # Determine primary and secondary intents
         $sortedIntents = $intentScores.GetEnumerator() | Sort-Object -Property Value -Descending
         $primaryIntent = $sortedIntents[0].Key
         $primaryScore = $sortedIntents[0].Value
+
+        # Treat project-local phrasing as a modifier when a more specific intent also matched.
+        if ($primaryIntent -eq 'private-project-first') {
+            $specificIntent = $sortedIntents | Where-Object {
+                $_.Key -ne 'private-project-first' -and $_.Value -gt 0
+            } | Select-Object -First 1
+
+            if ($specificIntent) {
+                $primaryIntent = $specificIntent.Key
+                $primaryScore = $specificIntent.Value
+            }
+        }
         
         $secondaryIntent = if ($sortedIntents.Count -gt 1 -and $sortedIntents[1].Value -gt 0) { 
             $sortedIntents[1].Key 
@@ -702,6 +754,7 @@ function Get-QueryIntent {
             scores = $intentScores
             matchedKeywords = $matchedKeywords
             allIntents = @($sortedIntents | ForEach-Object { $_.Key })
+            correlationId = $CorrelationId
         }
     }
 }
@@ -846,6 +899,7 @@ function Calculate-PackRelevance {
     [OutputType([double])]
     param(
         [Parameter(Mandatory = $true)]
+        [AllowEmptyString()]
         [string]$Query,
 
         [Parameter(Mandatory = $true)]
@@ -876,7 +930,7 @@ function Calculate-PackRelevance {
 
         # 2. Authority role scoring (0-30 points)
         $authorityScore = 0
-        if ($PackManifest.collections) {
+        if ($PackManifest.collections -and $PackManifest.collections.Count -gt 0) {
             $maxAuthority = 0
             foreach ($collection in $PackManifest.collections.Values) {
                 $role = if ($collection -is [hashtable]) { $collection.authorityRole } else { $collection.AuthorityRole }
@@ -889,15 +943,24 @@ function Calculate-PackRelevance {
             }
             $authorityScore = ($maxAuthority / 100) * 30
         }
+        elseif ($packId -match 'core|engine') {
+            $authorityScore = 30
+        }
+        elseif ($packId -match 'runtime|binding|plugin|workflow|tool') {
+            $authorityScore = 21
+        }
         $score += $authorityScore
 
         # 3. Profile pack preferences (0-20 points)
         if ($ProfileConfig -and $ProfileConfig.packPreferences) {
             $prefs = $ProfileConfig.packPreferences
+            $packIdTokens = @($packId -split '[-_]' | Where-Object { $_ })
             
             # Check primary packs
             foreach ($primary in $prefs.primary) {
-                if ($packId -match $primary -or $packId -like "*$primary*") {
+                $primaryTokens = @($primary -split '[-_]' | Where-Object { $_ })
+                $tokenMatch = @($primaryTokens | Where-Object { $packIdTokens -contains $_ }).Count -gt 0
+                if ($packId -match $primary -or $packId -like "*$primary*" -or $tokenMatch) {
                     $score += 20
                     break
                 }
@@ -905,7 +968,9 @@ function Calculate-PackRelevance {
             
             # Check secondary packs
             foreach ($secondary in $prefs.secondary) {
-                if ($packId -match $secondary -or $packId -like "*$secondary*") {
+                $secondaryTokens = @($secondary -split '[-_]' | Where-Object { $_ })
+                $tokenMatch = @($secondaryTokens | Where-Object { $packIdTokens -contains $_ }).Count -gt 0
+                if ($packId -match $secondary -or $packId -like "*$secondary*" -or $tokenMatch) {
                     $score += 10
                     break
                 }
@@ -913,10 +978,15 @@ function Calculate-PackRelevance {
         }
 
         # 4. Evidence type matching (0-10 points)
-        if ($ProfileConfig -and $ProfileConfig.evidenceTypes -and $PackManifest.supportedEvidenceTypes) {
+        $supportedEvidenceTypes = @()
+        if ($PackManifest.ContainsKey('supportedEvidenceTypes') -and $PackManifest.supportedEvidenceTypes) {
+            $supportedEvidenceTypes = @($PackManifest.supportedEvidenceTypes)
+        }
+
+        if ($ProfileConfig -and $ProfileConfig.evidenceTypes -and $supportedEvidenceTypes.Count -gt 0) {
             $matchCount = 0
             foreach ($evType in $ProfileConfig.evidenceTypes) {
-                if ($PackManifest.supportedEvidenceTypes -contains $evType) {
+                if ($supportedEvidenceTypes -contains $evType) {
                     $matchCount++
                 }
             }
@@ -1089,6 +1159,7 @@ function Test-ProjectLocalQuery {
     [OutputType([bool])]
     param(
         [Parameter(Mandatory = $true)]
+        [AllowEmptyString()]
         [string]$Query
     )
 
@@ -1135,7 +1206,7 @@ function Get-DefaultPackList {
 
     process {
         $packs = @()
-        $projectType = if ($WorkspaceContext.projectType) { $WorkspaceContext.projectType } else { '' }
+        $projectType = if ($WorkspaceContext.ContainsKey('projectType') -and $WorkspaceContext.projectType) { $WorkspaceContext.projectType } else { '' }
 
         # Add domain-specific packs based on project type
         switch ($projectType.ToLower()) {
@@ -1166,7 +1237,7 @@ function Get-DefaultPackList {
         )
 
         # Add private project pack if available
-        if ($WorkspaceContext.workspaceId) {
+        if ($WorkspaceContext.ContainsKey('workspaceId') -and $WorkspaceContext.workspaceId) {
             $packs += @{
                 packId = "$($WorkspaceContext.workspaceId)_private"
                 domain = 'private'

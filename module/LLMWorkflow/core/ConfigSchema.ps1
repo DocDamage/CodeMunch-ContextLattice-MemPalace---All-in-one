@@ -747,27 +747,6 @@ function Protect-ConfigSecrets {
 
 <#
 .SYNOPSIS
-    Gets valid execution modes.
-
-.DESCRIPTION
-    Returns the list of valid execution modes for the platform.
-
-.OUTPUTS
-    Array of valid execution mode strings.
-
-.EXAMPLE
-    $modes = Get-ValidExecutionModes
-#>
-function Get-ValidExecutionModes {
-    [CmdletBinding()]
-    [OutputType([string[]])]
-    param()
-
-    return $script:ValidExecutionModes
-}
-
-<#
-.SYNOPSIS
     Validates an execution mode.
 
 .DESCRIPTION

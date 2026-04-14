@@ -44,19 +44,29 @@ $script:FederatedStoragePath = Join-Path $HOME '.llm-workflow/federation-nodes'
 $script:SyncQueuePath = Join-Path $HOME '.llm-workflow/sync-queue'
 $script:FederationAuditPath = Join-Path $HOME '.llm-workflow/logs/federation-audit.log'
 $script:ConflictStorePath = Join-Path $HOME '.llm-workflow/conflicts'
+$script:SharedSpacesPath = Join-Path $HOME '.llm-workflow/shared-spaces'
+$script:TeamWorkspacesPath = Join-Path $HOME '.llm-workflow/team-workspaces'
 
-# Permission levels
-$script:PermissionLevels = @{
-    'read' = @{ rank = 1; permissions = @('read', 'query') }
-    'write' = @{ rank = 2; permissions = @('read', 'query', 'write', 'update') }
-    'admin' = @{ rank = 3; permissions = @('read', 'query', 'write', 'update', 'delete', 'manage', 'grant', 'revoke') }
+# Permission levels and Roles (merged from MCP)
+$script:Roles = @{
+    'admin' = @{ rank = 3; permissions = @('read', 'write', 'delete', 'manage', 'federate', 'grant', 'revoke') }
+    'editor' = @{ rank = 2; permissions = @('read', 'write', 'federate') }
+    'viewer' = @{ rank = 1; permissions = @('read') }
+}
+
+# Default retention policy (GDPR compliant from MCP)
+$script:DefaultRetentionPolicy = @{
+    defaultDays = 365
+    sensitiveDays = 90
+    auditLogDays = 2555
+    gdprDeletionDays = 30
 }
 
 # Conflict resolution strategies
-$script:ConflictStrategies = @('timestamp', 'priority', 'manual')
+$script:ConflictStrategies = @('timestamp', 'priority', 'manual', 'last-write-wins', 'merge')
 
 # Node status values
-$script:NodeStatuses = @('active', 'suspended', 'offline', 'error')
+$script:NodeStatuses = @('active', 'suspended', 'offline', 'error', 'healthy', 'unhealthy')
 
 # Workspace types
 $script:WorkspaceTypes = @('personal', 'project', 'team')
@@ -555,8 +565,54 @@ function Remove-SyncQueueItem {
     }
 }
 
-#endregion
+<#
+.SYNOPSIS
+    Creates a new shared memory space (from MCP).
+#>
+function New-SharedMemorySpace {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory = $true)][string]$SpaceId,
+        [Parameter(Mandatory = $true)][string]$DisplayName,
+        [string[]]$Owners = @(),
+        [int]$RetentionDays = 365
+    )
+    Initialize-FederatedStorage
+    $spacePath = Join-Path $script:SharedSpacesPath "$SpaceId.json"
+    $space = @{
+        spaceId = $SpaceId
+        displayName = $DisplayName
+        owners = $Owners
+        retentionDays = $RetentionDays
+        createdAt = (Get-Date -Format 'yyyy-MM-ddTHH:mm:ssZ')
+    }
+    $space | ConvertTo-Json | Set-Content $spacePath
+    return [pscustomobject]$space
+}
 
+# =============================================================================
+# EXPORT MODULE MEMBERS
+# =============================================================================
+
+try {
+    Export-ModuleMember -Function @(
+        'New-FederatedMemoryNode',
+        'Register-FederatedNode',
+        'Unregister-FederatedNode',
+        'Get-FederatedNodes',
+        'Sync-FederatedNode',
+        'Grant-FederatedAccess',
+        'Revoke-FederatedAccess',
+        'Test-FederatedAccess',
+        'New-SharedMemorySpace',
+        'Get-MemoryFederations',
+        'Register-MemoryFederation',
+        'Unregister-MemoryFederation'
+    )
+}
+catch {
+    Write-Verbose "FederatedMemory Export-ModuleMember skipped"
+}
 #region Public Functions
 
 function New-FederatedMemoryNode {
