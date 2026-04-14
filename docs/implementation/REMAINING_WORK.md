@@ -43,6 +43,8 @@ Several important cleanup and foundation tasks are already done or materially un
 - Unreal descriptor extraction landed for `.uplugin` and `.uproject`
 - RPG Maker asset catalog parsing landed for common asset families and plugin metadata
 - recent asset-ingestion additions shipped with regression tests instead of relying on later cleanup
+- 6 Primitive test suites hardened for Pester v5 and PS 5.1
+- docs-truth validator restored to green; README/PROGRESS/CHANGELOG metrics aligned
 
 That is real progress.
 It also means the remaining work is now less about expansion and more about hardening the surfaces that already exist.

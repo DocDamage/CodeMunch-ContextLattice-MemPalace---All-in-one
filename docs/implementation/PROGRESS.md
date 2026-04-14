@@ -82,6 +82,11 @@ Strategic emphasis has shifted from raw expansion toward:
 - benchmark and pack/framework harnesses aligned to current module behavior
 - provider resolver hardening completed and covered in `tests/LLMWorkflow.Tests.ps1`
 - curated-plugin compatibility behavior scenarios added to the compatibility fixture suites
+- **6 new Primitive test suites** (AtomicWrite, CommandContract, FileLock, Journal, StateFile, Workspace) fixed for Pester v5 and PowerShell 5.1 compatibility
+- **.NET File.Move 3-arg overload bug** fixed in StateFile, Logging, and SnapshotManager for PS 5.1
+- **ConvertFrom-Json -AsHashtable** replaced with PS 5.1-compatible conversion in StateFile
+- **CorrelationId parameter block parse errors** fixed across retrieval and MCP modules
+- **docs-truth validator** restored to green (README.md metrics synchronized)
 
 ### Resolver Hardening Completed
 The current branch baseline already covers:

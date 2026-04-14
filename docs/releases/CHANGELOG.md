@@ -48,6 +48,15 @@ The format is based on Keep a Changelog and this project follows Semantic Versio
 - **Retrieval substrate** - Query routing, cross-pack arbitration, confidence/evidence policies
 - **v1.0 certification framework** - Release-state reconciliation, truth matrix, CI validation
 
+### Fixed - Test Infrastructure and PowerShell 5.1 Compatibility
+
+- Fixed 6 new Primitive test suites for Pester v5 and Windows PowerShell 5.1
+- Fixed `.NET File.Move` 3-arg overload incompatibility in StateFile, Logging, and SnapshotManager
+- Fixed `ConvertFrom-Json -AsHashtable` incompatibility in StateFile for PS 5.1
+- Fixed missing commas in `CorrelationId` parameter blocks across retrieval and MCP modules
+- Fixed `Join-Path` multi-argument usage in GameFunctions and multiple test files
+- Restored `tools/ci/validate-docs-truth.ps1` to green
+
 ## [0.9.6] - 2026-04-13
 
 ### Added - Appendage A Completion
