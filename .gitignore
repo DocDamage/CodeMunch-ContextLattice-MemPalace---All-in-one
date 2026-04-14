@@ -72,8 +72,8 @@ logs/
 log/
 .llm-workflow/logs/
 .llm-workflow/reports/
+.llm-workflow/state/*.json
 .llm-workflow/state/*.backup.*
-.llm-workflow/state/incident-registry.json
 .memorybridge/sync-state.json
 .codemunch/cache/
 tmp/
@@ -124,4 +124,19 @@ secrets.json
 # =============================================================================
 # Project-specific exclusions
 # =============================================================================
-scratch/*.local
+scratch/
+brain/*/scratch/
+_agent_swarm_backup/
+modules/Pester/
+packs/staging/
+_actual_exports.txt
+_all_loaded_functions.txt
+_exported_functions.txt
+_psd1_original.psd1
+_psm1_exports.txt
+_update_psd1_metadata.py
+_update_wildcard_export.py
+deep_audit_results.txt
+temp_*.json
+temp_*.txt
+test_results.txt
