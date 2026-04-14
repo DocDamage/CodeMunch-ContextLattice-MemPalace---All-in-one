@@ -1,0 +1,109 @@
+Target: `module/LLMWorkflow/retrieval/IncidentBundle.ps1`
+
+Reason:
+- surface meaningful cleanup failures in atomic bundle export
+- add fallback visibility where run ID resolution silently collapses to `unknown`
+- avoid vague parse-failure diagnostics during incident searches
+
+---
+
+## Patch A: surface temp-file cleanup failure in `Export-IncidentBundle`
+
+Current code:
+
+```powershell
+catch {
+    # Clean up temp file on failure
+    if (Test-Path -LiteralPath $tempPath) {
+        Remove-Item -LiteralPath $tempPath -Force -ErrorAction SilentlyContinue
+    }
+
+    return @{
+        Success = $false
+        Path = $OutputPath
+        IncidentId = $Incident.incidentId
+        BytesWritten = 0
+        Error = $_.Exception.Message
+    }
+}
+```
+
+Replace with:
+
+```powershell
+catch {
+    # Clean up temp file on failure
+    if ($tempPath -and (Test-Path -LiteralPath $tempPath)) {
+        try {
+            Remove-Item -LiteralPath $tempPath -Force -ErrorAction Stop
+        }
+        catch {
+            Write-Warning "[IncidentBundle] Failed to remove temporary incident bundle '$tempPath' after export failure: $($_.Exception.Message)"
+        }
+    }
+
+    return @{
+        Success = $false
+        Path = $OutputPath
+        IncidentId = $Incident.incidentId
+        BytesWritten = 0
+        Error = $_.Exception.Message
+    }
+}
+```
+
+## Patch B: add fallback visibility in `New-AnswerIncidentBundle`
+
+Current code:
+
+```powershell
+try {
+    $runIdCmd = Get-Command Get-CurrentRunId -ErrorAction SilentlyContinue
+    if ($runIdCmd) {
+        $RunId = & $runIdCmd -ErrorAction SilentlyContinue
+    }
+}
+catch {
+    $RunId = "unknown"
+}
+if ([string]::IsNullOrEmpty($RunId)) {
+    $RunId = "unknown"
+}
+```
+
+Replace with:
+
+```powershell
+try {
+    $runIdCmd = Get-Command Get-CurrentRunId -ErrorAction SilentlyContinue
+    if ($runIdCmd) {
+        $RunId = & $runIdCmd -ErrorAction SilentlyContinue
+    }
+}
+catch {
+    Write-Verbose "[IncidentBundle] Get-CurrentRunId failed, using fallback run ID: $($_.Exception.Message)"
+    $RunId = "unknown"
+}
+if ([string]::IsNullOrEmpty($RunId)) {
+    Write-Verbose "[IncidentBundle] Run ID was empty, using fallback value 'unknown'"
+    $RunId = "unknown"
+}
+```
+
+## Patch C: tighten search parse diagnostics in `Search-IncidentBundles`
+
+Current code:
+
+```powershell
+catch {
+    Write-Verbose "[IncidentBundle] Failed to parse $($file.Name): $_"
+}
+```
+
+Replace with:
+
+```powershell
+catch {
+    Write-Verbose "[IncidentBundle] Failed to parse incident file '$($file.Name)': $($_.Exception.Message)"
+}
+```
