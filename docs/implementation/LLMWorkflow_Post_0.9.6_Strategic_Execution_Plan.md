@@ -51,13 +51,36 @@ The execution plan therefore focuses on eight tightly-scoped workstreams:
 
 ---
 
+## Execution Status Update (2026-04-13)
+
+### Completed Recently
+
+- Workstream 1 foundations are now materially in place:
+  - release/docs truth files are aligned to `0.9.6`
+  - docs-truth CI validation is active
+  - key stale path drift in release/workflow docs was corrected
+- CI portability and test enforcement depth improved:
+  - safe Pester invocation added and wired to CI
+  - core/pack/framework/benchmark suites were remediated and pass
+- pack/runtime hardening landed:
+  - `RunId` script dispatch reliability fixed
+  - PowerShell 5.1 compatibility improvements in pack modules
+
+### Remaining Program-Level Gaps
+
+- wildcard module export contract and duplicate helper definitions are still open high-risk debt
+- subsystem fork consolidation and canonical ownership are still incomplete
+- observability/policy/security workstreams need deeper runtime enforcement before v1.0 gates
+
+---
+
 ## Current Baseline
 
 This plan assumes the following broad baseline:
 - core phases are complete through Phase 8
 - the platform has 10 domain packs
 - the codebase is now large enough that operational leverage matters more than raw surface area
-- metric counts in docs are not yet fully reconciled and must be treated as provisional until Workstream 1 lands
+- metric counts are reconciled through current docs-truth CI checks and should now be treated as governed release metadata
 
 The baseline also includes several concrete additions that materially affect the roadmap.
 

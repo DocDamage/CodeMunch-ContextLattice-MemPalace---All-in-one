@@ -45,19 +45,19 @@ function ConvertTo-Hashtable {
     process {
         if ($null -eq $InputObject) { return $null }
         
-        if ($InputObject -is [System.Collections.IEnumerable] -and $InputObject -isnot [string]) {
-            $collection = @()
-            foreach ($item in $InputObject) {
-                $collection += (ConvertTo-Hashtable -InputObject $item)
-            }
-            return $collection
-        }
-        elseif ($InputObject -is [System.Management.Automation.PSCustomObject]) {
+        if ($InputObject -is [System.Management.Automation.PSCustomObject]) {
             $hash = @{}
             foreach ($property in $InputObject.PSObject.Properties) {
                 $hash[$property.Name] = (ConvertTo-Hashtable -InputObject $property.Value)
             }
             return $hash
+        }
+        elseif ($InputObject -is [System.Collections.IEnumerable] -and $InputObject -isnot [string]) {
+            $collection = @()
+            foreach ($item in $InputObject) {
+                $collection += (ConvertTo-Hashtable -InputObject $item)
+            }
+            return $collection
         }
         else {
             return $InputObject
@@ -283,6 +283,7 @@ function Lock-File {
     }
 
     while (-not $acquired) {
+        $tempLockPath = $null
         try {
             # Check if lock file exists
             if (Test-Path -LiteralPath $lockPath) {
@@ -294,7 +295,7 @@ function Lock-File {
                     # Validate lock content has required fields
                     if (-not $existingContent.pid -or -not $existingContent.host) {
                         Write-Warning "[FileLock] Lock file has missing fields, treating as corrupt"
-                        Remove-StaleLock -Name $Name -ProjectRoot $ProjectRoot -Force
+                        Remove-StaleLock -Name $Name -ProjectRoot $ProjectRoot -Force | Out-Null
                         continue
                     }
                     
@@ -311,7 +312,7 @@ function Lock-File {
                     # Check for stale lock
                     if (Test-StaleLock -Name $Name -ProjectRoot $ProjectRoot) {
                         Write-Verbose "[FileLock] Found stale lock, reclaiming"
-                        Remove-StaleLock -Name $Name -ProjectRoot $ProjectRoot -Force
+                        Remove-StaleLock -Name $Name -ProjectRoot $ProjectRoot -Force | Out-Null
                     }
                     else {
                         # Lock is held by another active process
@@ -392,7 +393,7 @@ function Lock-File {
         }
         catch {
             # Clean up temp file if it exists
-            if (Test-Path -LiteralPath $tempLockPath) {
+            if (-not [string]::IsNullOrWhiteSpace($tempLockPath) -and (Test-Path -LiteralPath $tempLockPath)) {
                 Remove-Item -LiteralPath $tempLockPath -Force -ErrorAction SilentlyContinue
             }
             
@@ -657,7 +658,11 @@ function Test-StaleLock {
     if ($lockContent.host -ne $currentHost) {
         # Can't verify remote process, use timestamp heuristic
         try {
-            $lockTime = [DateTime]::Parse($lockContent.timestamp)
+            $lockTime = [DateTime]::Parse(
+                $lockContent.timestamp,
+                [System.Globalization.CultureInfo]::InvariantCulture,
+                [System.Globalization.DateTimeStyles]::AssumeUniversal -bor [System.Globalization.DateTimeStyles]::AdjustToUniversal
+            )
             $age = [DateTime]::UtcNow - $lockTime
             if ($age.TotalMinutes -gt $MaxLockAgeMinutes) {
                 Write-Verbose "[FileLock] Remote lock is stale (age: $([int]$age.TotalMinutes) minutes)"
@@ -686,9 +691,13 @@ function Test-StaleLock {
         # Additional check: if we can get the process start time, verify it's not newer than the lock
         # This helps detect PID reuse where another PowerShell process got the same PID
         try {
-            $lockTime = [DateTime]::Parse($lockContent.timestamp)
-            if ($process.StartTime -gt $lockTime.AddMinutes(-1)) {
-                # Process started after the lock was created (with 1 minute buffer)
+            $lockTime = [DateTime]::Parse(
+                $lockContent.timestamp,
+                [System.Globalization.CultureInfo]::InvariantCulture,
+                [System.Globalization.DateTimeStyles]::AssumeUniversal -bor [System.Globalization.DateTimeStyles]::AdjustToUniversal
+            )
+            if ($process.StartTime -gt $lockTime.AddMinutes(1)) {
+                # Process started after lock creation (allowing 1 minute clock skew buffer)
                 Write-Verbose "[FileLock] PID $($lockContent.pid) started after lock creation, treating as stale"
                 return $true
             }

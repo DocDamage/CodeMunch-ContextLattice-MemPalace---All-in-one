@@ -25,10 +25,10 @@ BeforeAll {
     # Create test directories
     New-Item -ItemType Directory -Path $script:TestRoot -Force | Out-Null
     New-Item -ItemType Directory -Path (Join-Path $script:TestRoot "packs") -Force | Out-Null
-    New-Item -ItemType Directory -Path (Join-Path $script:TestRoot "packs" "manifests") -Force | Out-Null
-    New-Item -ItemType Directory -Path (Join-Path $script:TestRoot "packs" "registries") -Force | Out-Null
-    New-Item -ItemType Directory -Path (Join-Path $script:TestRoot "packs" "staging") -Force | Out-Null
-    New-Item -ItemType Directory -Path (Join-Path $script:TestRoot "packs" "promoted") -Force | Out-Null
+    New-Item -ItemType Directory -Path (Join-Path (Join-Path $script:TestRoot "packs") "manifests") -Force | Out-Null
+    New-Item -ItemType Directory -Path (Join-Path (Join-Path $script:TestRoot "packs") "registries") -Force | Out-Null
+    New-Item -ItemType Directory -Path (Join-Path (Join-Path $script:TestRoot "packs") "staging") -Force | Out-Null
+    New-Item -ItemType Directory -Path (Join-Path (Join-Path $script:TestRoot "packs") "promoted") -Force | Out-Null
     
     # Import pack modules by dot-sourcing
     $packManifestPath = Join-Path $script:PackModulePath "PackManifest.ps1"
@@ -242,7 +242,7 @@ Describe "PackManifest Module Tests" {
             $result = Test-PackManifest -Manifest $manifest
             
             $result.isValid | Should -Be $false
-            $result.errors | Should -Match "*Invalid status*"
+            $result.errors | Should -Match "Invalid status"
         }
 
         It "Should detect invalid install profile names" {
@@ -267,7 +267,7 @@ Describe "PackManifest Module Tests" {
     Context "Save-PackManifest and Get-PackManifest Functions" {
         It "Should save and load manifest correctly" {
             $manifest = New-PackManifest -PackId "test-save" -Domain "test" -Version "1.0.0"
-            $path = Join-Path $script:TestRoot "packs" "manifests" "test-save.json"
+            $path = Join-Path (Join-Path (Join-Path $script:TestRoot "packs") "manifests") "test-save.json"
             
             $savedPath = Save-PackManifest -Manifest $manifest -Path $path
             $loaded = Get-PackManifest -Path $path
@@ -546,7 +546,7 @@ Describe "SourceRegistry Module Tests" {
             $result = Test-SourceRegistryEntry -Entry $entry
             
             $result.isValid | Should -Be $false
-            $result.errors | Should -Match "*Invalid trustTier*"
+            $result.errors | Should -Match "Invalid trustTier"
         }
 
         It "Should detect invalid state" {
@@ -558,7 +558,7 @@ Describe "SourceRegistry Module Tests" {
             $result = Test-SourceRegistryEntry -Entry $entry
             
             $result.isValid | Should -Be $false
-            $result.errors | Should -Match "*Invalid state*"
+            $result.errors | Should -Match "Invalid state"
         }
     }
 
@@ -860,7 +860,7 @@ Describe "PackTransaction Module Tests" {
             $path = Save-PackLockfile -Lockfile $lockfile -Staging $true
             
             Test-Path $path | Should -Be $true
-            $path | Should -Match "packs/staging"
+            $path | Should -Match "packs[\\/]+staging"
         }
 
         It "Should save lockfile to promoted when specified" {
@@ -868,14 +868,14 @@ Describe "PackTransaction Module Tests" {
             
             $path = Save-PackLockfile -Lockfile $lockfile -Staging $false
             
-            $path | Should -Match "packs/promoted"
+            $path | Should -Match "packs[\\/]+promoted"
         }
 
         It "Should save latest lockfile" {
             $lockfile = New-PackLockfile -PackId "latest-test" -PackVersion "1.0.0"
             Save-PackLockfile -Lockfile $lockfile -Staging $true | Out-Null
             
-            $latestPath = Join-Path $script:TestRoot "packs" "staging" "latest-test" "latest.pack.lock.json"
+            $latestPath = Join-Path (Join-Path (Join-Path (Join-Path $script:TestRoot "packs") "staging") "latest-test") "latest.pack.lock.json"
             Test-Path $latestPath | Should -Be $true
         }
 

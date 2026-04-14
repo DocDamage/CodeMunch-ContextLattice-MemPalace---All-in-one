@@ -28,7 +28,7 @@ A v1.0 release of LLMWorkflow is certified only when **all** of the following qu
 - The [`VERSION`](../VERSION) file is the single source of truth for the declared version.
 - [`docs/releases/RELEASE_STATE.md`](../../docs/releases/RELEASE_STATE.md) accurately describes the state of every major component.
 - [`docs/reference/DOCS_TRUTH_MATRIX.md`](../../docs/reference/DOCS_TRUTH_MATRIX.md) has been reconciled and shows no unacknowledged drift.
-- All top-level documents (`README.md`, `PROGRESS.md`, canonical docs) agree on version and metric counts.
+- All top-level documents (`README.md`, `docs/implementation/PROGRESS.md`, canonical docs) agree on version and metric counts.
 
 ### Pass Criteria
 | Check | Evidence |
@@ -62,7 +62,7 @@ A v1.0 release of LLMWorkflow is certified only when **all** of the following qu
 | Confidence policy exists | `module/LLMWorkflow/retrieval/ConfidencePolicy.ps1` |
 | Evidence policy exists | `module/LLMWorkflow/retrieval/EvidencePolicy.ps1` |
 | Caveat registry exists | `module/LLMWorkflow/retrieval/CaveatRegistry.ps1` |
-| A documented walkthrough exists | `docs/EVALUATION_OPERATIONS.md` describes the path |
+| A documented walkthrough exists | `docs/operations/EVALUATION_OPERATIONS.md` describes the path |
 | Retrieval backend adapter exists | `module/LLMWorkflow/retrieval/RetrievalBackendAdapter.ps1` |
 
 ### Fail Criteria
@@ -87,7 +87,7 @@ A v1.0 release of LLMWorkflow is certified only when **all** of the following qu
 | Policy adapter exists | `module/LLMWorkflow/policy/PolicyAdapter.ps1` |
 | At least one OPA rego file exists | `policy/opa/*.rego` |
 | Policy decisions return explainable results | `Invoke-PolicyDecision` returns `Decision` and `Explanation` properties |
-| Policy runtime model is documented | `docs/POLICY_RUNTIME_MODEL.md` exists |
+| Policy runtime model is documented | `docs/architecture/POLICY_RUNTIME_MODEL.md` exists |
 
 ### Fail Criteria
 - Policy adapter is missing.
@@ -112,7 +112,7 @@ A v1.0 release of LLMWorkflow is certified only when **all** of the following qu
 | Docling adapter exists | `module/LLMWorkflow/ingestion/DoclingAdapter.ps1` |
 | Tika adapter exists | `module/LLMWorkflow/ingestion/TikaAdapter.ps1` |
 | Document normalizer exists | `module/LLMWorkflow/ingestion/DocumentNormalizer.ps1` |
-| Ingestion model is documented | `docs/DOCUMENT_INGESTION_MODEL.md` exists |
+| Ingestion model is documented | `docs/architecture/DOCUMENT_INGESTION_MODEL.md` exists |
 | Every extraction result includes provenance and confidence | Adapter tests assert `sourcePath`, `extractedAt`, `engine`, and `confidence` fields |
 
 ### Fail Criteria
@@ -136,7 +136,7 @@ A v1.0 release of LLMWorkflow is certified only when **all** of the following qu
 |-------|----------|
 | Spritesheet parser exists | `module/LLMWorkflow/extraction/SpriteSheetParser.ps1` |
 | Marketplace provenance normalizer exists | `module/LLMWorkflow/ingestion/MarkplaceProvenanceNormalizer.ps1` |
-| Game asset ingestion model is documented | `docs/GAME_ASSET_INGESTION_MODEL.md` exists |
+| Game asset ingestion model is documented | `docs/architecture/GAME_ASSET_INGESTION_MODEL.md` exists |
 | Parsed manifests include provenance fields | Tests assert `sourcePath`, `parsedAt`, `parserVersion` |
 
 ### Fail Criteria
@@ -162,8 +162,8 @@ A v1.0 release of LLMWorkflow is certified only when **all** of the following qu
 | SBOM build script exists | `scripts/security/Invoke-SBOMBuild.ps1` |
 | Secret scan script exists | `scripts/security/Invoke-SecretScan.ps1` |
 | Vulnerability scan script exists | `scripts/security/Invoke-VulnerabilityScan.ps1` |
-| Security baseline is documented | `docs/SECURITY_BASELINE.md` exists |
-| Supply chain policy is documented | `docs/SUPPLY_CHAIN_POLICY.md` exists |
+| Security baseline is documented | `docs/architecture/SECURITY_BASELINE.md` exists |
+| Supply chain policy is documented | `docs/reference/SUPPLY_CHAIN_POLICY.md` exists |
 | Promotion gate logic is implemented | `Test-PromotionGate` blocks on configurable thresholds |
 
 ### Fail Criteria
@@ -189,7 +189,7 @@ A v1.0 release of LLMWorkflow is certified only when **all** of the following qu
 | Durable orchestrator module exists | `module/LLMWorkflow/workflow/DurableOrchestrator.ps1` |
 | Checkpoint/recovery functions are implemented | `Save-WorkflowCheckpoint` and `Resume-WorkflowCheckpoint` exist |
 | Recovery is tested | `tests/` include at least one durable-execution test |
-| Durable execution is documented | `docs/SELF_HEALING.md` or equivalent covers durable recovery |
+| Durable execution is documented | `docs/operations/SELF_HEALING.md` or equivalent covers durable recovery |
 
 ### Fail Criteria
 - Durable orchestrator module is missing.
@@ -230,6 +230,6 @@ Before the release candidate is promoted to v1.0:
 1. Run `scripts/Invoke-ReleaseCertification.ps1` with `-ProjectRoot` set to the repository root.
 2. Verify that `Test-ReleaseCriteria` returns `$true` for **all** categories.
 3. Review the JSON and Markdown reports produced by `Export-CertificationReport`.
-4. Obtain sign-off from the release owner documented in `docs/RELEASE_CERTIFICATION_CHECKLIST.md`.
+4. Obtain sign-off from the release owner documented in `docs/releases/RELEASE_CERTIFICATION_CHECKLIST.md`.
 
 **If any criterion fails, the release is blocked until remediation and re-certification.**

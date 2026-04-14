@@ -19,7 +19,8 @@
 
 BeforeAll {
     # Set up test environment
-    $script:TestRoot = Join-Path $env:TEMP "LLMWorkflow_CoreTests_$([Guid]::NewGuid().ToString('N'))"
+    $tempRoot = [System.IO.Path]::GetTempPath()
+    $script:TestRoot = Join-Path $tempRoot "LLMWorkflow_CoreTests_$([Guid]::NewGuid().ToString('N'))"
     $script:ModuleRoot = Join-Path (Join-Path $PSScriptRoot "..") "module\LLMWorkflow"
     $script:CoreModulePath = Join-Path $script:ModuleRoot "core"
     
@@ -40,6 +41,12 @@ BeforeAll {
     if (Test-Path $journalPath) { try { . $journalPath } catch { if ($_.Exception.Message -notlike "*Export-ModuleMember*") { throw } } }
     if (Test-Path $atomicWritePath) { try { . $atomicWritePath } catch { if ($_.Exception.Message -notlike "*Export-ModuleMember*") { throw } } }
     if (Test-Path $runIdPath) { try { . $runIdPath } catch { if ($_.Exception.Message -notlike "*Export-ModuleMember*") { throw } } }
+
+    if (-not (Get-Command Get-ExecutionMode -ErrorAction SilentlyContinue)) {
+        function Get-ExecutionMode {
+            return "interactive"
+        }
+    }
 }
 
 AfterAll {
@@ -52,7 +59,7 @@ AfterAll {
 Describe "FileLock Module Tests" {
     BeforeEach {
         # Clean up any existing locks before each test
-        $locksDir = Join-Path $script:TestRoot ".llm-workflow" "locks"
+        $locksDir = Join-Path (Join-Path $script:TestRoot ".llm-workflow") "locks"
         if (Test-Path $locksDir) {
             Remove-Item -Path "$locksDir\*.lock" -Force -ErrorAction SilentlyContinue
             Remove-Item -Path "$locksDir\*.tmp" -Force -ErrorAction SilentlyContinue
@@ -85,7 +92,7 @@ Describe "FileLock Module Tests" {
 
         It "Should create lock file with correct structure" {
             $lock = Lock-File -Name "sync" -TimeoutSeconds 5 -ProjectRoot $script:TestRoot
-            $lockFilePath = Join-Path $script:TestRoot ".llm-workflow" "locks" "sync.lock"
+            $lockFilePath = Join-Path (Join-Path (Join-Path $script:TestRoot ".llm-workflow") "locks") "sync.lock"
             
             Test-Path $lockFilePath | Should -Be $true
             $content = Get-Content $lockFilePath -Raw | ConvertFrom-Json
@@ -117,7 +124,7 @@ Describe "FileLock Module Tests" {
 
         It "Should return null on timeout when lock is held by another process" {
             # Create a lock file simulating another process
-            $lockFile = Join-Path $script:TestRoot ".llm-workflow" "locks" "ingest.lock"
+            $lockFile = Join-Path (Join-Path (Join-Path $script:TestRoot ".llm-workflow") "locks") "ingest.lock"
             $otherLockContent = @{
                 schemaVersion = 1
                 pid = 99999
@@ -145,7 +152,7 @@ Describe "FileLock Module Tests" {
     Context "Unlock-File Function" {
         It "Should release a held lock successfully" {
             $lock = Lock-File -Name "sync" -TimeoutSeconds 5 -ProjectRoot $script:TestRoot
-            $lockFilePath = Join-Path $script:TestRoot ".llm-workflow" "locks" "sync.lock"
+            $lockFilePath = Join-Path (Join-Path (Join-Path $script:TestRoot ".llm-workflow") "locks") "sync.lock"
             
             Test-Path $lockFilePath | Should -Be $true
             
@@ -162,7 +169,7 @@ Describe "FileLock Module Tests" {
 
         It "Should release with -Force even if not tracked" {
             # Create a lock file directly
-            $lockFile = Join-Path $script:TestRoot ".llm-workflow" "locks" "heal.lock"
+            $lockFile = Join-Path (Join-Path (Join-Path $script:TestRoot ".llm-workflow") "locks") "heal.lock"
             $lockContent = @{
                 schemaVersion = 1
                 pid = $PID
@@ -188,7 +195,7 @@ Describe "FileLock Module Tests" {
     Context "Test-StaleLock Function" {
         It "Should detect stale locks from non-existent processes" {
             # Create a lock file for a non-existent process
-            $lockFile = Join-Path $script:TestRoot ".llm-workflow" "locks" "sync.lock"
+            $lockFile = Join-Path (Join-Path (Join-Path $script:TestRoot ".llm-workflow") "locks") "sync.lock"
             $staleLockContent = @{
                 schemaVersion = 1
                 pid = 99999
@@ -212,7 +219,7 @@ Describe "FileLock Module Tests" {
 
         It "Should detect stale locks by age" {
             # Create a lock file with old timestamp
-            $lockFile = Join-Path $script:TestRoot ".llm-workflow" "locks" "heal.lock"
+            $lockFile = Join-Path (Join-Path (Join-Path $script:TestRoot ".llm-workflow") "locks") "heal.lock"
             $staleLockContent = @{
                 schemaVersion = 1
                 pid = 99999
@@ -243,7 +250,7 @@ Describe "FileLock Module Tests" {
         }
 
         It "Should treat corrupt lock files as stale" {
-            $lockFile = Join-Path $script:TestRoot ".llm-workflow" "locks" "index.lock"
+            $lockFile = Join-Path (Join-Path (Join-Path $script:TestRoot ".llm-workflow") "locks") "index.lock"
             $lockDir = Split-Path -Parent $lockFile
             if (-not (Test-Path $lockDir)) {
                 New-Item -ItemType Directory -Path $lockDir -Force | Out-Null
@@ -258,7 +265,7 @@ Describe "FileLock Module Tests" {
 
     Context "Remove-StaleLock Function" {
         It "Should remove stale locks with -Force" {
-            $lockFile = Join-Path $script:TestRoot ".llm-workflow" "locks" "sync.lock"
+            $lockFile = Join-Path (Join-Path (Join-Path $script:TestRoot ".llm-workflow") "locks") "sync.lock"
             $staleLockContent = @{
                 schemaVersion = 1
                 pid = 99999
@@ -283,7 +290,7 @@ Describe "FileLock Module Tests" {
         }
 
         It "Should support CheckOnly mode without removing" {
-            $lockFile = Join-Path $script:TestRoot ".llm-workflow" "locks" "heal.lock"
+            $lockFile = Join-Path (Join-Path (Join-Path $script:TestRoot ".llm-workflow") "locks") "heal.lock"
             $staleLockContent = @{
                 schemaVersion = 1
                 pid = 99999
@@ -347,8 +354,8 @@ Describe "FileLock Module Tests" {
 
 Describe "Journal Module Tests" {
     BeforeAll {
-        $script:JournalDir = Join-Path $script:TestRoot ".llm-workflow" "journals"
-        $script:ManifestDir = Join-Path $script:TestRoot ".llm-workflow" "manifests"
+        $script:JournalDir = Join-Path (Join-Path $script:TestRoot ".llm-workflow") "journals"
+        $script:ManifestDir = Join-Path (Join-Path $script:TestRoot ".llm-workflow") "manifests"
     }
 
     BeforeEach {
@@ -550,7 +557,7 @@ Describe "AtomicWrite Module Tests" {
             
             $result.Success | Should -Be $true
             
-            $readData = Get-Content -Path $testPath -Raw | ConvertFrom-Json -AsHashtable
+            $readData = Get-Content -Path $testPath -Raw | ConvertFrom-Json
             $readData.name | Should -Be "test"
             $readData.value | Should -Be 42
             $readData.nested.key | Should -Be "value"
@@ -572,7 +579,7 @@ Describe "AtomicWrite Module Tests" {
         }
 
         It "Should create parent directories if needed" {
-            $testPath = Join-Path $script:AtomicTestDir "nested" "deep" "file.txt"
+            $testPath = Join-Path (Join-Path (Join-Path $script:AtomicTestDir "nested") "deep") "file.txt"
             $content = "Deep nested content"
             
             $result = Write-AtomicFile -Path $testPath -Content $content
@@ -675,7 +682,7 @@ Describe "AtomicWrite Module Tests" {
             $result.SchemaVersion | Should -Be 2
             $result.SchemaName | Should -Be "test-data"
             
-            $readData = Get-Content -Path $testPath -Raw | ConvertFrom-Json -AsHashtable
+            $readData = Get-Content -Path $testPath -Raw | ConvertFrom-Json
             $readData._schema.version | Should -Be 2
             $readData._schema.name | Should -Be "test-data"
             $readData.data.items.Count | Should -Be 3

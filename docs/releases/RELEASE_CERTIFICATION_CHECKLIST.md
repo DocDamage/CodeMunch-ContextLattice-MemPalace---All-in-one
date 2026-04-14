@@ -30,7 +30,7 @@ This checklist must be completed and signed off before a release candidate can b
 | 1.2 | `docs/releases/RELEASE_STATE.md` exists and is current | Release Lead | `docs/releases/RELEASE_STATE.md` | Pending |
 | 1.3 | `docs/reference/DOCS_TRUTH_MATRIX.md` exists and lists no unresolved drift | Release Lead | `docs/reference/DOCS_TRUTH_MATRIX.md` | Pending |
 | 1.4 | README version badge matches `VERSION` | Docs Owner | `README.md` | Pending |
-| 1.5 | PROGRESS version and metrics match truth sources | Docs Owner | `PROGRESS.md` | Pending |
+| 1.5 | PROGRESS version and metrics match truth sources | Docs Owner | `docs/implementation/PROGRESS.md` | Pending |
 | 1.6 | CI validation script catches future drift automatically | CI Owner | `tools/ci/validate-docs-truth.ps1` | Pending |
 
 ## 2. Observability
@@ -41,7 +41,7 @@ This checklist must be completed and signed off before a release candidate can b
 | 2.2 | `TraceEnvelope.ps1` exists and exports envelope functions | Telemetry Owner | `module/LLMWorkflow/telemetry/TraceEnvelope.ps1` | Pending |
 | 2.3 | `OpenTelemetryBridge.ps1` exists and exports payload helpers | Telemetry Owner | `module/LLMWorkflow/telemetry/OpenTelemetryBridge.ps1` | Pending |
 | 2.4 | Telemetry tests pass | Telemetry Owner | `tests/Telemetry.Tests.ps1` | Pending |
-| 2.5 | Observability architecture is documented | Docs Owner | `docs/OBSERVABILITY_ARCHITECTURE.md` | Pending |
+| 2.5 | Observability architecture is documented | Docs Owner | `docs/architecture/OBSERVABILITY_ARCHITECTURE.md` | Pending |
 
 ## 3. Policy
 
@@ -50,7 +50,7 @@ This checklist must be completed and signed off before a release candidate can b
 | 3.1 | `PolicyAdapter.ps1` exists and returns explainable decisions | Policy Owner | `module/LLMWorkflow/policy/PolicyAdapter.ps1` | Pending |
 | 3.2 | At least one OPA rego file is present | Policy Owner | `policy/opa/*.rego` | Pending |
 | 3.3 | Policy decisions include `Decision` and `Explanation` fields | Policy Owner | `tests/PolicyEngine.Tests.ps1` | Pending |
-| 3.4 | Policy runtime model is documented | Docs Owner | `docs/POLICY_RUNTIME_MODEL.md` | Pending |
+| 3.4 | Policy runtime model is documented | Docs Owner | `docs/architecture/POLICY_RUNTIME_MODEL.md` | Pending |
 
 ## 4. Ingestion
 
@@ -62,7 +62,7 @@ This checklist must be completed and signed off before a release candidate can b
 | 4.1.2 | `TikaAdapter.ps1` exists | Ingestion Owner | `module/LLMWorkflow/ingestion/TikaAdapter.ps1` | Pending |
 | 4.1.3 | `DocumentNormalizer.ps1` exists | Ingestion Owner | `module/LLMWorkflow/ingestion/DocumentNormalizer.ps1` | Pending |
 | 4.1.4 | Document ingestion tests pass | Ingestion Owner | `tests/DocumentIngestion.Tests.ps1` | Pending |
-| 4.1.5 | Document ingestion model is documented | Docs Owner | `docs/DOCUMENT_INGESTION_MODEL.md` | Pending |
+| 4.1.5 | Document ingestion model is documented | Docs Owner | `docs/architecture/DOCUMENT_INGESTION_MODEL.md` | Pending |
 
 ### 4.2 Game Asset Ingestion
 
@@ -71,7 +71,7 @@ This checklist must be completed and signed off before a release candidate can b
 | 4.2.1 | `SpriteSheetParser.ps1` exists | Asset Owner | `module/LLMWorkflow/extraction/SpriteSheetParser.ps1` | Pending |
 | 4.2.2 | `MarketplaceProvenanceNormalizer.ps1` exists | Asset Owner | `module/LLMWorkflow/ingestion/MarketplaceProvenanceNormalizer.ps1` | Pending |
 | 4.2.3 | Game asset ingestion tests pass | Asset Owner | `tests/SpriteSheetExtraction.Tests.ps1`, `tests/MarketplaceProvenance.Tests.ps1` | Pending |
-| 4.2.4 | Game asset ingestion model is documented | Docs Owner | `docs/GAME_ASSET_INGESTION_MODEL.md` | Pending |
+| 4.2.4 | Game asset ingestion model is documented | Docs Owner | `docs/architecture/GAME_ASSET_INGESTION_MODEL.md` | Pending |
 
 ## 5. Security
 
@@ -82,8 +82,8 @@ This checklist must be completed and signed off before a release candidate can b
 | 5.3 | `Invoke-SecretScan.ps1` exists | Security Owner | `scripts/security/Invoke-SecretScan.ps1` | Pending |
 | 5.4 | `Invoke-VulnerabilityScan.ps1` exists | Security Owner | `scripts/security/Invoke-VulnerabilityScan.ps1` | Pending |
 | 5.5 | Security baseline tests pass | Security Owner | `tests/SecurityBaseline.Tests.ps1` | Pending |
-| 5.6 | Security baseline is documented | Docs Owner | `docs/SECURITY_BASELINE.md` | Pending |
-| 5.7 | Supply chain policy is documented | Docs Owner | `docs/SUPPLY_CHAIN_POLICY.md` | Pending |
+| 5.6 | Security baseline is documented | Docs Owner | `docs/architecture/SECURITY_BASELINE.md` | Pending |
+| 5.7 | Supply chain policy is documented | Docs Owner | `docs/reference/SUPPLY_CHAIN_POLICY.md` | Pending |
 
 ## 6. Durable Execution
 
@@ -93,7 +93,7 @@ This checklist must be completed and signed off before a release candidate can b
 | 6.2 | Checkpoint save function exists | Workflow Owner | `Save-WorkflowCheckpoint` in durable module | Pending |
 | 6.3 | Checkpoint resume function exists | Workflow Owner | `Resume-WorkflowCheckpoint` in durable module | Pending |
 | 6.4 | Durable execution is tested | Workflow Owner | Durable execution tests in `tests/` | Pending |
-| 6.5 | Self-healing / durability is documented | Docs Owner | `docs/SELF_HEALING.md` | Pending |
+| 6.5 | Self-healing / durability is documented | Docs Owner | `docs/operations/SELF_HEALING.md` | Pending |
 
 ## 7. MCP Governance
 
@@ -117,9 +117,9 @@ This checklist must be completed and signed off before a release candidate can b
 | # | Check | Owner | Evidence | Status |
 |---|-------|-------|----------|--------|
 | 9.1 | No unresolved critical bugs in issue tracker | Release Lead | Issue tracker query / report | Pending |
-| 9.2 | CHANGELOG.md is updated for this release | Release Lead | `CHANGELOG.md` | Pending |
+| 9.2 | CHANGELOG.md is updated for this release | Release Lead | `docs/releases/CHANGELOG.md` | Pending |
 | 9.3 | Compatibility lock is current | Release Lead | `compatibility.lock.json` | Pending |
-| 9.4 | All required docs listed in V1_RELEASE_CRITERIA exist | Release Lead | `docs/V1_RELEASE_CRITERIA.md` | Pending |
+| 9.4 | All required docs listed in V1_RELEASE_CRITERIA exist | Release Lead | `docs/releases/V1_RELEASE_CRITERIA.md` | Pending |
 | 9.5 | `Invoke-ReleaseCertification.ps1` runs without errors | Release Lead | Certification report JSON + Markdown | Pending |
 
 ---

@@ -298,7 +298,8 @@ $script:AuthorityRoleScores = @{
     'physics-extension' = 55
 }
 
-$script:TelemetryTraceLog = [System.Collections.ArrayList]::new()
+# TelemetryTraceLog is managed by telemetry/TelemetryHelpers.ps1
+
 
 #endregion
 

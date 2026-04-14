@@ -1,5 +1,7 @@
 # Test Convert-PSObjectToHashtable
-Import-Module 'C:\Users\Doc\Desktop\Projects\CodeMunch-ContextLattice-MemPalace---All-in-one\module\LLMWorkflow\retrieval\RetrievalCache.ps1' -Force 2>&1 | Out-Null
+$ProjectRoot = Resolve-Path (Join-Path $PSScriptRoot "..")
+$modulePath = Join-Path $ProjectRoot "module\LLMWorkflow\core\TypeConverters.ps1"
+if (Test-Path $modulePath) { . $modulePath }
 
 $json = '{"key":"test","value":123,"nested":{"a":1}}'
 $obj = $json | ConvertFrom-Json

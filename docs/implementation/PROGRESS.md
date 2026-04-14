@@ -23,10 +23,10 @@ This document tracks the implementation progress against the IMPROVEMENT_PROPOSA
 **Last Updated:** 2026-04-13
 
 **Current Version:** 0.9.6  
-**PowerShell Modules:** 106  
+**PowerShell Modules:** 108  
 **Domain Packs:** 10  
 **Extraction Parsers:** 31  
-**Golden Tasks:** 30  
+**Golden Tasks:** 71  
 **Performance Benchmark Suites:** 5
 
 ---
@@ -48,6 +48,33 @@ This means the strategic emphasis has shifted from raw expansion toward:
 - observability and policy hardening
 - mixed artifact and game asset ingestion quality
 - clearer boundaries between inventory support, descriptor parsing, and deeper extraction
+
+## Post-0.9.6 Remediation Update (2026-04-13)
+
+### Completed In This Remediation Wave
+
+- CI portability hardened with `tools/ci/invoke-pester-safe.ps1` and workflow wiring
+- docs/release path drift reduced across release criteria, certification, and canonical index docs
+- stale install-script references removed from CI/docs in favor of direct module import
+- `RunId` script invocation behavior fixed to support `-Command` usage safely
+- pack module behavior stabilized for PowerShell 5.1 and return-shape consistency
+- benchmark and pack/framework test harnesses aligned to current module behavior
+
+### Verified Test Outcomes
+
+- `Core.Tests.ps1`: 64/64 pass
+- `CoreModule.Tests.ps1`: 34/34 pass
+- `Pack.Tests.ps1`: 78/78 pass
+- `PackFramework.Tests.ps1`: 52/52 pass
+- `Benchmarks.Tests.ps1`: 28/28 pass
+
+### Remaining Work (High-Level)
+
+- bound and version the public module export contract (remove wildcard contract surface)
+- consolidate duplicate helper/function definitions across loaded modules
+- collapse parallel subsystem forks and finalize canonical ownership
+- finish secondary version metadata reconciliation across dashboards/release notes
+- continue observability, policy, and security enforcement depth to v1.0 release gates
 
 ---
 
@@ -975,7 +1002,11 @@ Total: 5 modules, 85+ functions, ~180KB
 ### Platform Expansion - MCP (Phase 7)
 ```
 module/LLMWorkflow/mcp/
-├── MCPToolkitServer.ps1      # 6 functions - Native toolkit server
+├── MCPToolkitServer.ps1      # 6 functions - Native toolkit server (decomposed)
+�   +-- MCPToolkitGodot.ps1         # Godot tool handlers
+�   +-- MCPToolkitBlender.ps1       # Blender tool handlers
+�   +-- MCPToolkitPack.ps1          # Pack tool handlers
+�   +-- MCPToolkitRPGMaker.ps1      # RPG Maker tool handlers
 ├── MCPCompositeGateway.ps1   # 8 functions - Composite gateway
 ├── MCPDeployment.ps1         # 12 functions - Deployment automation
 ├── MCPResourceManager.ps1    # 10 functions - Resource management
@@ -1067,73 +1098,32 @@ Total: 5 benchmark suites
 
 ---
 
-## Next Steps
+## Next Steps (Hardening Backlog)
 
-### Platform Status: ✅ COMPLETE
+All 8 implementation phases are complete, but the repo is still in v1.0 hardening mode.
 
-All 8 phases of the LLMWorkflow platform have been implemented:
+### Highest-Priority Remaining Work
 
-1. **Phase 1** - Reliability and Control Foundation ✅
-2. **Phase 2** - Pack Framework and Source Registry ✅
-3. **Phase 3** - Operator Workflow and Guarded Execution ✅
-4. **Phase 4** - Structured Extraction Pipeline ✅
-5. **Phase 5** - Retrieval and Answer Integrity ✅
-6. **Phase 6** - Human Trust, Replay, and Governance ✅
-7. **Phase 7** - Platform Expansion (MCP, Inter-Pack) ✅
-8. **Phase 8** - Extended Packs ✅
+1. Bound the module contract:
+   replace wildcard exports with explicit public API lists and keep internals private.
+2. Remove duplicate loaded helpers:
+   consolidate shared helper functions and eliminate source-order overrides.
+3. Finalize canonical subsystem ownership:
+   collapse parallel forks (snapshot, federated memory, ingestion, natural-language config).
+4. Complete release/documentation reconciliation:
+   finish secondary version metadata and keep release-state language consistent.
+5. Deepen runtime enforcement:
+   continue observability, policy, and security integration as required release gates.
 
-### Current Platform Statistics
+### Operational Maintenance
 
-| Metric | Value | Change |
-|--------|-------|--------|
-| Version | 0.9.6 | - |
-| PowerShell Modules | 106 | +18 |
-| Domain Packs | 10 | - |
-| Godot Pack Sources | 43 | +14 (Appendage A) |
-| Source Families | 11 | +5 |
-| Extraction Parsers | 31 | +3 |
-| Golden Tasks | 30 | - |
-| Performance Benchmarks | 5 | - |
-| Total Functions | 1676+ | +85 |
-| Lines of Code | 100,000+ | +15,000 |
+- keep core/pack/framework/benchmark suites green in CI
+- monitor pack health and golden task regressions
+- maintain parser quality and provenance consistency
+- expand governance coverage only when test and policy enforcement keep pace
 
-### Appendage A: Godot Extended Sources ✅ COMPLETE
+For detailed backlog and exit criteria, see [REMAINING_WORK.md](./REMAINING_WORK.md).
 
-**Status:** All 15 Godot repositories added to source registry
 
-**Repositories Added:**
-| Repository | Domain | Priority |
-|------------|--------|----------|
-| MikeSchulze/gdUnit4 | Testing Framework | P2 |
-| limbonaut/limboai | AI Behavior Trees | P2 |
-| dialogic-godot/dialogic | Dialog System | P2 |
-| shomykohai/quest-system | Quest Management | P2 |
-| expressobits/inventory-system | Inventory System | P2 |
-| maximkulkin/godot-rollback-netcode | Networking | P2 |
-| Ericdowney/SignalVisualizer | Debugging Tools | P3 |
-| AdamKormos/SaveMadeEasy | Save System | P3 |
-| hohfchns/DialogueQuest | Dialogue Quests | P3 |
-| bitbrain/pandora | Modding Framework | P3 |
-| SlashScreen/chunx | Chunked Terrain | P3 |
-| Syntaxxor/godot-voxel-terrain | Voxel Terrain | P3 |
-| GamePushService/GamePush-Godot-plugin | Multiplayer | P3 |
-| HexagonNico/Godot-FiniteStateMachine | FSM Utility | P3 |
 
-**Associated Parsers:**
-- `GodotInventoryExtractor.ps1` (2,111 lines) - Inventory system pattern extraction
-- `GodotQuestExtractor.ps1` (2,634 lines) - Quest system pattern extraction
-- `GodotNetworkingExtractor.ps1` (1,695 lines) - Networking/rollback extraction
 
-**Test Coverage:** 210 new Pester tests across 3 test files
-
-### Maintenance and Operations
-
-- Monitor pack health scores
-- Review golden task eval results
-- Maintain extraction parser accuracy
-- Update source registries with new community sources
-- Expand MCP toolkit capabilities based on user feedback
-
----
-
-*For full architecture specification, see IMPROVEMENT_PROPOSALS.md*

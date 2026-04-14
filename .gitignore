@@ -70,6 +70,10 @@ $RECYCLE.BIN/
 *.log
 logs/
 log/
+.llm-workflow/logs/
+.llm-workflow/reports/
+.llm-workflow/state/*.backup.*
+.llm-workflow/state/incident-registry.json
 .memorybridge/sync-state.json
 .codemunch/cache/
 tmp/

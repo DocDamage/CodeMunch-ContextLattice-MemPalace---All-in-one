@@ -12,7 +12,12 @@ BeforeAll {
     Set-StrictMode -Version Latest
     $ErrorActionPreference = "Stop"
 
-    $modulePath = Join-Path $PSScriptRoot "..\module\LLMWorkflow\governance\HumanReviewGates.ps1"
+    # Load core dependencies
+    $script:moduleRoot = Join-Path $PSScriptRoot "..\module\LLMWorkflow"
+    . (Join-Path $script:moduleRoot "core\TypeConverters.ps1")
+    . (Join-Path $script:moduleRoot "core\RunId.ps1")
+
+    $modulePath = Join-Path $script:moduleRoot "governance\HumanReviewGates.ps1"
     . $modulePath
 
     $script:testRequestId = $null

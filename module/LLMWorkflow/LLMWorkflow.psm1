@@ -3,10 +3,24 @@ Set-StrictMode -Version Latest
 # Save the module root path for later use (PSScriptRoot changes when dot-sourcing)
 $script:ModuleRoot = $PSScriptRoot
 
+# Helper to check PS version requirement
+function Test-PSVersionRequirement {
+    param([string]$FilePath)
+    $firstLine = Get-Content -LiteralPath $FilePath -TotalCount 1
+    if ($firstLine -match '#requires\s+-Version\s+7') {
+        if ($PSVersionTable.PSVersion.Major -lt 7) {
+            return $false
+        }
+    }
+    return $true
+}
+
 # Source core infrastructure components (Phase 1 priorities)
 $CoreDirectory = Join-Path $PSScriptRoot "core"
 
 $CoreFiles = @(
+    # Type converters (canonical helper) - MUST BE FIRST for other core components
+    "TypeConverters.ps1",
     # Run identification and logging (Priority 1: Journaling)
     "RunId.ps1",
     "Logging.ps1",
@@ -20,8 +34,6 @@ $CoreFiles = @(
     "ConfigPath.ps1",
     "Config.ps1",
     "ConfigCLI.ps1",
-    # Type converters (canonical helper)
-    "TypeConverters.ps1",
     # Policy and execution (Priority 4: Policy + execution modes)
     "Policy.ps1",
     "ExecutionMode.ps1",
@@ -38,6 +50,16 @@ foreach ($coreFile in $CoreFiles) {
         . $corePath
     }
 }
+
+# Source telemetry components (Workstream 2)
+Get-ChildItem -Path (Join-Path $script:ModuleRoot "telemetry") -Filter "*.ps1" -File | ForEach-Object {
+    if (Test-PSVersionRequirement -FilePath $_.FullName) {
+        . $_.FullName
+    } else {
+        Write-Verbose "Skipping PS 7-only script: $($_.Name)"
+    }
+}
+
 
 # Source pack framework components (Phase 2 priorities)
 $PackDirectory = Join-Path $script:ModuleRoot "pack"
@@ -74,29 +96,6 @@ foreach ($workflowFile in $WorkflowFiles) {
     }
 }
 
-# Helper to check PS version requirement
-function Test-PSVersionRequirement {
-    param([string]$FilePath)
-    $firstLine = Get-Content -LiteralPath $FilePath -TotalCount 1
-    if ($firstLine -match '#requires\s+-Version\s+7') {
-        if ($PSVersionTable.PSVersion.Major -lt 7) {
-            return $false
-        }
-    }
-    return $true
-}
-
-# Source extraction pipeline components (Phase 4 priorities)
-$extractionExclude = @("ExternalIngestion.ps1")
-Get-ChildItem -Path (Join-Path $script:ModuleRoot "extraction") -Filter "*.ps1" -File | Where-Object {
-    $_.Name -notin $extractionExclude
-} | ForEach-Object {
-    if (Test-PSVersionRequirement -FilePath $_.FullName) {
-        . $_.FullName
-    } else {
-        Write-Verbose "Skipping PS 7-only script: $($_.Name)"
-    }
-}
 
 # Source retrieval components (Phase 5 priorities)
 Get-ChildItem -Path (Join-Path $script:ModuleRoot "retrieval") -Filter "*.ps1" -File | ForEach-Object {
@@ -116,14 +115,6 @@ Get-ChildItem -Path (Join-Path $script:ModuleRoot "governance") -Filter "*.ps1" 
     }
 }
 
-# Source telemetry components (Workstream 2)
-Get-ChildItem -Path (Join-Path $script:ModuleRoot "telemetry") -Filter "*.ps1" -File | ForEach-Object {
-    if (Test-PSVersionRequirement -FilePath $_.FullName) {
-        . $_.FullName
-    } else {
-        Write-Verbose "Skipping PS 7-only script: $($_.Name)"
-    }
-}
 
 # Source policy components (Workstream 3)
 Get-ChildItem -Path (Join-Path $script:ModuleRoot "policy") -Filter "*.ps1" -File | ForEach-Object {
@@ -144,7 +135,7 @@ Get-ChildItem -Path (Join-Path $script:ModuleRoot "ingestion") -Filter "*.ps1" -
 }
 
 # Source MCP components (Phase 7 priorities)
-$mcpExclude = @("FederatedMemory.ps1", "SnapshotManager.ps1")
+$mcpExclude = @("FederatedMemory.ps1", "SnapshotManager.ps1", "NaturalLanguageConfig.ps1", "ExternalIngestion.ps1")
 Get-ChildItem -Path (Join-Path $script:ModuleRoot "mcp") -Filter "*.ps1" -File | Where-Object {
     $_.Name -notin $mcpExclude
 } | ForEach-Object {
@@ -1296,4 +1287,14 @@ Set-Alias -Name llmsync -Value Sync-LLMWorkflowAllPalaces
 Set-Alias -Name llmdashboard -Value Show-LLMWorkflowDashboard
 Set-Alias -Name llmheal -Value Invoke-LLMWorkflowHeal
 
-Export-ModuleMember -Function * -Alias llmup, llmdown, llmcheck, llmver, llmupdate, llmplugins, llmpalaces, llmsync, llmdashboard, llmheal
+Export-ModuleMember -Function @(
+    'Invoke-LLMWorkflowUp', 'Uninstall-LLMWorkflow', 'Install-LLMWorkflow', 'Update-LLMWorkflow', 
+    'Get-LLMWorkflowVersion', 'Test-LLMWorkflowSetup',
+    'Invoke-QueryRouting', 'Get-RetrievalProfile', 'Get-RetrievalProfileList', 'Get-QueryIntent', 'Get-RoutingExplanation',
+    'New-AnswerPlan', 'Add-PlanEvidence', 'Test-AnswerPlanCompleteness',
+    'New-AnswerTrace', 'Add-TraceEvidence', 'Export-AnswerTrace',
+    'Get-CachedRetrieval', 'Invoke-CacheInvalidation', 'Invoke-CacheMaintenance', 'Clear-RetrievalCache',
+    'Invoke-LLMWorkflowHeal', 'Show-LLMWorkflowDashboard', 'Get-LLMWorkflowPlugins', 'Get-LLMWorkflowPalaces', 'Sync-LLMWorkflowAllPalaces',
+    'Get-GoldenTasks', 'Test-GoldenTaskCompleteness',
+    'Get-TelemetryLog', 'Clear-TelemetryLog'
+) -Alias llmup, llmdown, llmcheck, llmver, llmupdate, llmplugins, llmpalaces, llmsync, llmdashboard, llmheal

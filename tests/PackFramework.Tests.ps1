@@ -25,10 +25,10 @@ BeforeAll {
     # Create test directories
     New-Item -ItemType Directory -Path $script:TestRoot -Force | Out-Null
     New-Item -ItemType Directory -Path (Join-Path $script:TestRoot "packs") -Force | Out-Null
-    New-Item -ItemType Directory -Path (Join-Path $script:TestRoot "packs" "manifests") -Force | Out-Null
-    New-Item -ItemType Directory -Path (Join-Path $script:TestRoot "packs" "registries") -Force | Out-Null
-    New-Item -ItemType Directory -Path (Join-Path $script:TestRoot "packs" "staging") -Force | Out-Null
-    New-Item -ItemType Directory -Path (Join-Path $script:TestRoot "packs" "promoted") -Force | Out-Null
+    New-Item -ItemType Directory -Path (Join-Path (Join-Path $script:TestRoot "packs") "manifests") -Force | Out-Null
+    New-Item -ItemType Directory -Path (Join-Path (Join-Path $script:TestRoot "packs") "registries") -Force | Out-Null
+    New-Item -ItemType Directory -Path (Join-Path (Join-Path $script:TestRoot "packs") "staging") -Force | Out-Null
+    New-Item -ItemType Directory -Path (Join-Path (Join-Path $script:TestRoot "packs") "promoted") -Force | Out-Null
     
     # Import modules
     $packManifestPath = Join-Path $script:PackModulePath "PackManifest.ps1"
@@ -207,7 +207,7 @@ Describe "PackManifest Module Tests" {
     Context "Save-PackManifest and Get-PackManifest Functions" {
         It "Should save and load manifests" {
             $manifest = New-PackManifest -PackId "test-save" -Domain "test" -Version "1.0.0"
-            $testPath = Join-Path $script:TestRoot "packs" "manifests" "test-save.json"
+            $testPath = Join-Path (Join-Path (Join-Path $script:TestRoot "packs") "manifests") "test-save.json"
             
             Save-PackManifest -Manifest $manifest -Path $testPath | Out-Null
             
@@ -229,7 +229,7 @@ Describe "PackManifest Module Tests" {
 
         It "Should load by packId" {
             $manifest = New-PackManifest -PackId "load-by-id" -Domain "test" -Version "1.0.0"
-            Save-PackManifest -Manifest $manifest -Path (Join-Path $script:TestRoot "packs" "manifests" "load-by-id.json") | Out-Null
+            Save-PackManifest -Manifest $manifest -Path (Join-Path (Join-Path (Join-Path $script:TestRoot "packs") "manifests") "load-by-id.json") | Out-Null
             
             Push-Location $script:TestRoot
             try {
@@ -244,10 +244,10 @@ Describe "PackManifest Module Tests" {
 
     Context "Get-PackManifestList Function" {
         It "Should list all manifests" {
-            New-PackManifest -PackId "list-test-1" -Domain "game-dev" -Version "1.0.0" | 
-                Save-PackManifest -Path (Join-Path $script:TestRoot "packs" "manifests" "list-test-1.json")
-            New-PackManifest -PackId "list-test-2" -Domain "3d-graphics" -Version "2.0.0" | 
-                Save-PackManifest -Path (Join-Path $script:TestRoot "packs" "manifests" "list-test-2.json")
+            $manifest1 = New-PackManifest -PackId "list-test-1" -Domain "game-dev" -Version "1.0.0"
+            $manifest2 = New-PackManifest -PackId "list-test-2" -Domain "3d-graphics" -Version "2.0.0"
+            Save-PackManifest -Manifest $manifest1 -Path (Join-Path (Join-Path (Join-Path $script:TestRoot "packs") "manifests") "list-test-1.json") | Out-Null
+            Save-PackManifest -Manifest $manifest2 -Path (Join-Path (Join-Path (Join-Path $script:TestRoot "packs") "manifests") "list-test-2.json") | Out-Null
             
             Push-Location $script:TestRoot
             try {
@@ -263,8 +263,8 @@ Describe "PackManifest Module Tests" {
             $manifest1 = New-PackManifest -PackId "filter-status-1" -Domain "test" -Version "1.0.0" -Status "draft"
             $manifest2 = New-PackManifest -PackId "filter-status-2" -Domain "test" -Version "1.0.0" -Status "promoted"
             
-            Save-PackManifest -Manifest $manifest1 -Path (Join-Path $script:TestRoot "packs" "manifests" "filter-status-1.json") | Out-Null
-            Save-PackManifest -Manifest $manifest2 -Path (Join-Path $script:TestRoot "packs" "manifests" "filter-status-2.json") | Out-Null
+            Save-PackManifest -Manifest $manifest1 -Path (Join-Path (Join-Path (Join-Path $script:TestRoot "packs") "manifests") "filter-status-1.json") | Out-Null
+            Save-PackManifest -Manifest $manifest2 -Path (Join-Path (Join-Path (Join-Path $script:TestRoot "packs") "manifests") "filter-status-2.json") | Out-Null
             
             Push-Location $script:TestRoot
             try {
@@ -283,8 +283,8 @@ Describe "PackManifest Module Tests" {
             $manifest1 = New-PackManifest -PackId "filter-domain-1" -Domain "game-dev" -Version "1.0.0"
             $manifest2 = New-PackManifest -PackId "filter-domain-2" -Domain "3d-graphics" -Version "1.0.0"
             
-            Save-PackManifest -Manifest $manifest1 -Path (Join-Path $script:TestRoot "packs" "manifests" "filter-domain-1.json") | Out-Null
-            Save-PackManifest -Manifest $manifest2 -Path (Join-Path $script:TestRoot "packs" "manifests" "filter-domain-2.json") | Out-Null
+            Save-PackManifest -Manifest $manifest1 -Path (Join-Path (Join-Path (Join-Path $script:TestRoot "packs") "manifests") "filter-domain-1.json") | Out-Null
+            Save-PackManifest -Manifest $manifest2 -Path (Join-Path (Join-Path (Join-Path $script:TestRoot "packs") "manifests") "filter-domain-2.json") | Out-Null
             
             Push-Location $script:TestRoot
             try {
@@ -383,7 +383,7 @@ Describe "SourceRegistry Module Tests" {
             $result = Test-SourceRegistryEntry -Entry $entry
             
             $result.isValid | Should -Be $false
-            $result.errors | Should -Match "*Invalid trustTier*"
+            $result.errors | Should -Match "Invalid trustTier"
         }
 
         It "Should pass valid entries" {
@@ -477,7 +477,7 @@ Describe "SourceRegistry Module Tests" {
                 src2 = New-SourceRegistryEntry -SourceId "src2" -RepoUrl "https://github.com/test/2"
             }
             
-            $savePath = Join-Path $script:TestRoot "packs" "registries" "test-save.sources.json"
+            $savePath = Join-Path (Join-Path (Join-Path $script:TestRoot "packs") "registries") "test-save.sources.json"
             Save-SourceRegistry -PackId "test-save" -Sources $sources -Path $savePath | Out-Null
             
             Test-Path $savePath | Should -Be $true
@@ -549,8 +549,8 @@ Describe "PackTransaction Module Tests" {
             $transaction = Move-PackTransactionStage -Transaction $transaction -Stage "build" -Success $false `
                 -Errors @("Error 1", "Error 2")
             
-            $transaction.stages.prepare.errors.Count | Should -Be 2
-            $transaction.stages.prepare.errors | Should -Contain "Error 1"
+            $transaction.stages.build.errors.Count | Should -Be 2
+            $transaction.stages.build.errors | Should -Contain "Error 1"
         }
     }
 
@@ -583,7 +583,7 @@ Describe "PackTransaction Module Tests" {
     Context "Save-PackLockfile and Get-PackLockfile Functions" {
         It "Should save lockfiles to staging" {
             $lockfile = New-PackLockfile -PackId "test-save" -PackVersion "1.0.0"
-            $stagingDir = Join-Path $script:TestRoot "packs" "staging" "test-save"
+            $stagingDir = Join-Path (Join-Path (Join-Path $script:TestRoot "packs") "staging") "test-save"
             
             $savedPath = Save-PackLockfile -Lockfile $lockfile -Staging $true
             
@@ -593,20 +593,26 @@ Describe "PackTransaction Module Tests" {
 
         It "Should create latest symlink" {
             $lockfile = New-PackLockfile -PackId "test-latest" -PackVersion "1.0.0"
-            $stagingDir = Join-Path $script:TestRoot "packs" "staging" "test-latest"
-            
-            Save-PackLockfile -Lockfile $lockfile -Staging $true | Out-Null
-            
-            $latestPath = Join-Path $stagingDir "latest.pack.lock.json"
-            Test-Path $latestPath | Should -Be $true
+            $stagingDir = Join-Path (Join-Path (Join-Path $script:TestRoot "packs") "staging") "test-latest"
+
+            Push-Location $script:TestRoot
+            try {
+                Save-PackLockfile -Lockfile $lockfile -Staging $true | Out-Null
+
+                $latestPath = Join-Path $stagingDir "latest.pack.lock.json"
+                Test-Path $latestPath | Should -Be $true
+            }
+            finally {
+                Pop-Location
+            }
         }
 
         It "Should load latest lockfile" {
             $lockfile = New-PackLockfile -PackId "test-load" -PackVersion "2.0.0"
-            Save-PackLockfile -Lockfile $lockfile -Staging $true | Out-Null
             
             Push-Location $script:TestRoot
             try {
+                Save-PackLockfile -Lockfile $lockfile -Staging $true | Out-Null
                 $loaded = Get-PackLockfile -PackId "test-load"
                 $loaded.packVersion | Should -Be "2.0.0"
             }
@@ -623,12 +629,12 @@ Describe "PackTransaction Module Tests" {
             $transaction = Move-PackTransactionStage -Transaction $transaction -Stage "build" -Success $true
             $transaction = Move-PackTransactionStage -Transaction $transaction -Stage "validate" -Success $true
             
-            # Create a lockfile in staging
-            $lockfile = New-PackLockfile -PackId "test-promote" -PackVersion "1.0.0"
-            Save-PackLockfile -Lockfile $lockfile -Staging $true | Out-Null
-            
             Push-Location $script:TestRoot
             try {
+                # Create a lockfile in staging
+                $lockfile = New-PackLockfile -PackId "test-promote" -PackVersion "1.0.0"
+                Save-PackLockfile -Lockfile $lockfile -Staging $true | Out-Null
+
                 $result = Publish-PackBuild -PackId "test-promote" -Version "1.0.0" -Transaction $transaction
                 
                 $result.Success | Should -Be $true
@@ -656,6 +662,9 @@ Describe "PackTransaction Module Tests" {
             
             Push-Location $script:TestRoot
             try {
+                $targetLockfile = New-PackLockfile -PackId "test-rollback" -PackVersion "1.0.0"
+                Save-PackLockfile -Lockfile $targetLockfile -Staging $false | Out-Null
+
                 $result = Undo-PackBuild -PackId "test-rollback" -Transaction $transaction -RollbackTarget "1.0.0"
                 
                 $result.state | Should -Be "rollback"

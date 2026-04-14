@@ -20,6 +20,14 @@
     Version        : 1.1.0
 #>
 
+param(
+    [Parameter()]
+    [string]$Command,
+
+    [Parameter()]
+    [object[]]$CommandArguments = @()
+)
+
 Set-StrictMode -Version Latest
 
 # Script-level variable to cache the current run ID
@@ -328,13 +336,36 @@ function Get-RunIdFunctions {
     }
 }
 
-# Export functions
-Export-ModuleMember -Function @(
-    'New-RunId',
-    'Get-CurrentRunId',
-    'Set-CurrentRunId',
-    'Clear-CurrentRunId',
-    'Test-RunIdFormat',
-    'Parse-RunId',
-    'Get-RunIdFunctions'
-)
+# Support script-style command invocation:
+#   & ./RunId.ps1 -Command New-RunId
+if (-not [string]::IsNullOrWhiteSpace($Command)) {
+    $supportedCommands = @(
+        'New-RunId',
+        'Get-CurrentRunId',
+        'Set-CurrentRunId',
+        'Clear-CurrentRunId',
+        'Test-RunIdFormat',
+        'Parse-RunId',
+        'Get-RunIdFunctions'
+    )
+
+    if ($Command -notin $supportedCommands) {
+        throw "Unsupported RunId command '$Command'. Supported commands: $($supportedCommands -join ', ')"
+    }
+
+    & $Command @CommandArguments
+    return
+}
+
+# Export functions only when this file is loaded as part of a module.
+if ($ExecutionContext.SessionState.Module) {
+    Export-ModuleMember -Function @(
+        'New-RunId',
+        'Get-CurrentRunId',
+        'Set-CurrentRunId',
+        'Clear-CurrentRunId',
+        'Test-RunIdFormat',
+        'Parse-RunId',
+        'Get-RunIdFunctions'
+    )
+}

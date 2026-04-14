@@ -11,11 +11,12 @@ BeforeAll {
     $ErrorActionPreference = 'Stop'
 
     $modulePath = Join-Path $PSScriptRoot '../module/LLMWorkflow/retrieval/IncidentBundle.ps1'
-    if (-not (Test-Path $modulePath)) {
-        $modulePath = Join-Path $PSScriptRoot '../module/LLMWorkflow/retrieval/IncidentBundle.ps1'
-    }
+    $typeConvertersPath = Join-Path $PSScriptRoot '../module/LLMWorkflow/core/TypeConverters.ps1'
+    $replayHarnessPath = Join-Path $PSScriptRoot '../module/LLMWorkflow/governance/ReplayHarness.ps1'
 
     try {
+        if (Test-Path $typeConvertersPath) { . $typeConvertersPath }
+        if (Test-Path $replayHarnessPath) { . $replayHarnessPath }
         . $modulePath
     }
     catch {
@@ -167,7 +168,7 @@ Describe 'Invoke-IncidentReplay' {
     It 'Invoke-IncidentReplay creates replay record' {
         $bundle = New-AnswerIncidentBundle -Query "Replay test" -FinalAnswer "Original answer"
 
-        $replay = Invoke-IncidentReplay -Incident $bundle -UseCurrentPacks
+        $replay = Invoke-IncidentReplay -IncidentId $bundle.incidentId -NewSystemConfig @{ }
 
         $replay.replayId | Should -Not -BeNullOrEmpty
         $replay.incidentId | Should -Be $bundle.incidentId
@@ -178,7 +179,7 @@ Describe 'Invoke-IncidentReplay' {
 Describe 'Compare-IncidentReplay' {
     It 'Compare-IncidentReplay compares results' {
         $bundle = New-AnswerIncidentBundle -Query "Compare test" -FinalAnswer "Answer"
-        $replay = Invoke-IncidentReplay -Incident $bundle
+        $replay = Invoke-IncidentReplay -IncidentId $bundle.incidentId -NewSystemConfig @{ }
 
         $comparison = Compare-IncidentReplay -Incident $bundle -ReplayResult $replay
 

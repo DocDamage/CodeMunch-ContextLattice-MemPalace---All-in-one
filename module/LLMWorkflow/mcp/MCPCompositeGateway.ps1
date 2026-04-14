@@ -529,120 +529,6 @@ function Get-MCPCompositeGatewayStatus {
 
 .OUTPUTS
     PSCustomObject with the registered route configuration.
-#>
-function Add-MCPPackRoute {
-    [CmdletBinding()]
-    [OutputType([pscustomobject])]
-    param(
-        [Parameter(Mandatory = $true)]
-        [string]$PackId,
-
-        [Parameter(Mandatory = $true)]
-        [string]$Endpoint,
-
-        [Parameter(Mandatory = $true)]
-        [string]$ToolPrefix,
-
-        [Parameter()]
-        [int]$Priority = 1,
-
-        [Parameter()]
-        [bool]$Enabled = $true,
-
-        [Parameter()]
-        [int]$RateLimit = 0,
-
-        [Parameter()]
-        [string]$FallbackPackId = '',
-
-        [Parameter()]
-        [hashtable]$Metadata = @{}
-    )
-
-    begin {
-        Ensure-GatewayRunning
-
-        # Use default rate limit if not specified
-        if ($RateLimit -eq 0) {
-            $RateLimit = $script:GatewayState.config.defaultRateLimit
-        }
-    }
-
-    process {
-        # Validate prefix format
-        $prefix = $ToolPrefix.ToLower()
-        if (-not $prefix.EndsWith('_')) {
-            $prefix = "$prefix`_"
-        }
-
-        $validPrefix = $false
-        foreach ($valid in $script:ValidToolPrefixes) {
-            if ($prefix.StartsWith($valid.TrimEnd('_'), [System.StringComparison]::OrdinalIgnoreCase)) {
-                $validPrefix = $true
-                break
-            }
-        }
-
-        if (-not $validPrefix) {
-            Write-Warning "Tool prefix '$prefix' does not match known pack prefixes. Known: $($script:ValidToolPrefixes -join ', ')"
-        }
-
-        # Check for duplicate pack ID
-        if ($script:GatewayState.routes.ContainsKey($PackId)) {
-            Write-Warning "Route for pack '$PackId' already exists. Updating configuration."
-        }
-
-        # Check for prefix conflict
-        foreach ($existingRoute in $script:GatewayState.routes.Values) {
-            if ($existingRoute.prefix -eq $prefix -and $existingRoute.packId -ne $PackId) {
-                throw "Prefix '$prefix' is already registered by pack '$($existingRoute.packId)'"
-            }
-        }
-
-        $correlationId = [Guid]::NewGuid().ToString()
-
-        # Create route configuration
-        $route = [PSCustomObject]@{
-            packId = $PackId
-            prefix = $prefix
-            endpoint = $Endpoint
-            priority = $Priority
-            enabled = $Enabled
-            rateLimit = $RateLimit
-            fallbackPackId = if ([string]::IsNullOrEmpty($FallbackPackId)) { $null } else { $FallbackPackId }
-            metadata = $Metadata
-            registeredAt = [DateTime]::UtcNow.ToString("o")
-            requestCount = 0
-            lastRequestAt = $null
-            healthStatus = 'unknown'
-            lastHealthCheck = $null
-        }
-
-        # Register route
-        $script:GatewayState.routes[$PackId] = $route
-
-        # Initialize rate limiter
-        $script:GatewayState.rateLimiters[$PackId] = @{
-            tokens = $RateLimit
-            lastRefill = [DateTime]::UtcNow
-            windowStart = [DateTime]::UtcNow
-            requestCount = 0
-        }
-
-        # Initialize circuit breaker
-        Initialize-CircuitBreaker -PackId $PackId
-
-        # Log registration
-        Write-GatewayStructuredLog -Level INFO -Message "Pack route added" -CorrelationId $correlationId -Metadata @{
-            packId = $PackId
-            prefix = $prefix
-            endpoint = $Endpoint
-            priority = $Priority
-        }
-
-        return $route
-    }
-}
 
 <#
 .SYNOPSIS
@@ -662,56 +548,6 @@ function Add-MCPPackRoute {
 
 .OUTPUTS
     Boolean indicating success.
-#>
-function Remove-MCPPackRoute {
-    [CmdletBinding()]
-    [OutputType([bool])]
-    param(
-        [Parameter(Mandatory = $true)]
-        [string]$PackId,
-
-        [Parameter()]
-        [switch]$Force
-    )
-
-    begin {
-        Ensure-GatewayRunning
-    }
-
-    process {
-        if (-not $script:GatewayState.routes.ContainsKey($PackId)) {
-            Write-Warning "Route for pack '$PackId' not found."
-            return $false
-        }
-
-        # Check for active sessions using this pack
-        $activeSessions = $script:GatewayState.sessions.Values | Where-Object {
-            $_.packContexts.ContainsKey($PackId) -and $_.isActive
-        }
-
-        if ($activeSessions -and -not $Force) {
-            throw "Cannot remove pack '$PackId': Active sessions exist. Use -Force to override."
-        }
-
-        # Remove route
-        $route = $script:GatewayState.routes[$PackId]
-        $script:GatewayState.routes.Remove($PackId)
-        $script:GatewayState.rateLimiters.Remove($PackId)
-        $script:GatewayState.circuitBreakers.Remove($PackId)
-
-        $correlationId = [Guid]::NewGuid().ToString()
-
-        # Log removal
-        Write-GatewayStructuredLog -Level INFO -Message "Pack route removed" -CorrelationId $correlationId -Metadata @{
-            packId = $PackId
-            prefix = $route.prefix
-            force = $Force.IsPresent
-            hadActiveSessions = ($activeSessions | Measure-Object).Count -gt 0
-        }
-
-        return $true
-    }
-}
 
 <#
 .SYNOPSIS
@@ -719,50 +555,6 @@ function Remove-MCPPackRoute {
 
 .DESCRIPTION
     Backward-compatible alias for Add-MCPPackRoute.
-#>
-function Register-MCPPackRoute {
-    [CmdletBinding()]
-    [OutputType([pscustomobject])]
-    param(
-        [Parameter(Mandatory = $true)]
-        [string]$PackId,
-
-        [Parameter(Mandatory = $true)]
-        [string]$Prefix,
-
-        [Parameter()]
-        [string]$Endpoint = 'stdio',
-
-        [Parameter()]
-        [bool]$Enabled = $true,
-
-        [Parameter()]
-        [int]$RateLimit = 100,
-
-        [Parameter()]
-        [string]$FallbackPackId = '',
-
-        [Parameter()]
-        [hashtable]$Metadata = @{}
-    )
-
-    process {
-        $params = @{
-            PackId = $PackId
-            ToolPrefix = $Prefix
-            Endpoint = $Endpoint
-            Enabled = $Enabled
-            RateLimit = $RateLimit
-            Metadata = $Metadata
-        }
-
-        if ($FallbackPackId) {
-            $params['FallbackPackId'] = $FallbackPackId
-        }
-
-        return Add-MCPPackRoute @params
-    }
-}
 
 <#
 .SYNOPSIS
@@ -770,22 +562,6 @@ function Register-MCPPackRoute {
 
 .DESCRIPTION
     Backward-compatible alias for Remove-MCPPackRoute.
-#>
-function Unregister-MCPPackRoute {
-    [CmdletBinding()]
-    [OutputType([bool])]
-    param(
-        [Parameter(Mandatory = $true)]
-        [string]$PackId,
-
-        [Parameter()]
-        [switch]$Force
-    )
-
-    process {
-        return Remove-MCPPackRoute -PackId $PackId -Force:$Force
-    }
-}
 
 <#
 .SYNOPSIS
@@ -808,51 +584,6 @@ function Unregister-MCPPackRoute {
 
 .OUTPUTS
     Array of PSCustomObject route configurations.
-#>
-function Get-MCPPackRoutes {
-    [CmdletBinding()]
-    [OutputType([array])]
-    param(
-        [Parameter()]
-        [switch]$EnabledOnly,
-
-        [Parameter()]
-        [string]$PackId = '*',
-
-        [Parameter()]
-        [switch]$IncludeHealth
-    )
-
-    begin {
-        Ensure-GatewayRunning
-    }
-
-    process {
-        $routes = $script:GatewayState.routes.Values
-
-        if ($EnabledOnly) {
-            $routes = $routes | Where-Object { $_.enabled }
-        }
-
-        if ($PackId -ne '*') {
-            $routes = $routes | Where-Object { $_.packId -like $PackId }
-        }
-
-        # Add health status if requested
-        if ($IncludeHealth) {
-            $routes = $routes | ForEach-Object {
-                $route = $_
-                $cb = $script:GatewayState.circuitBreakers[$route.packId]
-                if ($cb) {
-                    $route | Add-Member -NotePropertyName 'circuitBreakerState' -NotePropertyValue $cb.state -Force
-                }
-                $route
-            }
-        }
-
-        return @($routes | Sort-Object -Property packId)
-    }
-}
 
 #endregion
 
@@ -1122,87 +853,6 @@ function Invoke-MCPPackRoute {
 
 .OUTPUTS
     PSCustomObject with JSON-RPC 2.0 response containing aggregated tools.
-#>
-function Get-MCPGatewayManifest {
-    [CmdletBinding()]
-    [OutputType([pscustomobject])]
-    param(
-        [Parameter()]
-        [switch]$IncludeMetadata,
-
-        [Parameter()]
-        [string]$FilterPrefix = '*',
-
-        [Parameter()]
-        [string]$CorrelationId = ''
-    )
-
-    begin {
-        Ensure-GatewayRunning
-
-        if ([string]::IsNullOrEmpty($CorrelationId)) {
-            $CorrelationId = [Guid]::NewGuid().ToString()
-        }
-    }
-
-    process {
-        $allTools = @()
-        $enabledRoutes = $script:GatewayState.routes.Values | Where-Object { $_.enabled }
-
-        foreach ($route in $enabledRoutes) {
-            try {
-                # Check circuit breaker before querying
-                if ($script:GatewayState.config.enableCircuitBreaker) {
-                    $cbResult = Test-CircuitBreaker -PackId $route.packId
-                    if (-not $cbResult.allowed) {
-                        Write-Verbose "Skipping manifest query for $($route.packId): Circuit breaker open"
-                        continue
-                    }
-                }
-
-                $tools = Get-ToolsFromPack -Route $route
-
-                foreach ($tool in $tools) {
-                    if ($FilterPrefix -ne '*' -and -not $tool.name.StartsWith($FilterPrefix, [System.StringComparison]::OrdinalIgnoreCase)) {
-                        continue
-                    }
-
-                    $toolInfo = [PSCustomObject]@{
-                        name = $tool.name
-                        description = $tool.description
-                        inputSchema = if ($tool.inputSchema) { $tool.inputSchema } else { @{ type = 'object'; properties = @{} } }
-                        packId = $route.packId
-                        prefix = $route.prefix
-                    }
-
-                    if ($IncludeMetadata) {
-                        $toolInfo | Add-Member -NotePropertyName 'metadata' -NotePropertyValue $route.metadata -Force
-                        $toolInfo | Add-Member -NotePropertyName 'routeEndpoint' -NotePropertyValue $route.endpoint -Force
-                        $toolInfo | Add-Member -NotePropertyName 'packPriority' -NotePropertyValue $route.priority -Force
-                    }
-
-                    $allTools += $toolInfo
-                }
-            }
-            catch {
-                Write-Verbose "Failed to get tools from pack '$($route.packId)': $($_.Exception.Message)"
-            }
-        }
-
-        Write-GatewayStructuredLog -Level INFO -Message "Gateway manifest generated" -CorrelationId $CorrelationId -Metadata @{
-            toolCount = $allTools.Count
-            packCount = ($enabledRoutes | Measure-Object).Count
-            filterPrefix = $FilterPrefix
-        }
-
-        # Return as JSON-RPC 2.0 response
-        return New-JsonRpcSuccessResponse -Id $CorrelationId -Result @{
-            tools = $allTools
-            total = $allTools.Count
-            packs = @($enabledRoutes | ForEach-Object { $_.packId })
-        } -CorrelationId $CorrelationId
-    }
-}
 
 <#
 .SYNOPSIS
@@ -1210,26 +860,6 @@ function Get-MCPGatewayManifest {
 
 .DESCRIPTION
     Backward-compatible alias for Get-MCPGatewayManifest.
-#>
-function Get-MCPAggregatedTools {
-    [CmdletBinding()]
-    [OutputType([array])]
-    param(
-        [Parameter()]
-        [switch]$IncludeMetadata,
-
-        [Parameter()]
-        [string]$FilterPrefix = '*'
-    )
-
-    process {
-        $response = Get-MCPGatewayManifest -IncludeMetadata:$IncludeMetadata -FilterPrefix $FilterPrefix
-        if ($response.result) {
-            return $response.result.tools
-        }
-        return @()
-    }
-}
 
 <#
 .SYNOPSIS
@@ -1257,99 +887,6 @@ function Get-MCPAggregatedTools {
 
 .OUTPUTS
     PSCustomObject with health status for each pack and overall summary.
-#>
-function Test-MCPGatewayHealth {
-    [CmdletBinding()]
-    [OutputType([pscustomobject])]
-    param(
-        [Parameter()]
-        [string]$PackId = '',
-
-        [Parameter()]
-        [string]$CorrelationId = '',
-
-        [Parameter()]
-        [switch]$UpdateRouteStatus
-    )
-
-    begin {
-        Ensure-GatewayRunning
-
-        if ([string]::IsNullOrEmpty($CorrelationId)) {
-            $CorrelationId = [Guid]::NewGuid().ToString()
-        }
-    }
-
-    process {
-        $packHealthResults = @()
-        $healthyCount = 0
-        $unhealthyCount = 0
-        $unknownCount = 0
-
-        $routesToCheck = if ($PackId) {
-            @($script:GatewayState.routes[$PackId]) | Where-Object { $_ -ne $null }
-        }
-        else {
-            $script:GatewayState.routes.Values
-        }
-
-        foreach ($route in $routesToCheck) {
-            $healthResult = _Test-PackHealth -Route $route -CorrelationId $CorrelationId
-
-            switch ($healthResult.status) {
-                'healthy' { $healthyCount++ }
-                'unhealthy' { $unhealthyCount++ }
-                default { $unknownCount++ }
-            }
-
-            $packHealthResults += $healthResult
-
-            # Update route status if requested
-            if ($UpdateRouteStatus) {
-                if ($healthResult.status -eq 'healthy') {
-                    $route.enabled = $true
-                }
-                elseif ($healthResult.status -eq 'unhealthy') {
-                    $route.enabled = $false
-                }
-                $route.healthStatus = $healthResult.status
-                $route.lastHealthCheck = [DateTime]::UtcNow.ToString("o")
-            }
-        }
-
-        $overallHealth = if ($unhealthyCount -eq 0 -and $healthyCount -gt 0) { 'healthy' }
-                        elseif ($healthyCount -eq 0) { 'unhealthy' }
-                        else { 'degraded' }
-
-        Write-GatewayStructuredLog -Level INFO -Message "Gateway health check completed" -CorrelationId $CorrelationId -Metadata @{
-            overallHealth = $overallHealth
-            healthyPacks = $healthyCount
-            unhealthyPacks = $unhealthyCount
-            unknownPacks = $unknownCount
-            totalPacks = ($routesToCheck | Measure-Object).Count
-        }
-
-        return [PSCustomObject]@{
-            jsonrpc = "2.0"
-            result = @{
-                overallHealth = $overallHealth
-                gatewayId = $script:GatewayState.gatewayId
-                isRunning = $script:GatewayState.isRunning
-                uptime = if ($script:GatewayState.startedAt) { ([DateTime]::UtcNow - $script:GatewayState.startedAt).ToString() } else { $null }
-                packs = $packHealthResults
-                summary = @{
-                    total = ($routesToCheck | Measure-Object).Count
-                    healthy = $healthyCount
-                    unhealthy = $unhealthyCount
-                    unknown = $unknownCount
-                }
-                timestamp = [DateTime]::UtcNow.ToString("o")
-            }
-            id = $CorrelationId
-            correlationId = $CorrelationId
-        }
-    }
-}
 
 <#
 .SYNOPSIS
@@ -1453,139 +990,6 @@ function Resolve-MCPToolTarget {
 
 .OUTPUTS
     PSCustomObject with aggregated query results.
-#>
-function Invoke-MCPCrossPackQuery {
-    [CmdletBinding()]
-    [OutputType([pscustomobject])]
-    param(
-        [Parameter(Mandatory = $true)]
-        [string]$Query,
-
-        [Parameter()]
-        [string[]]$TargetPacks = @(),
-
-        [Parameter()]
-        [string]$SessionId = '',
-
-        [Parameter()]
-        [bool]$AggregateResults = $true,
-
-        [Parameter()]
-        [int]$MaxResultsPerPack = 10,
-
-        [Parameter()]
-        [string]$CorrelationId = ''
-    )
-
-    begin {
-        Ensure-GatewayRunning
-        if ([string]::IsNullOrEmpty($CorrelationId)) {
-            $CorrelationId = [Guid]::NewGuid().ToString()
-        }
-        $queryId = [Guid]::NewGuid().ToString()
-        $startTime = [DateTime]::UtcNow
-    }
-
-    process {
-        # Determine target packs if not specified
-        if ($TargetPacks.Count -eq 0) {
-            $TargetPacks = Get-CrossPackTargets -Query $Query
-        }
-
-        if ($TargetPacks.Count -eq 0) {
-            return [PSCustomObject]@{
-                success = $false
-                queryId = $queryId
-                query = $Query
-                error = "No target packs available for query"
-                results = @()
-                correlationId = $CorrelationId
-            }
-        }
-
-        # Execute query on each target pack
-        $packResults = @()
-        foreach ($packId in $TargetPacks) {
-            $route = $script:GatewayState.routes[$packId]
-            if (-not $route -or -not $route.enabled) {
-                continue
-            }
-
-            # Check circuit breaker
-            if ($script:GatewayState.config.enableCircuitBreaker) {
-                $cbResult = Test-CircuitBreaker -PackId $packId
-                if (-not $cbResult.allowed) {
-                    $packResults += [PSCustomObject]@{
-                        packId = $packId
-                        success = $false
-                        error = "Circuit breaker open"
-                        results = @()
-                        resultCount = 0
-                    }
-                    continue
-                }
-            }
-
-            try {
-                $toolName = "$($route.prefix)query"
-                $arguments = @{
-                    query = $Query
-                    maxResults = $MaxResultsPerPack
-                }
-
-                $result = Invoke-ToolAtEndpoint -Route $route -ToolName $toolName -Arguments $arguments -SessionId $SessionId -CorrelationId $CorrelationId
-                
-                Record-CircuitBreakerSuccess -PackId $packId
-                
-                $packResults += [PSCustomObject]@{
-                    packId = $packId
-                    success = $true
-                    results = $result
-                    resultCount = if ($result -is [array]) { $result.Count } else { 1 }
-                }
-            }
-            catch {
-                Record-CircuitBreakerFailure -PackId $packId
-                
-                $packResults += [PSCustomObject]@{
-                    packId = $packId
-                    success = $false
-                    error = $_.Exception.Message
-                    results = @()
-                    resultCount = 0
-                }
-            }
-        }
-
-        $duration = ([DateTime]::UtcNow - $startTime).TotalMilliseconds
-
-        # Log cross-pack query
-        Write-GatewayStructuredLog -Level INFO -Message "Cross-pack query executed" -CorrelationId $CorrelationId -Metadata @{
-            queryId = $queryId
-            query = $Query
-            targetPacks = $TargetPacks
-            successfulPacks = ($packResults | Where-Object { $_.success } | Measure-Object).Count
-            durationMs = [Math]::Round($duration, 2)
-        }
-
-        # Aggregate or return raw results
-        if ($AggregateResults) {
-            return [PSCustomObject]@{
-                success = ($packResults | Where-Object { $_.success } | Measure-Object).Count -gt 0
-                queryId = $queryId
-                correlationId = $CorrelationId
-                query = $Query
-                targetPacks = $TargetPacks
-                packResults = $packResults
-                totalResults = ($packResults | Measure-Object -Property resultCount -Sum).Sum
-                durationMs = [Math]::Round($duration, 2)
-                aggregatedAt = [DateTime]::UtcNow.ToString("o")
-            }
-        }
-
-        return $packResults
-    }
-}
 
 <#
 .SYNOPSIS
@@ -1618,76 +1022,6 @@ function Invoke-MCPCrossPackQuery {
 
 .OUTPUTS
     PSCustomObject with execution result.
-#>
-function Invoke-MCPAggregatedTool {
-    [CmdletBinding()]
-    [OutputType([pscustomobject])]
-    param(
-        [Parameter(Mandatory = $true)]
-        [string]$ToolName,
-
-        [Parameter()]
-        [hashtable]$Arguments = @{},
-
-        [Parameter()]
-        [string]$SessionId = '',
-
-        [Parameter()]
-        [switch]$UseFallback,
-
-        [Parameter()]
-        [int]$TimeoutSeconds = 60,
-
-        [Parameter()]
-        [string]$CorrelationId = ''
-    )
-
-    begin {
-        Ensure-GatewayRunning
-        if ([string]::IsNullOrEmpty($CorrelationId)) {
-            $CorrelationId = [Guid]::NewGuid().ToString()
-        }
-    }
-
-    process {
-        # Route the request
-        $routeResult = Invoke-MCPGatewayRequest -ToolName $ToolName -Arguments $Arguments -SessionId $SessionId -CorrelationId $CorrelationId
-
-        if (-not $routeResult.result) {
-            # Try fallback if enabled and primary failed
-            if ($UseFallback) {
-                $primaryPack = Resolve-PackFromToolName -ToolName $ToolName
-                $fallbackPack = Get-FallbackPack -PackId $primaryPack
-
-                if ($fallbackPack -and $fallbackPack -ne $primaryPack) {
-                    Write-Verbose "Attempting fallback to pack: $fallbackPack"
-                    $fallbackRoute = $script:GatewayState.routes[$fallbackPack]
-
-                    if ($fallbackRoute -and $fallbackRoute.enabled) {
-                        try {
-                            $fallbackResult = Invoke-ToolAtEndpoint -Route $fallbackRoute -ToolName $ToolName -Arguments $Arguments -SessionId $SessionId -CorrelationId $CorrelationId
-                            
-                            return [PSCustomObject]@{
-                                success = $true
-                                toolName = $ToolName
-                                primaryPack = $primaryPack
-                                fallbackPack = $fallbackPack
-                                usedFallback = $true
-                                response = $fallbackResult
-                                correlationId = $CorrelationId
-                            }
-                        }
-                        catch {
-                            Write-Warning "Fallback execution failed: $($_.Exception.Message)"
-                        }
-                    }
-                }
-            }
-        }
-
-        return $routeResult
-    }
-}
 
 <#
 .SYNOPSIS
@@ -1717,101 +1051,6 @@ function Invoke-MCPAggregatedTool {
 
 .OUTPUTS
     PSCustomObject with evidence from multiple sources.
-#>
-function Get-MCPCrossPackEvidence {
-    [CmdletBinding()]
-    [OutputType([pscustomobject])]
-    param(
-        [Parameter(Mandatory = $true)]
-        [string]$Claim,
-
-        [Parameter()]
-        [string[]]$SourcePacks = @(),
-
-        [Parameter()]
-        [double]$MinConfidence = 0.5,
-
-        [Parameter()]
-        [string]$SessionId = '',
-
-        [Parameter()]
-        [string]$CorrelationId = ''
-    )
-
-    begin {
-        Ensure-GatewayRunning
-        if ([string]::IsNullOrEmpty($CorrelationId)) {
-            $CorrelationId = [Guid]::NewGuid().ToString()
-        }
-        $queryId = [Guid]::NewGuid().ToString()
-    }
-
-    process {
-        # Use all enabled packs if none specified
-        if ($SourcePacks.Count -eq 0) {
-            $SourcePacks = $script:GatewayState.routes.Values |
-                Where-Object { $_.enabled } |
-                Select-Object -ExpandProperty packId
-        }
-
-        $evidenceList = @()
-        foreach ($packId in $SourcePacks) {
-            $route = $script:GatewayState.routes[$packId]
-            if (-not $route -or -not $route.enabled) {
-                continue
-            }
-
-            try {
-                $toolName = "$($route.prefix)get_evidence"
-                $arguments = @{
-                    claim = $Claim
-                    minConfidence = $MinConfidence
-                }
-
-                $result = Invoke-ToolAtEndpoint -Route $route -ToolName $toolName -Arguments $arguments -SessionId $SessionId -CorrelationId $CorrelationId
-
-                $evidenceList += [PSCustomObject]@{
-                    packId = $packId
-                    claim = $Claim
-                    evidence = $result
-                    confidence = if ($result.confidence) { $result.confidence } else { 0.5 }
-                    hasEvidence = $null -ne $result -and ($result -isnot [array] -or $result.Count -gt 0)
-                }
-            }
-            catch {
-                $evidenceList += [PSCustomObject]@{
-                    packId = $packId
-                    claim = $Claim
-                    evidence = $null
-                    confidence = 0
-                    hasEvidence = $false
-                    error = $_.Exception.Message
-                }
-            }
-        }
-
-        # Calculate aggregate confidence
-        $confidentEvidence = $evidenceList | Where-Object { $_.confidence -ge $MinConfidence }
-        $aggregateConfidence = if ($evidenceList.Count -gt 0) {
-            ($evidenceList | Measure-Object -Property confidence -Average).Average
-        }
-        else {
-            0
-        }
-
-        return [PSCustomObject]@{
-            queryId = $queryId
-            correlationId = $CorrelationId
-            claim = $Claim
-            evidenceList = $evidenceList
-            supportingPacks = ($confidentEvidence | Where-Object { $_.hasEvidence } | Select-Object -ExpandProperty packId)
-            aggregateConfidence = [Math]::Round($aggregateConfidence, 3)
-            totalSources = $evidenceList.Count
-            supportingSourceCount = ($confidentEvidence | Where-Object { $_.hasEvidence } | Measure-Object).Count
-            timestamp = [DateTime]::UtcNow.ToString("o")
-        }
-    }
-}
 
 <#
 .SYNOPSIS
@@ -1841,95 +1080,10 @@ function Get-MCPCrossPackEvidence {
 
 .OUTPUTS
     PSCustomObject with cross-pack context information.
-#>
-function New-MCPCrossPackContext {
-    [CmdletBinding()]
-    [OutputType([pscustomobject])]
-    param(
-        [Parameter(Mandatory = $true)]
-        [string[]]$PackIds,
-
-        [Parameter()]
-        [hashtable]$InitialData = @{},
-
-        [Parameter()]
-        [string]$SessionId = '',
-
-        [Parameter()]
-        [int]$ExpiryMinutes = 30,
-
-        [Parameter()]
-        [string]$CorrelationId = ''
-    )
-
-    begin {
-        Ensure-GatewayRunning
-        if ([string]::IsNullOrEmpty($CorrelationId)) {
-            $CorrelationId = [Guid]::NewGuid().ToString()
-        }
-    }
-
-    process {
-        # Create or extend session
-        if ([string]::IsNullOrEmpty($SessionId)) {
-            $session = New-MCPSession -ContextData $InitialData -ExpiryMinutes $ExpiryMinutes
-        }
-        else {
-            $session = Get-MCPSession -SessionId $SessionId
-            if (-not $session) {
-                throw "Session '$SessionId' not found"
-            }
-        }
-
-        $contextId = [Guid]::NewGuid().ToString()
-        $validPackIds = @()
-
-        # Initialize pack contexts
-        foreach ($packId in $PackIds) {
-            $route = $script:GatewayState.routes[$packId]
-            if (-not $route -or -not $route.enabled) {
-                Write-Warning "Pack '$packId' not available for cross-pack context"
-                continue
-            }
-
-            try {
-                $toolName = "$($route.prefix)init_context"
-                $arguments = @{
-                    contextId = $contextId
-                    initialData = $InitialData
-                }
-
-                Invoke-ToolAtEndpoint -Route $route -ToolName $toolName -Arguments $arguments -SessionId $session.sessionId -CorrelationId $CorrelationId | Out-Null
-
-                $session.packContexts[$packId] = @{
-                    joinedAt = [DateTime]::UtcNow.ToString("o")
-                    contextId = $contextId
-                }
-                $validPackIds += $packId
-            }
-            catch {
-                Write-Warning "Failed to initialize context in pack '$packId': $($_.Exception.Message)"
-            }
-        }
-
-        # Update session
-        $script:GatewayState.sessions[$session.sessionId] = $session
-
-        return [PSCustomObject]@{
-            contextId = $contextId
-            correlationId = $CorrelationId
-            sessionId = $session.sessionId
-            packIds = $validPackIds
-            createdAt = [DateTime]::UtcNow.ToString("o")
-            expiresAt = $session.expiresAt
-            sharedData = $InitialData
-        }
-    }
-}
 
 #endregion
 
-#region Blender→Godot Pipeline Functions
+#region Blenderâ†’Godot Pipeline Functions
 
 <#
 .SYNOPSIS
@@ -1962,129 +1116,6 @@ function New-MCPCrossPackContext {
 
 .OUTPUTS
     PSCustomObject with export operation status.
-#>
-function Invoke-MCPBlenderToGodotExport {
-    [CmdletBinding()]
-    [OutputType([pscustomobject])]
-    param(
-        [Parameter(Mandatory = $true)]
-        [string]$SourcePath,
-
-        [Parameter(Mandatory = $true)]
-        [string]$OutputPath,
-
-        [Parameter()]
-        [hashtable]$Options = @{},
-
-        [Parameter()]
-        [string]$SessionId = '',
-
-        [Parameter()]
-        [switch]$WaitForCompletion,
-
-        [Parameter()]
-        [string]$CorrelationId = ''
-    )
-
-    begin {
-        Ensure-GatewayRunning
-        if ([string]::IsNullOrEmpty($CorrelationId)) {
-            $CorrelationId = [Guid]::NewGuid().ToString()
-        }
-        $operationId = [Guid]::NewGuid().ToString()
-        $startTime = [DateTime]::UtcNow
-    }
-
-    process {
-        # Verify Blender pack is available
-        $blenderRoute = $script:GatewayState.routes['blender-engine']
-        if (-not $blenderRoute -or -not $blenderRoute.enabled) {
-            return [PSCustomObject]@{
-                success = $false
-                operationId = $operationId
-                correlationId = $CorrelationId
-                error = "Blender pack not available"
-                errorCode = 'PACK_UNAVAILABLE'
-            }
-        }
-
-        # Verify Godot pack is available
-        $godotRoute = $script:GatewayState.routes['godot-engine']
-        if (-not $godotRoute -or -not $godotRoute.enabled) {
-            return [PSCustomObject]@{
-                success = $false
-                operationId = $operationId
-                correlationId = $CorrelationId
-                error = "Godot pack not available"
-                errorCode = 'PACK_UNAVAILABLE'
-            }
-        }
-
-        # Initialize pipeline step
-        $pipelineId = "blender-to-godot-$operationId"
-        $stepConfig = @{
-            stepId = 'blender-export'
-            toolName = 'blender_export_godot'
-            arguments = @{
-                sourcePath = $SourcePath
-                outputPath = $OutputPath
-                format = if ($Options.format) { $Options.format } else { 'glTF2' }
-                options = $Options
-            }
-        }
-        Register-MCPPipelineStep -PipelineId $pipelineId -StepConfig $stepConfig | Out-Null
-
-        # Execute Blender export
-        try {
-            $exportResult = Invoke-ToolAtEndpoint `
-                -Route $blenderRoute `
-                -ToolName $stepConfig.toolName `
-                -Arguments $stepConfig.arguments `
-                -SessionId $SessionId `
-                -CorrelationId $CorrelationId
-
-            # Update pipeline status
-            $script:GatewayState.pipelines[$pipelineId].status = 'completed'
-            $script:GatewayState.pipelines[$pipelineId].completedAt = [DateTime]::UtcNow.ToString("o")
-            $script:GatewayState.pipelines[$pipelineId].result = $exportResult
-
-            $duration = ([DateTime]::UtcNow - $startTime).TotalSeconds
-
-            Write-GatewayStructuredLog -Level INFO -Message "Blender to Godot export completed" -CorrelationId $CorrelationId -Metadata @{
-                operationId = $operationId
-                pipelineId = $pipelineId
-                sourcePath = $SourcePath
-                outputPath = $OutputPath
-                durationSeconds = [Math]::Round($duration, 2)
-            }
-
-            return [PSCustomObject]@{
-                success = $true
-                operationId = $operationId
-                correlationId = $CorrelationId
-                pipelineId = $pipelineId
-                sourcePath = $SourcePath
-                outputPath = $OutputPath
-                result = $exportResult
-                durationSeconds = [Math]::Round($duration, 2)
-                completedAt = [DateTime]::UtcNow.ToString("o")
-            }
-        }
-        catch {
-            $script:GatewayState.pipelines[$pipelineId].status = 'failed'
-            $script:GatewayState.pipelines[$pipelineId].error = $_.Exception.Message
-
-            return [PSCustomObject]@{
-                success = $false
-                operationId = $operationId
-                correlationId = $CorrelationId
-                pipelineId = $pipelineId
-                error = $_.Exception.Message
-                errorCode = 'EXPORT_FAILED'
-            }
-        }
-    }
-}
 
 <#
 .SYNOPSIS
@@ -2092,7 +1123,7 @@ function Invoke-MCPBlenderToGodotExport {
 
 .DESCRIPTION
     Retrieves current status and progress information for a pipeline,
-    including Blender→Godot export operations.
+    including Blenderâ†’Godot export operations.
 
 .PARAMETER PipelineId
     The pipeline ID to check.
@@ -2105,60 +1136,6 @@ function Invoke-MCPBlenderToGodotExport {
 
 .OUTPUTS
     PSCustomObject with pipeline status.
-#>
-function Get-MCPPipelineStatus {
-    [CmdletBinding()]
-    [OutputType([pscustomobject])]
-    param(
-        [Parameter(Mandatory = $true)]
-        [string]$PipelineId,
-
-        [Parameter()]
-        [switch]$IncludeHistory
-    )
-
-    begin {
-        Ensure-GatewayRunning
-    }
-
-    process {
-        if (-not $script:GatewayState.pipelines.ContainsKey($PipelineId)) {
-            return [PSCustomObject]@{
-                found = $false
-                pipelineId = $PipelineId
-                error = "Pipeline not found"
-            }
-        }
-
-        $pipeline = $script:GatewayState.pipelines[$PipelineId]
-
-        $result = [PSCustomObject]@{
-            found = $true
-            pipelineId = $PipelineId
-            status = $pipeline.status
-            createdAt = $pipeline.createdAt
-            startedAt = $pipeline.startedAt
-            completedAt = $pipeline.completedAt
-            steps = ($pipeline.steps | Measure-Object).Count
-            currentStep = $pipeline.currentStep
-        }
-
-        if ($IncludeHistory) {
-            $result | Add-Member -NotePropertyName 'stepHistory' -NotePropertyValue $pipeline.steps -Force
-            $result | Add-Member -NotePropertyName 'logs' -NotePropertyValue $pipeline.logs -Force
-        }
-
-        if ($pipeline.status -eq 'failed' -and $pipeline.error) {
-            $result | Add-Member -NotePropertyName 'error' -NotePropertyValue $pipeline.error -Force
-        }
-
-        if ($pipeline.status -eq 'completed' -and $pipeline.result) {
-            $result | Add-Member -NotePropertyName 'result' -NotePropertyValue $pipeline.result -Force
-        }
-
-        return $result
-    }
-}
 
 <#
 .SYNOPSIS
@@ -2166,7 +1143,7 @@ function Get-MCPPipelineStatus {
 
 .DESCRIPTION
     Adds a step to a pipeline definition for multi-stage operations
-    like Blender→Godot asset export workflows.
+    like Blenderâ†’Godot asset export workflows.
 
 .PARAMETER PipelineId
     The pipeline ID to add the step to.
@@ -2182,88 +1159,6 @@ function Get-MCPPipelineStatus {
 
 .OUTPUTS
     PSCustomObject with registered step information.
-#>
-function Register-MCPPipelineStep {
-    [CmdletBinding()]
-    [OutputType([pscustomobject])]
-    param(
-        [Parameter(Mandatory = $true)]
-        [string]$PipelineId,
-
-        [Parameter(Mandatory = $true)]
-        [hashtable]$StepConfig,
-
-        [Parameter()]
-        [string[]]$DependsOn = @()
-    )
-
-    begin {
-        Ensure-GatewayRunning
-    }
-
-    process {
-        # Create pipeline if it doesn't exist
-        if (-not $script:GatewayState.pipelines.ContainsKey($PipelineId)) {
-            $script:GatewayState.pipelines[$PipelineId] = @{
-                pipelineId = $PipelineId
-                status = 'pending'
-                createdAt = [DateTime]::UtcNow.ToString("o")
-                startedAt = $null
-                completedAt = $null
-                steps = @()
-                currentStep = $null
-                stepIndex = @{}
-                logs = @()
-                result = $null
-                error = $null
-            }
-        }
-
-        $pipeline = $script:GatewayState.pipelines[$PipelineId]
-
-        # Validate step configuration
-        if (-not $StepConfig.stepId) {
-            throw "Step configuration must include 'stepId'"
-        }
-        if (-not $StepConfig.toolName) {
-            throw "Step configuration must include 'toolName'"
-        }
-
-        # Check for duplicate step ID
-        if ($pipeline.stepIndex.ContainsKey($StepConfig.stepId)) {
-            throw "Step '$($StepConfig.stepId)' already exists in pipeline '$PipelineId'"
-        }
-
-        $step = [PSCustomObject]@{
-            stepId = $StepConfig.stepId
-            toolName = $StepConfig.toolName
-            arguments = if ($StepConfig.arguments) { $StepConfig.arguments } else { @{} }
-            dependsOn = $DependsOn
-            status = 'pending'
-            registeredAt = [DateTime]::UtcNow.ToString("o")
-            startedAt = $null
-            completedAt = $null
-            result = $null
-            error = $null
-        }
-
-        $pipeline.steps += $step
-        $pipeline.stepIndex[$StepConfig.stepId] = $pipeline.steps.Count - 1
-
-        Add-GatewayLog -Level 'Info' -Message "Pipeline step registered" -Context @{
-            pipelineId = $PipelineId
-            stepId = $StepConfig.stepId
-            toolName = $StepConfig.toolName
-        }
-
-        return [PSCustomObject]@{
-            pipelineId = $PipelineId
-            stepId = $StepConfig.stepId
-            status = 'registered'
-            stepIndex = $pipeline.steps.Count - 1
-        }
-    }
-}
 
 #endregion
 
@@ -2294,58 +1189,6 @@ function Register-MCPPipelineStep {
 
 .OUTPUTS
     PSCustomObject with session information.
-#>
-function New-MCPSession {
-    [CmdletBinding()]
-    [OutputType([pscustomobject])]
-    param(
-        [Parameter()]
-        [hashtable]$ContextData = @{},
-
-        [Parameter()]
-        [int]$ExpiryMinutes = 30,
-
-        [Parameter()]
-        [hashtable]$Metadata = @{},
-
-        [Parameter()]
-        [string]$CorrelationId = ''
-    )
-
-    begin {
-        Ensure-GatewayRunning
-        if ([string]::IsNullOrEmpty($CorrelationId)) {
-            $CorrelationId = [Guid]::NewGuid().ToString()
-        }
-    }
-
-    process {
-        $sessionId = [Guid]::NewGuid().ToString()
-        $now = [DateTime]::UtcNow
-
-        $session = [PSCustomObject]@{
-            sessionId = $sessionId
-            correlationId = $CorrelationId
-            createdAt = $now.ToString("o")
-            expiresAt = $now.AddMinutes($ExpiryMinutes).ToString("o")
-            isActive = $true
-            contextData = $ContextData
-            packContexts = @{}  # packId -> pack-specific context
-            metadata = $Metadata
-            requestCount = 0
-            lastActivityAt = $now.ToString("o")
-        }
-
-        $script:GatewayState.sessions[$sessionId] = $session
-
-        Write-GatewayStructuredLog -Level INFO -Message "Session created" -CorrelationId $CorrelationId -Metadata @{
-            sessionId = $sessionId
-            expiresAt = $session.expiresAt
-        }
-
-        return $session
-    }
-}
 
 <#
 .SYNOPSIS
@@ -2366,43 +1209,6 @@ function New-MCPSession {
 
 .OUTPUTS
     PSCustomObject with session information, or $null if not found.
-#>
-function Get-MCPSession {
-    [CmdletBinding()]
-    [OutputType([pscustomobject])]
-    param(
-        [Parameter(Mandatory = $true)]
-        [string]$SessionId,
-
-        [Parameter()]
-        [switch]$IncludeInactive
-    )
-
-    begin {
-        Ensure-GatewayRunning
-    }
-
-    process {
-        if (-not $script:GatewayState.sessions.ContainsKey($SessionId)) {
-            return $null
-        }
-
-        $session = $script:GatewayState.sessions[$SessionId]
-
-        # Check if session has expired
-        $expiresAt = [DateTime]::Parse($session.expiresAt)
-        if ($expiresAt -lt [DateTime]::UtcNow -and -not $IncludeInactive) {
-            return $null
-        }
-
-        # Update activity if active
-        if ($session.isActive -and $expiresAt -ge [DateTime]::UtcNow) {
-            $session.lastActivityAt = [DateTime]::UtcNow.ToString("o")
-        }
-
-        return $session
-    }
-}
 
 <#
 .SYNOPSIS
@@ -2426,71 +1232,6 @@ function Get-MCPSession {
 
 .OUTPUTS
     Boolean indicating success.
-#>
-function Remove-MCPSession {
-    [CmdletBinding()]
-    [OutputType([bool])]
-    param(
-        [Parameter(Mandatory = $true)]
-        [string]$SessionId,
-
-        [Parameter()]
-        [switch]$Force,
-
-        [Parameter()]
-        [string]$CorrelationId = ''
-    )
-
-    begin {
-        Ensure-GatewayRunning
-        if ([string]::IsNullOrEmpty($CorrelationId)) {
-            $CorrelationId = [Guid]::NewGuid().ToString()
-        }
-    }
-
-    process {
-        if (-not $script:GatewayState.sessions.ContainsKey($SessionId)) {
-            Write-Warning "Session '$SessionId' not found."
-            return $false
-        }
-
-        $session = $script:GatewayState.sessions[$SessionId]
-
-        # Notify packs to clean up their contexts
-        $cleanupErrors = @()
-        foreach ($packId in $session.packContexts.Keys) {
-            $route = $script:GatewayState.routes[$packId]
-            if (-not $route -or -not $route.enabled) {
-                continue
-            }
-
-            try {
-                $toolName = "$($route.prefix)cleanup_context"
-                $arguments = @{
-                    sessionId = $SessionId
-                }
-                Invoke-ToolAtEndpoint -Route $route -ToolName $toolName -Arguments $arguments -SessionId $SessionId -CorrelationId $CorrelationId | Out-Null
-            }
-            catch {
-                $cleanupErrors += "Pack '$packId': $($_.Exception.Message)"
-                if (-not $Force) {
-                    throw "Failed to cleanup pack context for '$packId': $($_.Exception.Message)"
-                }
-            }
-        }
-
-        # Remove session
-        $script:GatewayState.sessions.Remove($SessionId)
-
-        Write-GatewayStructuredLog -Level INFO -Message "Session removed" -CorrelationId $CorrelationId -Metadata @{
-            sessionId = $SessionId
-            cleanupErrors = $cleanupErrors
-            force = $Force.IsPresent
-        }
-
-        return $true
-    }
-}
 
 #endregion
 
@@ -2521,61 +1262,6 @@ function Remove-MCPSession {
 
 .OUTPUTS
     PSCustomObject with updated session information.
-#>
-function Update-SessionContext {
-    [CmdletBinding()]
-    [OutputType([pscustomobject])]
-    param(
-        [Parameter(Mandatory = $true)]
-        [string]$SessionId,
-
-        [Parameter(Mandatory = $true)]
-        [hashtable]$ContextData,
-
-        [Parameter()]
-        [bool]$Merge = $true,
-
-        [Parameter()]
-        [string]$CorrelationId = ''
-    )
-
-    begin {
-        Ensure-GatewayRunning
-        if ([string]::IsNullOrEmpty($CorrelationId)) {
-            $CorrelationId = [Guid]::NewGuid().ToString()
-        }
-    }
-
-    process {
-        $session = Get-MCPSession -SessionId $SessionId
-        if (-not $session) {
-            throw "Session '$SessionId' not found or expired"
-        }
-
-        if ($Merge) {
-            # Merge new context with existing
-            foreach ($key in $ContextData.Keys) {
-                $session.contextData[$key] = $ContextData[$key]
-            }
-        }
-        else {
-            # Replace entire context
-            $session.contextData = $ContextData
-        }
-
-        # Update activity timestamp
-        $session.lastActivityAt = [DateTime]::UtcNow.ToString("o")
-        $session.requestCount++
-
-        Write-GatewayStructuredLog -Level INFO -Message "Session context updated" -CorrelationId $CorrelationId -Metadata @{
-            sessionId = $SessionId
-            merge = $Merge
-            contextKeys = @($ContextData.Keys)
-        }
-
-        return $session
-    }
-}
 
 #endregion
 
@@ -2599,47 +1285,6 @@ function Update-SessionContext {
 
 .OUTPUTS
     PSCustomObject with route configuration, or $null if not found.
-#>
-function Get-MCPPackRoute {
-    [CmdletBinding()]
-    [OutputType([pscustomobject])]
-    param(
-        [Parameter(Mandatory = $true)]
-        [string]$PackId,
-
-        [Parameter()]
-        [switch]$IncludeHealthStatus
-    )
-
-    begin {
-        Ensure-GatewayRunning
-    }
-
-    process {
-        if (-not $script:GatewayState.routes.ContainsKey($PackId)) {
-            return $null
-        }
-
-        $route = $script:GatewayState.routes[$PackId]
-
-        if ($IncludeHealthStatus) {
-            $route = $route | Select-Object *
-            $cb = $script:GatewayState.circuitBreakers[$PackId]
-            if ($cb) {
-                $route | Add-Member -NotePropertyName 'circuitBreakerState' -NotePropertyValue $cb.state -Force
-                $route | Add-Member -NotePropertyName 'failureCount' -NotePropertyValue $cb.failureCount -Force
-                $route | Add-Member -NotePropertyName 'lastFailureAt' -NotePropertyValue $cb.lastFailureAt -Force
-            }
-            $rl = $script:GatewayState.rateLimiters[$PackId]
-            if ($rl) {
-                $route | Add-Member -NotePropertyName 'currentTokens' -NotePropertyValue $rl.tokens -Force
-                $route | Add-Member -NotePropertyName 'requestCount' -NotePropertyValue $rl.requestCount -Force
-            }
-        }
-
-        return $route
-    }
-}
 
 <#
 .SYNOPSIS
@@ -2664,25 +1309,6 @@ function Get-MCPPackRoute {
 
 .OUTPUTS
     PSCustomObject with JSON-RPC 2.0 response.
-#>
-function Route-MCPRequest {
-    [CmdletBinding()]
-    [OutputType([pscustomobject])]
-    param(
-        [Parameter(Mandatory = $true)]
-        [hashtable]$Request,
-
-        [Parameter()]
-        [string]$SessionId = '',
-
-        [Parameter()]
-        [string]$CorrelationId = ''
-    )
-
-    process {
-        return Invoke-MCPGatewayRequest -Request $Request -SessionId $SessionId -CorrelationId $CorrelationId -UseFallback
-    }
-}
 
 #endregion
 
@@ -2705,30 +1331,6 @@ function Route-MCPRequest {
 
 .OUTPUTS
     PSCustomObject with allowed (bool), state, and retryAfter information.
-#>
-function Test-MCPCircuitBreaker {
-    [CmdletBinding()]
-    [OutputType([pscustomobject])]
-    param(
-        [Parameter(Mandatory = $true)]
-        [string]$PackId
-    )
-
-    begin {
-        Ensure-GatewayRunning
-    }
-
-    process {
-        $result = Test-CircuitBreaker -PackId $PackId
-
-        return [PSCustomObject]@{
-            packId = $PackId
-            allowed = $result.allowed
-            state = $result.state
-            timestamp = [DateTime]::UtcNow.ToString("o")
-        }
-    }
-}
 
 <#
 .SYNOPSIS
@@ -2746,45 +1348,6 @@ function Test-MCPCircuitBreaker {
 
 .OUTPUTS
     PSCustomObject with updated circuit breaker state.
-#>
-function Record-MCPSuccess {
-    [CmdletBinding()]
-    [OutputType([pscustomobject])]
-    param(
-        [Parameter(Mandatory = $true)]
-        [string]$PackId
-    )
-
-    begin {
-        Ensure-GatewayRunning
-    }
-
-    process {
-        if (-not $script:GatewayState.circuitBreakers.ContainsKey($PackId)) {
-            return [PSCustomObject]@{
-                packId = $PackId
-                success = $false
-                error = "No circuit breaker found for pack"
-            }
-        }
-
-        $previousState = $script:GatewayState.circuitBreakers[$PackId].state
-        Record-CircuitBreakerSuccess -PackId $PackId
-        $currentState = $script:GatewayState.circuitBreakers[$PackId].state
-
-        $cb = $script:GatewayState.circuitBreakers[$PackId]
-
-        return [PSCustomObject]@{
-            packId = $PackId
-            success = $true
-            previousState = $previousState
-            currentState = $currentState
-            stateChanged = ($previousState -ne $currentState)
-            successCount = $cb.successCount
-            timestamp = [DateTime]::UtcNow.ToString("o")
-        }
-    }
-}
 
 <#
 .SYNOPSIS
@@ -2805,52 +1368,6 @@ function Record-MCPSuccess {
 
 .OUTPUTS
     PSCustomObject with updated circuit breaker state.
-#>
-function Record-MCPFailure {
-    [CmdletBinding()]
-    [OutputType([pscustomobject])]
-    param(
-        [Parameter(Mandatory = $true)]
-        [string]$PackId,
-
-        [Parameter()]
-        [string]$ErrorMessage = ''
-    )
-
-    begin {
-        Ensure-GatewayRunning
-    }
-
-    process {
-        if (-not $script:GatewayState.circuitBreakers.ContainsKey($PackId)) {
-            return [PSCustomObject]@{
-                packId = $PackId
-                success = $false
-                error = "No circuit breaker found for pack"
-            }
-        }
-
-        $previousState = $script:GatewayState.circuitBreakers[$PackId].state
-        Record-CircuitBreakerFailure -PackId $PackId
-        $currentState = $script:GatewayState.circuitBreakers[$PackId].state
-
-        $cb = $script:GatewayState.circuitBreakers[$PackId]
-        $config = $script:GatewayState.config
-
-        return [PSCustomObject]@{
-            packId = $PackId
-            success = $true
-            previousState = $previousState
-            currentState = $currentState
-            stateChanged = ($previousState -ne $currentState)
-            failureCount = $cb.failureCount
-            threshold = $config.circuitBreakerThreshold
-            thresholdReached = ($cb.failureCount -ge $config.circuitBreakerThreshold)
-            errorMessage = $ErrorMessage
-            timestamp = [DateTime]::UtcNow.ToString("o")
-        }
-    }
-}
 
 <#
 .SYNOPSIS
@@ -2871,56 +1388,6 @@ function Record-MCPFailure {
 
 .OUTPUTS
     PSCustomObject with reset result.
-#>
-function Reset-MCPCircuitBreaker {
-    [CmdletBinding()]
-    [OutputType([pscustomobject])]
-    param(
-        [Parameter(Mandatory = $true)]
-        [string]$PackId,
-
-        [Parameter()]
-        [switch]$Force
-    )
-
-    begin {
-        Ensure-GatewayRunning
-    }
-
-    process {
-        if (-not $script:GatewayState.circuitBreakers.ContainsKey($PackId)) {
-            return [PSCustomObject]@{
-                packId = $PackId
-                success = $false
-                error = "No circuit breaker found for pack"
-            }
-        }
-
-        $cb = $script:GatewayState.circuitBreakers[$PackId]
-        $previousState = $cb.state
-
-        # Reset to closed state
-        $cb.state = $script:CircuitBreakerStates.CLOSED
-        $cb.failureCount = 0
-        $cb.successCount = 0
-        $cb.openedAt = $null
-        $cb.lastFailureAt = $null
-
-        Write-GatewayStructuredLog -Level INFO -Message "Circuit breaker manually reset" -Metadata @{
-            packId = $PackId
-            previousState = $previousState
-            force = $Force.IsPresent
-        }
-
-        return [PSCustomObject]@{
-            packId = $PackId
-            success = $true
-            previousState = $previousState
-            currentState = $cb.state
-            resetAt = [DateTime]::UtcNow.ToString("o")
-        }
-    }
-}
 
 #endregion
 
@@ -2946,69 +1413,6 @@ function Reset-MCPCircuitBreaker {
 
 .OUTPUTS
     PSCustomObject with allowed status, remaining tokens, and retry info.
-#>
-function Test-MCPRateLimit {
-    [CmdletBinding()]
-    [OutputType([pscustomobject])]
-    param(
-        [Parameter(Mandatory = $true)]
-        [string]$PackId,
-
-        [Parameter()]
-        [switch]$ConsumeToken
-    )
-
-    begin {
-        Ensure-GatewayRunning
-    }
-
-    process {
-        if (-not $script:GatewayState.rateLimiters.ContainsKey($PackId)) {
-            return [PSCustomObject]@{
-                packId = $PackId
-                allowed = $true
-                reason = "No rate limiter configured"
-                timestamp = [DateTime]::UtcNow.ToString("o")
-            }
-        }
-
-        $limiter = $script:GatewayState.rateLimiters[$PackId]
-        $route = $script:GatewayState.routes[$PackId]
-        $now = [DateTime]::UtcNow
-
-        # Refill tokens based on elapsed time (token bucket algorithm)
-        $timeSinceRefill = ($now - $limiter.lastRefill).TotalSeconds
-        $tokensToAdd = [Math]::Floor($timeSinceRefill * ($route.rateLimit / 60))
-
-        if ($tokensToAdd -gt 0) {
-            $limiter.tokens = [Math]::Min($route.rateLimit, $limiter.tokens + $tokensToAdd)
-            $limiter.lastRefill = $now
-        }
-
-        $allowed = $limiter.tokens -gt 0
-        $retryAfter = 0
-
-        if (-not $allowed) {
-            $secondsPerToken = 60.0 / $route.rateLimit
-            $retryAfter = [Math]::Ceiling($secondsPerToken - ($now - $limiter.lastRefill).TotalSeconds)
-            $retryAfter = [Math]::Max(1, $retryAfter)
-        }
-        elseif ($ConsumeToken) {
-            $limiter.tokens--
-            $limiter.requestCount++
-        }
-
-        return [PSCustomObject]@{
-            packId = $PackId
-            allowed = $allowed
-            remainingTokens = $limiter.tokens
-            rateLimit = $route.rateLimit
-            retryAfter = $retryAfter
-            consumed = $ConsumeToken.IsPresent
-            timestamp = [DateTime]::UtcNow.ToString("o")
-        }
-    }
-}
 
 <#
 .SYNOPSIS
@@ -3027,55 +1431,6 @@ function Test-MCPRateLimit {
 
 .OUTPUTS
     PSCustomObject or array of PSCustomObject with rate limit status.
-#>
-function Get-MCPRateLimitStatus {
-    [CmdletBinding()]
-    [OutputType([pscustomobject])]
-    param(
-        [Parameter()]
-        [string]$PackId = ''
-    )
-
-    begin {
-        Ensure-GatewayRunning
-    }
-
-    process {
-        $packIds = if ($PackId) { @($PackId) } else { @($script:GatewayState.rateLimiters.Keys) }
-        $results = @()
-
-        foreach ($id in $packIds) {
-            if (-not $script:GatewayState.rateLimiters.ContainsKey($id)) {
-                continue
-            }
-
-            $limiter = $script:GatewayState.rateLimiters[$id]
-            $route = $script:GatewayState.routes[$id]
-            $now = [DateTime]::UtcNow
-
-            # Calculate refill rate
-            $secondsPerToken = if ($route.rateLimit -gt 0) { 60.0 / $route.rateLimit } else { 0 }
-            $timeUntilNextToken = $secondsPerToken - ($now - $limiter.lastRefill).TotalSeconds
-
-            $results += [PSCustomObject]@{
-                packId = $id
-                allowed = $limiter.tokens -gt 0
-                currentTokens = $limiter.tokens
-                maxTokens = $route.rateLimit
-                requestCount = $limiter.requestCount
-                windowStart = $limiter.windowStart.ToString("o")
-                lastRefill = $limiter.lastRefill.ToString("o")
-                timeUntilNextTokenSeconds = [Math]::Max(0, [Math]::Round($timeUntilNextToken, 2))
-                timestamp = [DateTime]::UtcNow.ToString("o")
-            }
-        }
-
-        if ($PackId) {
-            return $results | Select-Object -First 1
-        }
-        return $results
-    }
-}
 
 #endregion
 
@@ -3309,296 +1664,38 @@ function Ensure-GatewayRunning {
 
 .DESCRIPTION
     Extracts the prefix from a tool name and maps it to a registered pack.
-#>
-function Resolve-PackFromToolName {
-    [CmdletBinding()]
-    [OutputType([string])]
-    param(
-        [Parameter(Mandatory = $true)]
-        [string]$ToolName
-    )
-
-    $toolNameLower = $ToolName.ToLower()
-
-    # Find matching route based on prefix
-    $matchingRoutes = @()
-    foreach ($route in $script:GatewayState.routes.Values) {
-        if (-not $route.enabled) { continue }
-
-        if ($toolNameLower.StartsWith($route.prefix)) {
-            $matchingRoutes += $route
-        }
-    }
-
-    if ($matchingRoutes.Count -eq 0) {
-        return $null
-    }
-
-    # Apply load balancing strategy to select route
-    $strategy = $script:GatewayState.config.loadBalancingStrategy
-    
-    switch ($strategy) {
-        'priority' {
-            # Select highest priority route
-            return ($matchingRoutes | Sort-Object -Property priority -Descending | Select-Object -First 1).packId
-        }
-        'least-connections' {
-            # For now, use request count as proxy for connections
-            return ($matchingRoutes | Sort-Object -Property requestCount | Select-Object -First 1).packId
-        }
-        default {
-            # Round-robin (default) - for single matching, just return it
-            if ($matchingRoutes.Count -eq 1) {
-                return $matchingRoutes[0].packId
-            }
-            # Otherwise, pick the one with least recent request
-            return ($matchingRoutes | Sort-Object -Property lastRequestAt | Select-Object -First 1).packId
-        }
-    }
-}
 
 <#
 .SYNOPSIS
     Gets the fallback pack for a given pack.
-#>
-function Get-FallbackPack {
-    [CmdletBinding()]
-    [OutputType([string])]
-    param(
-        [Parameter(Mandatory = $true)]
-        [string]$PackId
-    )
-
-    if (-not $script:GatewayState.routes.ContainsKey($PackId)) {
-        return $null
-    }
-
-    $route = $script:GatewayState.routes[$PackId]
-    $fallback = $route.fallbackPackId
-
-    # Verify fallback exists and is enabled
-    if ($fallback -and $script:GatewayState.routes.ContainsKey($fallback)) {
-        $fallbackRoute = $script:GatewayState.routes[$fallback]
-        if ($fallbackRoute.enabled) {
-            # Check circuit breaker
-            if ($script:GatewayState.config.enableCircuitBreaker) {
-                $cbResult = Test-CircuitBreaker -PackId $fallback
-                if ($cbResult.allowed) {
-                    return $fallback
-                }
-            }
-            else {
-                return $fallback
-            }
-        }
-    }
-
-    return $null
-}
 
 <#
 .SYNOPSIS
     Tests rate limit for a pack.
-#>
-function _Test-RateLimit {
-    [CmdletBinding()]
-    [OutputType([pscustomobject])]
-    param(
-        [Parameter(Mandatory = $true)]
-        [string]$PackId
-    )
-
-    if (-not $script:GatewayState.rateLimiters.ContainsKey($PackId)) {
-        return @{ allowed = $true; retryAfter = 0 }
-    }
-
-    $limiter = $script:GatewayState.rateLimiters[$PackId]
-    $route = $script:GatewayState.routes[$PackId]
-    $now = [DateTime]::UtcNow
-
-    # Refill tokens based on elapsed time (token bucket algorithm)
-    $timeSinceRefill = ($now - $limiter.lastRefill).TotalSeconds
-    $tokensToAdd = [Math]::Floor($timeSinceRefill * ($route.rateLimit / 60))
-
-    if ($tokensToAdd -gt 0) {
-        $limiter.tokens = [Math]::Min($route.rateLimit, $limiter.tokens + $tokensToAdd)
-        $limiter.lastRefill = $now
-    }
-
-    # Check if request can proceed
-    if ($limiter.tokens -gt 0) {
-        $limiter.tokens--
-        $limiter.requestCount++
-        return @{ allowed = $true; retryAfter = 0 }
-    }
-
-    # Calculate retry after
-    $secondsPerToken = 60.0 / $route.rateLimit
-    $retryAfter = [Math]::Ceiling($secondsPerToken - ($now - $limiter.lastRefill).TotalSeconds)
-
-    return @{ allowed = $false; retryAfter = [Math]::Max(1, $retryAfter) }
-}
 
 <#
 .SYNOPSIS
     Initializes rate limiters for all routes.
-#>
-function Initialize-RateLimiters {
-    [CmdletBinding()]
-    param()
-
-    foreach ($packId in $script:GatewayState.routes.Keys) {
-        $route = $script:GatewayState.routes[$packId]
-        $script:GatewayState.rateLimiters[$packId] = @{
-            tokens = $route.rateLimit
-            lastRefill = [DateTime]::UtcNow
-            windowStart = [DateTime]::UtcNow
-            requestCount = 0
-        }
-    }
-}
 
 <#
 .SYNOPSIS
     Initializes a circuit breaker for a pack.
-#>
-function Initialize-CircuitBreaker {
-    [CmdletBinding()]
-    param(
-        [Parameter(Mandatory = $true)]
-        [string]$PackId
-    )
-
-    $script:GatewayState.circuitBreakers[$PackId] = @{
-        state = $script:CircuitBreakerStates.CLOSED
-        failureCount = 0
-        successCount = 0
-        lastFailureAt = $null
-        lastSuccessAt = $null
-        openedAt = $null
-    }
-}
 
 <#
 .SYNOPSIS
     Initializes circuit breakers for all routes.
-#>
-function Initialize-CircuitBreakers {
-    [CmdletBinding()]
-    param()
-
-    foreach ($packId in $script:GatewayState.routes.Keys) {
-        Initialize-CircuitBreaker -PackId $packId
-    }
-}
 
 <#
 .SYNOPSIS
     Tests if a circuit breaker allows a request.
-#>
-function Test-CircuitBreaker {
-    [CmdletBinding()]
-    [OutputType([pscustomobject])]
-    param(
-        [Parameter(Mandatory = $true)]
-        [string]$PackId
-    )
-
-    if (-not $script:GatewayState.circuitBreakers.ContainsKey($PackId)) {
-        return @{ allowed = $true; state = $script:CircuitBreakerStates.CLOSED }
-    }
-
-    $cb = $script:GatewayState.circuitBreakers[$PackId]
-    $config = $script:GatewayState.config
-
-    switch ($cb.state) {
-        $script:CircuitBreakerStates.CLOSED {
-            return @{ allowed = $true; state = $cb.state }
-        }
-        $script:CircuitBreakerStates.OPEN {
-            # Check if timeout has elapsed
-            if ($cb.openedAt) {
-                $elapsed = ([DateTime]::UtcNow - [DateTime]::Parse($cb.openedAt)).TotalSeconds
-                if ($elapsed -ge $config.circuitBreakerTimeoutSeconds) {
-                    # Transition to half-open
-                    $cb.state = $script:CircuitBreakerStates.HALF_OPEN
-                    $cb.failureCount = 0
-                    return @{ allowed = $true; state = $cb.state }
-                }
-            }
-            return @{ allowed = $false; state = $cb.state }
-        }
-        $script:CircuitBreakerStates.HALF_OPEN {
-            # Allow limited requests to test recovery
-            return @{ allowed = $true; state = $cb.state }
-        }
-        default {
-            return @{ allowed = $true; state = $cb.state }
-        }
-    }
-}
 
 <#
 .SYNOPSIS
     Records a success for circuit breaker tracking.
-#>
-function Record-CircuitBreakerSuccess {
-    [CmdletBinding()]
-    param(
-        [Parameter(Mandatory = $true)]
-        [string]$PackId
-    )
-
-    if (-not $script:GatewayState.circuitBreakers.ContainsKey($PackId)) {
-        return
-    }
-
-    $cb = $script:GatewayState.circuitBreakers[$PackId]
-    $cb.successCount++
-    $cb.lastSuccessAt = [DateTime]::UtcNow.ToString("o")
-
-    # If in half-open state, close the circuit
-    if ($cb.state -eq $script:CircuitBreakerStates.HALF_OPEN) {
-        $cb.state = $script:CircuitBreakerStates.CLOSED
-        $cb.failureCount = 0
-        Write-Verbose "Circuit breaker for '$PackId' closed after recovery"
-    }
-}
 
 <#
 .SYNOPSIS
     Records a failure for circuit breaker tracking.
-#>
-function Record-CircuitBreakerFailure {
-    [CmdletBinding()]
-    param(
-        [Parameter(Mandatory = $true)]
-        [string]$PackId
-    )
-
-    if (-not $script:GatewayState.circuitBreakers.ContainsKey($PackId)) {
-        return
-    }
-
-    $cb = $script:GatewayState.circuitBreakers[$PackId]
-    $config = $script:GatewayState.config
-
-    $cb.failureCount++
-    $cb.lastFailureAt = [DateTime]::UtcNow.ToString("o")
-
-    # Check if threshold reached
-    if ($cb.state -eq $script:CircuitBreakerStates.CLOSED -and $cb.failureCount -ge $config.circuitBreakerThreshold) {
-        $cb.state = $script:CircuitBreakerStates.OPEN
-        $cb.openedAt = [DateTime]::UtcNow.ToString("o")
-        Write-Verbose "Circuit breaker for '$PackId' opened after $($cb.failureCount) failures"
-    }
-    elseif ($cb.state -eq $script:CircuitBreakerStates.HALF_OPEN) {
-        # Re-open immediately on failure in half-open state
-        $cb.state = $script:CircuitBreakerStates.OPEN
-        $cb.openedAt = [DateTime]::UtcNow.ToString("o")
-        Write-Verbose "Circuit breaker for '$PackId' re-opened after failure in half-open state"
-    }
-}
 
 <#
 .SYNOPSIS
@@ -3674,32 +1771,6 @@ function Invoke-ToolAtEndpoint {
 
 .DESCRIPTION
     Retrieves available tools from a pack via its endpoint.
-#>
-function Get-ToolsFromPack {
-    [CmdletBinding()]
-    param(
-        [Parameter(Mandatory = $true)]
-        [pscustomobject]$Route
-    )
-
-    if ($Route.endpoint -eq 'stdio') {
-        # Placeholder for stdio tool discovery
-        # In real implementation, would query the pack process
-        return @(
-            @{ name = "$($Route.prefix)query"; description = "Query $Route.packId"; inputSchema = @{ type = 'object'; properties = @{} } }
-            @{ name = "$($Route.prefix)get_evidence"; description = "Get evidence from $Route.packId"; inputSchema = @{ type = 'object'; properties = @{} } }
-            @{ name = "$($Route.prefix)init_context"; description = "Initialize context in $Route.packId"; inputSchema = @{ type = 'object'; properties = @{} } }
-            @{ name = "$($Route.prefix)cleanup_context"; description = "Cleanup context in $Route.packId"; inputSchema = @{ type = 'object'; properties = @{} } }
-        )
-    }
-    elseif ($Route.endpoint.StartsWith('http')) {
-        $uri = "$($Route.endpoint)/mcp/v1/tools"
-        $response = Invoke-RestMethod -Uri $uri -Method Get -ErrorAction Stop
-        return $response.tools
-    }
-
-    return @()
-}
 
 <#
 .SYNOPSIS
@@ -3707,47 +1778,6 @@ function Get-ToolsFromPack {
 
 .DESCRIPTION
     Analyzes query and returns relevant pack IDs.
-#>
-function Get-CrossPackTargets {
-    [CmdletBinding()]
-    [OutputType([array])]
-    param(
-        [Parameter(Mandatory = $true)]
-        [string]$Query
-    )
-
-    $queryLower = $Query.ToLower()
-    $targets = @()
-
-    # Simple keyword-based detection
-    $packKeywords = @{
-        'godot-engine' = @('godot', 'gdscript', 'node', 'scene', 'signal')
-        'blender-engine' = @('blender', 'bpy', 'mesh', 'material', 'animation')
-        'rpgmaker-mz' = @('rpg maker', 'rmmz', 'plugin', 'event', 'notetag')
-    }
-
-    foreach ($packId in $packKeywords.Keys) {
-        $route = $script:GatewayState.routes[$packId]
-        if (-not $route -or -not $route.enabled) { continue }
-
-        $keywords = $packKeywords[$packId]
-        foreach ($keyword in $keywords) {
-            if ($queryLower.Contains($keyword)) {
-                $targets += $packId
-                break
-            }
-        }
-    }
-
-    # If no specific packs matched, include all enabled packs
-    if ($targets.Count -eq 0) {
-        $targets = $script:GatewayState.routes.Values |
-            Where-Object { $_.enabled } |
-            Select-Object -ExpandProperty packId
-    }
-
-    return $targets | Select-Object -Unique
-}
 
 <#
 .SYNOPSIS
@@ -3755,54 +1785,6 @@ function Get-CrossPackTargets {
 
 .DESCRIPTION
     Performs health check on a specific pack route.
-#>
-function _Test-PackHealth {
-    [CmdletBinding()]
-    [OutputType([pscustomobject])]
-    param(
-        [Parameter(Mandatory = $true)]
-        [pscustomobject]$Route,
-
-        [Parameter()]
-        [string]$CorrelationId = ''
-    )
-
-    $startTime = [DateTime]::UtcNow
-    $healthStatus = 'unknown'
-    $error = $null
-    $responseTime = 0
-
-    try {
-        if ($Route.endpoint -eq 'stdio') {
-            # For stdio, check if process is available
-            # Placeholder implementation
-            $healthStatus = 'healthy'
-        }
-        elseif ($Route.endpoint.StartsWith('http')) {
-            $uri = "$($Route.endpoint)$($Route.healthCheckPath)"
-            $response = Invoke-RestMethod -Uri $uri -Method Get -TimeoutSec 5 -ErrorAction Stop
-            $responseTime = ([DateTime]::UtcNow - $startTime).TotalMilliseconds
-            $healthStatus = 'healthy'
-        }
-        else {
-            $healthStatus = 'unknown'
-        }
-    }
-    catch {
-        $healthStatus = 'unhealthy'
-        $error = $_.Exception.Message
-        $responseTime = ([DateTime]::UtcNow - $startTime).TotalMilliseconds
-    }
-
-    return [PSCustomObject]@{
-        packId = $Route.packId
-        status = $healthStatus
-        responseTimeMs = [Math]::Round($responseTime, 2)
-        endpoint = $Route.endpoint
-        checkedAt = [DateTime]::UtcNow.ToString("o")
-        error = $error
-    }
-}
 
 <#
 .SYNOPSIS
@@ -4161,7 +2143,7 @@ Export-ModuleMember -Function @(
     'Get-MCPCrossPackEvidence',
     'New-MCPCrossPackContext',
     
-    # Blender→Godot Pipeline
+    # Blenderâ†’Godot Pipeline
     'Invoke-MCPBlenderToGodotExport',
     'Get-MCPPipelineStatus',
     'Register-MCPPipelineStep',

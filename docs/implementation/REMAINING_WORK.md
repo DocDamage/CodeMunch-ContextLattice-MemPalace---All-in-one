@@ -31,27 +31,25 @@ The remaining work is mainly in five categories:
 In other words: the repo looks broad enough already.
 What is left is making it trustworthy, coherent, and releasable.
 
+### Completed In Latest Remediation Wave
+
+- pack/core test surfaces were stabilized and now pass under CI-safe Pester invocation
+- PowerShell 5.1 compatibility fixes were applied to pack JSON and test harness behavior
+- stale docs/release path drift was reduced across key release/workflow docs
+- release bump automation now targets `docs/releases/CHANGELOG.md` and fails loudly on missing artifacts
+- `.llm-workflow` artifact noise is now ignored in git
+- stale install-script references were removed from README and CI
+- **Public module contract reconciled**: `LLMWorkflow.psd1` now has explicit exports, wildcard exports removed.
+- **Subsystem forks collapsed**: redundant implementation logic in `mcp/` and `extraction/` merged into canonical modules.
+- **Module loader stabilized**: `LLMWorkflow.psm1` now accurately sources consolidated components.
+- **Governance hardened**: Strict-mode property access corrected in `GoldenTasks.ps1`.
+
 ---
 
 ## Highest-Priority Work Left
 
-### 1. Reconcile the shipped module with the codebase
-
-This is the biggest remaining contract problem.
-
-What is still left:
-- decide which subsystem files are part of the supported public module surface
-- update `module/LLMWorkflow/LLMWorkflow.psm1` so the intended files are actually sourced
-- make `module/LLMWorkflow/LLMWorkflow.psd1` exports match the real imported surface
-- remove or wrap duplicate implementations instead of letting source order decide behavior
-
-Why this is still open:
-- the technical debt audit found a large set of scripts on disk that are not reachable from the root loader
-- the manifest and actual exported function surface still drift
-- multiple sourced files redefine commands such as `New-RunId`, `Get-ExecutionMode`, and plan-related helpers
-
-Exit condition:
-- importing `LLMWorkflow` exposes exactly the supported command set, with no silent shadowing and no manifest/export drift
+### 1. Reconcile the shipped module with the codebase (Resolved)
+- Status: **Completed**. Module manifest updated with explicit exports; parallel implementations merged; loader stabilized.
 
 ---
 
@@ -60,37 +58,29 @@ Exit condition:
 The test story is much better than before, but it is not finished.
 
 What is still left:
-- convert the remaining script-style `*.Tests.ps1` harnesses into real Pester tests
-- ensure all declared PowerShell 5.1-compatible tests are actually 5.1-safe
-- reduce or document warning-heavy tests that currently pass but still emit confusing operational noise
-- define the minimum required suite for release certification and CI blocking
-
-Known remaining debt:
-- `tests/RetrievalProfiles.Tests.ps1`
-- `tests/HumanReviewGates.Tests.ps1`
-- `tests/ConfidencePolicy.Tests.ps1`
-- `tests/IncidentBundle.Tests.ps1`
+- define and enforce the exact required release-gate suites in CI (not just ad hoc suite runs)
+- reduce noisy warning paths in benchmark and journal-related tests so pass output stays high-signal
+- add explicit negative and regression tests around module contract/export boundaries
+- tighten retrieval/governance suite expectations where behavior can still drift silently
 
 Exit condition:
-- every important behavior is covered by Pester-discoverable tests and CI pass/fail reflects real risk
+- CI-required suites are explicit, stable, and representative of real release risk
 
 ---
 
 ### 3. Finish documentation and release-truth reconciliation
 
-Workstream 1 has landed meaningful foundations, but not every doc contract is clean yet.
+Workstream 1 foundations are in place and recent path fixes landed, but full reconciliation is not complete yet.
 
 What is still left:
-- reconcile stale path references introduced by the docs reorganization
-- remove contradictions between "stable release" language and "documented-head" language
-- add or standardize release-state summary blocks where they are still missing
-- ensure release automation points at the current `docs/` layout everywhere
-- reconcile any remaining version and metric drift across README, release docs, dashboards, and module metadata
+- remove remaining secondary version-label drift (for example old dashboard/UI or release-note versions)
+- standardize release-state summary blocks across top-level architecture and operations docs
+- keep docs-truth checks in CI and expand them to additional high-signal docs as needed
+- ensure `released` vs `documented-head` language is consistent in all release-facing docs
 
 Examples of remaining drift called out in the audit:
-- stale references to old root-level doc paths
-- stale references inside release criteria and certification docs
-- version strings that still disagree across different surfaces
+- secondary metadata/version strings that still reference older release labels
+- occasional wording mismatch between stable-release claims and documented-head claims
 
 Exit condition:
 - docs, release scripts, and dashboards all agree on version, paths, metrics, and component state
@@ -206,23 +196,8 @@ Exit condition:
 
 ## Cleanup Work Left
 
-### 10. Collapse parallel subsystem forks
-
-The repo still contains parallel implementations of the same conceptual subsystem.
-
-Areas called out by the audit:
-- snapshot management
-- natural-language config
-- external ingestion
-- federated memory
-
-What is still left:
-- choose one canonical implementation per subsystem
-- convert alternates into thin wrappers or delete them
-- remove duplicate function names where they create ambiguous ownership
-
-Exit condition:
-- each subsystem has one obvious source of truth
+### 10. Collapse parallel subsystem forks (Resolved)
+- Status: **Completed**. Canonical implementations established for ingestion, snapshots, config, and memory. Alternate implementations removed.
 
 ---
 
@@ -231,9 +206,9 @@ Exit condition:
 This is not the most strategic work, but it reduces noise and accidental churn.
 
 What is still left:
-- add and maintain a real `.gitignore`
-- stop tracking generated bytecode and similar runtime artifacts
-- define which local runtime-state folders are expected to exist but should not be versioned
+- maintain and expand `.gitignore` as new generated artifacts appear
+- prevent accidental check-in of benchmark/test output and local runtime state
+- define and document which local runtime-state folders are expected but never versioned
 - keep the root worktree cleaner so reviews stay high-signal
 
 Exit condition:

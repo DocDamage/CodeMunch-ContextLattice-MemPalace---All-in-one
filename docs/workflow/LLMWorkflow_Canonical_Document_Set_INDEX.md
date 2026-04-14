@@ -13,7 +13,7 @@ Use the files in this order:
 1. **[Part 1 — Core Architecture and Operations](../../docs/workflow/LLMWorkflow_Canonical_Document_Set_Part_1_Core_Architecture_and_Operations.md)**
 2. **[Part 2 — RPG Maker MZ Pack and Acceptance](../../docs/workflow/LLMWorkflow_Canonical_Document_Set_Part_2_RPGMaker_MZ_Pack_and_Acceptance.md)**
 3. **[Part 3 — Godot, Blender, Inter-Pack, and Roadmap](../../docs/workflow/LLMWorkflow_Canonical_Document_Set_Part_3_Godot_Blender_InterPack_and_Roadmap.md)**
-4. **[Part 4 — Future Pack Intake and Source Candidates](sandbox:/mnt/data/LLMWorkflow_Canonical_Document_Set_Part_4_Future_Pack_Intake_and_Source_Candidates_v2.md)**
+4. **[Part 4 — Future Pack Intake and Source Candidates](../../docs/workflow/LLMWorkflow_Canonical_Document_Set_Part_4_Future_Pack_Intake_and_Source_Candidates.md)**
 5. **[Appendage A — Godot Pack Additional Candidate Repositories](../../docs/reference/Godot_Pack_Appendage_Additional_Candidate_Repositories_v2.md)**
 
 ## Purpose of Part 4

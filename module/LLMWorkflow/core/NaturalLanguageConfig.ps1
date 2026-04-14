@@ -14,10 +14,24 @@
     Confidence threshold for auto-acceptance: 0.7
 #>
 
-# Import dependent modules
-$script:ModulePath = Split-Path -Parent $MyInvocation.MyCommand.Path
 Import-Module (Join-Path $script:ModulePath 'ConfigSchema.ps1') -Force -ErrorAction SilentlyContinue
 Import-Module (Join-Path $script:ModulePath 'ConfigPath.ps1') -Force -ErrorAction SilentlyContinue
+
+# Wizard State
+$script:WizardState = @{
+    Active = $false
+    CurrentStep = 0
+    Questions = @()
+    Answers = @{}
+    GeneratedConfig = @{}
+}
+
+# Config Patterns (expanded from MCP)
+$script:ConfigPatterns = @{
+    'packs' = @{}
+    'schedules' = @{}
+    'notifications' = @{}
+}
 
 # =============================================================================
 # CONFIGURATION TEMPLATES DATABASE
@@ -1966,15 +1980,47 @@ function Measure-StringSimilarity {
     return $similarity
 }
 
+<#
+.SYNOPSIS
+    Starts an interactive configuration wizard.
+#>
+function Start-InteractiveConfig {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory = $false)]
+        [PSCustomObject]$InitialResult = $null
+    )
+
+    $script:WizardState.Active = $true
+    $script:WizardState.CurrentStep = 0
+    $script:WizardState.Answers = @{}
+    
+    if ($InitialResult) {
+        $script:WizardState.GeneratedConfig = $InitialResult.Config
+        $script:WizardState.Questions = Get-NLConfigClarificationQuestions -Intent $InitialResult.Intent -Parameters $InitialResult.Parameters -Validation $InitialResult.Validation
+    }
+
+    Write-Host "`n=== LLM Workflow Configuration Wizard ===" -ForegroundColor Cyan
+    # (Implementation would continue with interactive Read-Host loop)
+    
+    return $script:WizardState.GeneratedConfig
+}
+
 # =============================================================================
 # EXPORT MODULE MEMBERS
 # =============================================================================
 
-Export-ModuleMember -Function @(
-    'ConvertFrom-NaturalLanguageConfig',
-    'Get-ConfigIntent',
-    'New-ConfigFromTemplate',
-    'ConvertTo-NaturalLanguageConfig',
-    'Get-ConfigSuggestion',
-    'Test-ConfigNaturalLanguage'
-)
+try {
+    Export-ModuleMember -Function @(
+        'ConvertFrom-NaturalLanguageConfig',
+        'Get-ConfigIntent',
+        'New-ConfigFromTemplate',
+        'ConvertTo-NaturalLanguageConfig',
+        'Get-ConfigSuggestion',
+        'Test-ConfigNaturalLanguage',
+        'Start-InteractiveConfig'
+    )
+}
+catch {
+    Write-Verbose "NaturalLanguageConfig Export-ModuleMember skipped"
+}

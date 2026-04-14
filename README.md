@@ -2,7 +2,7 @@
 
 [![Version](https://img.shields.io/badge/version-0.9.6-blue.svg)](https://github.com/yourusername/CodeMunch-ContextLattice-MemPalace)
 [![Packs](https://img.shields.io/badge/domain%20packs-10-green.svg)](#domain-packs)
-[![Modules](https://img.shields.io/badge/PowerShell%20modules-106-purple.svg)](#module-inventory)
+[![Modules](https://img.shields.io/badge/PowerShell%20modules-108-purple.svg)](#module-inventory)
 [![MCP](https://img.shields.io/badge/MCP%20tools-15+-orange.svg)](#advanced-features)
 
 Canonical toolkit repo for the integrated workflow:
@@ -13,11 +13,26 @@ Canonical toolkit repo for the integrated workflow:
 - [Technical Debt Audit](docs/implementation/TECHNICAL_DEBT_AUDIT.md)
 - [Remaining Work](docs/implementation/REMAINING_WORK.md)
 
+## Remediation Status (2026-04-13)
+
+### Completed Recently
+- CI test portability hardened with a safe Pester runner (`tools/ci/invoke-pester-safe.ps1`)
+- docs/release path drift reduced across key release and workflow docs
+- stale install-script references removed in favor of direct module import paths
+- core/pack/framework/benchmark suites remediated and passing
+
+### Still Left To Do
+- bound the public module export contract (remove wildcard API surface)
+- consolidate duplicate helper/function definitions across loaded modules
+- collapse parallel subsystem forks and finalize canonical ownership
+- finish secondary version metadata alignment across dashboard/release-note surfaces
+- continue observability, policy, and security hardening as v1.0 release gates
+
 - `CodeMunch Pro` project indexing and MCP wrapper setup
 - `ContextLattice` project bootstrap + connectivity verification
 - `MemPalace -> ContextLattice` incremental bridge
 - **10 Domain Packs** with specialized knowledge extraction
-- **106 PowerShell Modules** for workflow automation
+- **107 PowerShell Modules** for workflow automation
 - **MCP Toolkit Servers** for Godot, Blender, and RPG Maker
 - **Inter-Pack Pipelines** for cross-domain asset workflows
 - **Golden Task Evaluations** with 30+ validation scenarios
@@ -108,7 +123,7 @@ graph TB
         A5[llmbenchmark]
     end
     
-    subgraph ModuleLayer["PowerShell Module Layer<br/>106 Modules"]
+    subgraph ModuleLayer["PowerShell Module Layer<br/>107 Modules"]
         B1[Invoke-LLMWorkflowUp]
         B2[Test-LLMWorkflowSetup]
         B3[Resolve-ProviderProfile]
@@ -1110,7 +1125,8 @@ Open a new PowerShell session.
 From this repo:
 
 ```powershell
-.\install-module.ps1
+Import-Module .\module\LLMWorkflow\LLMWorkflow.psd1 -Force
+Install-LLMWorkflow -NoProfileUpdate
 ```
 
 Then in any project folder:
@@ -1840,7 +1856,7 @@ New-LLMWorkflowGamePreset -ProjectRoot "." -ProjectName "SpaceShooter" `
 
 ```powershell
 Install-Module Pester -Scope CurrentUser -Force -SkipPublisherCheck
-Invoke-Pester -Path .\tests -Output Detailed
+.\tools\ci\invoke-pester-safe.ps1 -Path .\tests -CI
 ```
 
 CI workflow:
@@ -1872,3 +1888,5 @@ git commit -m "Release 0.2.1"
 
 PowerShell Gallery publish is automated on GitHub Release publish when
 `PSGALLERY_API_KEY` is configured in repo secrets.
+
+

@@ -207,7 +207,7 @@ EOF
 
 # Main entrypoint logic
 main() {
-    log_info "LLM Workflow Toolkit Container v0.2.0"
+    log_info "LLM Workflow Toolkit Container v0.9.6"
     
     # Check container environment
     check_container_env || log_warn "May not be running in container"
@@ -273,3 +273,4 @@ main() {
 
 # Run main function
 main "$@"
+

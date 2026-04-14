@@ -77,7 +77,7 @@ When running in interactive mode:
 
 ```
 ========================================
-   LLM WORKFLOW DASHBOARD v0.2.0
+   LLM WORKFLOW DASHBOARD v0.9.6
 ========================================
 
 [OK]   python_command       Found: C:\Python311\python.exe
@@ -181,3 +181,4 @@ if ($LASTEXITCODE -ne 0) {
     Send-MailMessage -To "admin@example.com" -Subject "LLM Workflow Health Alert" -Body "Check logs at $logFile"
 }
 ```
+

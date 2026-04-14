@@ -2,7 +2,7 @@
 
 ## Current Version
 
-**Declared Version:** `0.9.6` (see root [`VERSION`](../VERSION))
+**Declared Version:** `0.9.6` (see root [`VERSION`](../../VERSION))
 
 ## Related Docs
 - [Implementation Progress](../implementation/PROGRESS.md)
@@ -45,13 +45,13 @@
 These definitions are used to keep counts consistent across README, PROGRESS, and canonical docs.
 
 - **PowerShell Module**: A `.ps1` file under `module/LLMWorkflow/` that exports functions and is not a test file or template helper.
-  - Current count: **106**
+  - Current count: **108**
 - **Domain Pack**: A JSON manifest under `packs/manifests/` with a matching source registry.
   - Current count: **10**
 - **Extraction Parser**: A module whose primary role is parsing or extracting structure from files.
   - Current count: **31**
 - **Golden Task**: A predefined evaluation scenario in `module/LLMWorkflow/governance/GoldenTasks.ps1`.
-  - Current count: **30**
+  - Current count: **71**
 - **MCP Tool**: A declared tool in an MCP toolkit server manifest.
   - Current count: **55**
 
@@ -59,4 +59,6 @@ These definitions are used to keep counts consistent across README, PROGRESS, an
 
 | Date | Version | Change |
 |------|---------|--------|
+| 2026-04-13 | 0.9.6 | Added remediation status alignment across README, progress, audit, remaining work, and strategic plan |
 | 2026-04-13 | 0.9.6 | Added release-state documentation and truth reconciliation |
+

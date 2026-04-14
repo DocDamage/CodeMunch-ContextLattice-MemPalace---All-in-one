@@ -1,10 +1,10 @@
 #requires -Version 5.1
 
-$script:ExtractionRoot = Join-Path (Join-Path $PSScriptRoot "..") "module\LLMWorkflow\extraction"
+$script:ExtractionRoot = Join-Path (Join-Path $PSScriptRoot "..") "module\LLMWorkflow\ingestion"
 $script:WrapperModulePath = Join-Path $env:TEMP ("ExtractionWrapper-" + [Guid]::NewGuid().ToString("N") + ".psm1")
 
 @"
-. '$script:ExtractionRoot\UnrealDescriptorParser.ps1'
+. '$script:ExtractionRoot\parsers\UnrealDescriptorParser.ps1'
 . '$script:ExtractionRoot\ExtractionPipeline.ps1'
 "@ | Set-Content -LiteralPath $script:WrapperModulePath -Encoding UTF8
 

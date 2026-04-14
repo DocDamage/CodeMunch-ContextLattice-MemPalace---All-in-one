@@ -13,8 +13,8 @@ This document maps what each top-level document claims about release state and m
 |---------|-----------------|----------|
 | Version | `VERSION` file | [`VERSION`](../VERSION) |
 | Release state | `docs/releases/RELEASE_STATE.md` | [`RELEASE_STATE.md`](../../docs/releases/RELEASE_STATE.md) |
-| Implementation progress | `PROGRESS.md` | [`PROGRESS.md`](../../docs/implementation/PROGRESS.md) |
-| Canonical architecture | `LLMWorkflow_Canonical_Document_Set_*` | Root-level canonical docs |
+| Implementation progress | `docs/implementation/PROGRESS.md` | [`PROGRESS.md`](../../docs/implementation/PROGRESS.md) |
+| Canonical architecture | `docs/workflow/LLMWorkflow_Canonical_Document_Set_*` | [`docs/workflow/`](../../docs/workflow/) canonical docs |
 
 ## Metric Counting Rules
 
@@ -33,7 +33,7 @@ To keep numbers consistent, use the following counting rules and scripts.
     }).Count
 ```
 
-**Current Count**: `106`
+**Current Count**: `107`
 
 ### Domain Packs
 **Rule**: Count JSON files under `packs/manifests/` that have a matching `.sources.json` registry under `packs/registries/`.
@@ -78,9 +78,9 @@ To keep numbers consistent, use the following counting rules and scripts.
 
 | Document | Version Claimed | Modules Claimed | Packs Claimed | Parsers Claimed | Golden Tasks Claimed | Status |
 |----------|-----------------|-----------------|---------------|-----------------|----------------------|--------|
-| [`README.md`](../README.md) | 0.9.6 | 106 | 10 | — | 30+ | ✅ truth |
-| [`PROGRESS.md`](../../docs/implementation/PROGRESS.md) | 0.9.6 | 106 | 10 | 31 | 30 | ✅ truth |
-| [`RELEASE_STATE.md`](../../docs/releases/RELEASE_STATE.md) | 0.9.6 | 106 | 10 | 31 | 30 | ✅ truth |
+| [`README.md`](../README.md) | 0.9.6 | 107 | 10 | — | 30+ | ✅ truth |
+| [`PROGRESS.md`](../../docs/implementation/PROGRESS.md) | 0.9.6 | 107 | 10 | 31 | 30 | ✅ truth |
+| [`RELEASE_STATE.md`](../../docs/releases/RELEASE_STATE.md) | 0.9.6 | 107 | 10 | 31 | 30 | ✅ truth |
 
 ## Known Drift
 
@@ -92,6 +92,9 @@ To keep numbers consistent, use the following counting rules and scripts.
 
 ## Resolution Plan
 
-1. ✅ Reconciled 2026-04-13: `VERSION`, `README.md`, `PROGRESS.md`, `CHANGELOG.md`, `RELEASE_STATE.md`, and `LLMWorkflow.psd1` all aligned to `0.9.6`.
-2. Metrics verified: 106 PowerShell modules, 10 domain packs, 31 extraction parsers, 30 golden tasks, 5 benchmark suites.
-3. Add CI validation (`tools/ci/validate-docs-truth.ps1`) to catch future drift automatically.
+1. ✅ Reconciled 2026-04-13: `VERSION`, `README.md`, `docs/implementation/PROGRESS.md`, `docs/releases/CHANGELOG.md`, `RELEASE_STATE.md`, and `LLMWorkflow.psd1` all aligned to `0.9.6`.
+2. Metrics verified: 107 PowerShell modules, 10 domain packs, 31 extraction parsers, 30 golden tasks, 5 benchmark suites.
+3. ✅ CI validation added (`tools/ci/validate-docs-truth.ps1`) to catch future drift automatically.
+4. ✅ Remediation documentation sync completed on 2026-04-13 across `README.md`, `PROGRESS.md`, `TECHNICAL_DEBT_AUDIT.md`, `REMAINING_WORK.md`, and strategic execution plan docs.
+
+

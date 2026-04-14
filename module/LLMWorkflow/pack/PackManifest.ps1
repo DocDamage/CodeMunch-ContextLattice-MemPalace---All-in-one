@@ -50,6 +50,57 @@ $script:ValidTrustTiers = @(
     'Quarantined'
 )
 
+if (-not (Get-Command ConvertTo-LLMHashtable -ErrorAction SilentlyContinue)) {
+    function ConvertTo-LLMHashtable {
+        [CmdletBinding()]
+        param([Parameter(ValueFromPipeline = $true)]$InputObject)
+
+        process {
+            if ($null -eq $InputObject) { return $null }
+
+            if ($InputObject -is [System.Collections.IDictionary]) {
+                $hash = @{}
+                foreach ($key in $InputObject.Keys) {
+                    $hash[$key] = ConvertTo-LLMHashtable -InputObject $InputObject[$key]
+                }
+                return $hash
+            }
+
+            if ($InputObject -is [PSCustomObject] -or $InputObject -is [System.Management.Automation.PSCustomObject]) {
+                $hash = @{}
+                foreach ($prop in $InputObject.PSObject.Properties) {
+                    $hash[$prop.Name] = ConvertTo-LLMHashtable -InputObject $prop.Value
+                }
+                return $hash
+            }
+
+            if ($InputObject -is [System.Collections.IEnumerable] -and $InputObject -isnot [string]) {
+                $result = @()
+                foreach ($item in $InputObject) {
+                    $result += ,(ConvertTo-LLMHashtable -InputObject $item)
+                }
+                return $result
+            }
+
+            return $InputObject
+        }
+    }
+}
+
+if (-not (Get-Command ConvertFrom-LLMJsonToHashtable -ErrorAction SilentlyContinue)) {
+    function ConvertFrom-LLMJsonToHashtable {
+        [CmdletBinding()]
+        param([Parameter(Mandatory)][string]$Json)
+
+        $convertFromJson = Get-Command ConvertFrom-Json -ErrorAction Stop
+        if ($convertFromJson.Parameters.ContainsKey('AsHashtable')) {
+            return ($Json | ConvertFrom-Json -AsHashtable)
+        }
+
+        return ConvertTo-LLMHashtable -InputObject ($Json | ConvertFrom-Json)
+    }
+}
+
 <#
 .SYNOPSIS
     Creates a new pack manifest.
@@ -305,11 +356,11 @@ function Get-PackManifest {
         }
 
         if (-not (Test-Path $Path)) {
-            Write-Error "Pack manifest not found: $Path"
+            Write-Warning "Pack manifest not found: $Path"
             return $null
         }
 
-        $content = Get-Content $Path -Raw | ConvertFrom-Json -AsHashtable
+        $content = ConvertFrom-LLMJsonToHashtable -Json (Get-Content $Path -Raw)
         return $content
     }
 }
@@ -344,7 +395,7 @@ function Get-PackManifestList {
         }
 
         $manifests = Get-ChildItem -Path $manifestDir -Filter "*.json" | ForEach-Object {
-            $content = Get-Content $_.FullName -Raw | ConvertFrom-Json -AsHashtable
+            $content = ConvertFrom-LLMJsonToHashtable -Json (Get-Content $_.FullName -Raw)
             [PSCustomObject]@{
                 PackId = $content.packId
                 Domain = $content.domain
@@ -414,13 +465,13 @@ function Set-PackLifecycleState {
         }
 
         if ($invalidTransitions[$currentStatus] -contains $NewStatus) {
-            Write-Error "Invalid transition from '$currentStatus' to '$NewStatus'"
+            Write-Warning "Invalid transition from '$currentStatus' to '$NewStatus'"
             return $null
         }
 
         # Rule: only validated builds can be promoted
         if ($NewStatus -eq 'promoted' -and $currentStatus -ne 'validated') {
-            Write-Error "Only validated builds can be promoted. Current status: $currentStatus"
+            Write-Warning "Only validated builds can be promoted. Current status: $currentStatus"
             return $null
         }
 
@@ -473,7 +524,8 @@ function Get-PackInstallProfile {
             return @()
         }
 
-        return $Manifest.installProfiles[$ProfileName]
+        $members = @($Manifest.installProfiles[$ProfileName])
+        Write-Output -NoEnumerate $members
     }
 }
 

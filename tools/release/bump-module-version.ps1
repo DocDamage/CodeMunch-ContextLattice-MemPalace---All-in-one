@@ -18,7 +18,7 @@ if ($Version -notmatch '^\d+\.\d+\.\d+$') {
 
 $repoRoot = (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot "..\..")).Path
 $manifestPath = Join-Path $repoRoot "module\LLMWorkflow\LLMWorkflow.psd1"
-$changelogPath = Join-Path $repoRoot "CHANGELOG.md"
+$changelogPath = Join-Path $repoRoot "docs\releases\CHANGELOG.md"
 $compatLockPath = Join-Path $repoRoot "compatibility.lock.json"
 
 if (-not (Test-Path -LiteralPath $manifestPath)) {
@@ -61,23 +61,25 @@ if (Test-Path -LiteralPath $compatLockPath) {
     Write-Step "Updated compatibility lock version -> $Version"
 }
 
-if (Test-Path -LiteralPath $changelogPath) {
-    $today = Get-Date -Format "yyyy-MM-dd"
-    $changelog = Get-Content -LiteralPath $changelogPath -Raw
-    if ($changelog -notmatch [regex]::Escape("## [$Version] - $today")) {
-        $releaseStub = @"
+if (-not (Test-Path -LiteralPath $changelogPath)) {
+    throw "Missing changelog: $changelogPath"
+}
+
+$today = Get-Date -Format "yyyy-MM-dd"
+$changelog = Get-Content -LiteralPath $changelogPath -Raw
+if ($changelog -notmatch [regex]::Escape("## [$Version] - $today")) {
+    $releaseStub = @"
 
 ## [$Version] - $today
 
 ### Added
 - TODO
 "@
-        if (-not $DryRun) {
-            $changelog = $changelog -replace '(## \[Unreleased\]\r?\n)', "`$1$releaseStub"
-            Set-Content -LiteralPath $changelogPath -Value $changelog -Encoding UTF8
-        }
-        Write-Step "Added CHANGELOG release stub for $Version."
+    if (-not $DryRun) {
+        $changelog = $changelog -replace '(## \[Unreleased\]\r?\n)', "`$1$releaseStub"
+        Set-Content -LiteralPath $changelogPath -Value $changelog -Encoding UTF8
     }
+    Write-Step "Added CHANGELOG release stub for $Version."
 }
 
 Write-Step "Next: review files, commit, and create tag v$Version."

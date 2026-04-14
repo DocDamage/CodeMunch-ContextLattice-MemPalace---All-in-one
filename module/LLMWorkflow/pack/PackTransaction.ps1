@@ -21,6 +21,57 @@ $script:TransactionStates = @(
     'rollback'
 )
 
+if (-not (Get-Command ConvertTo-LLMHashtable -ErrorAction SilentlyContinue)) {
+    function ConvertTo-LLMHashtable {
+        [CmdletBinding()]
+        param([Parameter(ValueFromPipeline = $true)]$InputObject)
+
+        process {
+            if ($null -eq $InputObject) { return $null }
+
+            if ($InputObject -is [System.Collections.IDictionary]) {
+                $hash = @{}
+                foreach ($key in $InputObject.Keys) {
+                    $hash[$key] = ConvertTo-LLMHashtable -InputObject $InputObject[$key]
+                }
+                return $hash
+            }
+
+            if ($InputObject -is [PSCustomObject] -or $InputObject -is [System.Management.Automation.PSCustomObject]) {
+                $hash = @{}
+                foreach ($prop in $InputObject.PSObject.Properties) {
+                    $hash[$prop.Name] = ConvertTo-LLMHashtable -InputObject $prop.Value
+                }
+                return $hash
+            }
+
+            if ($InputObject -is [System.Collections.IEnumerable] -and $InputObject -isnot [string]) {
+                $result = @()
+                foreach ($item in $InputObject) {
+                    $result += ,(ConvertTo-LLMHashtable -InputObject $item)
+                }
+                return $result
+            }
+
+            return $InputObject
+        }
+    }
+}
+
+if (-not (Get-Command ConvertFrom-LLMJsonToHashtable -ErrorAction SilentlyContinue)) {
+    function ConvertFrom-LLMJsonToHashtable {
+        [CmdletBinding()]
+        param([Parameter(Mandatory)][string]$Json)
+
+        $convertFromJson = Get-Command ConvertFrom-Json -ErrorAction Stop
+        if ($convertFromJson.Parameters.ContainsKey('AsHashtable')) {
+            return ($Json | ConvertFrom-Json -AsHashtable)
+        }
+
+        return ConvertTo-LLMHashtable -InputObject ($Json | ConvertFrom-Json)
+    }
+}
+
 <#
 .SYNOPSIS
     Creates a new pack transaction.
@@ -126,19 +177,34 @@ function Move-PackTransactionStage {
         $currentStage = $Transaction.state
         $now = [DateTime]::UtcNow.ToString("o")
 
+        if (-not $Success) {
+            # Failure is attributed to the requested stage. If we were transitioning
+            # from a different in-progress stage, mark it completed first.
+            if ($Stage -ne $currentStage -and $Transaction.stages[$currentStage]) {
+                $Transaction.stages[$currentStage].status = 'completed'
+                $Transaction.stages[$currentStage].completedUtc = $now
+                $Transaction.stages[$currentStage].errors = @()
+            }
+
+            if ($Transaction.stages[$Stage]) {
+                if (-not $Transaction.stages[$Stage].startedUtc) {
+                    $Transaction.stages[$Stage].startedUtc = $now
+                }
+                $Transaction.stages[$Stage].completedUtc = $now
+                $Transaction.stages[$Stage].status = 'failed'
+                $Transaction.stages[$Stage].errors = $Errors
+            }
+
+            $Transaction.state = 'rollback'
+            $Transaction.updatedUtc = $now
+            return $Transaction
+        }
+
         # Complete current stage
         if ($Transaction.stages[$currentStage]) {
             $Transaction.stages[$currentStage].completedUtc = $now
-            $Transaction.stages[$currentStage].errors = $Errors
-
-            if ($Success) {
-                $Transaction.stages[$currentStage].status = 'completed'
-            }
-            else {
-                $Transaction.stages[$currentStage].status = 'failed'
-                $Transaction.state = 'rollback'
-                return $Transaction
-            }
+            $Transaction.stages[$currentStage].errors = @()
+            $Transaction.stages[$currentStage].status = 'completed'
         }
 
         # Transition to new stage
@@ -210,7 +276,7 @@ function New-PackLockfile {
     }
 
     process {
-        $lockSources = $Sources | ForEach-Object {
+        $lockSources = @($Sources | ForEach-Object {
             @{
                 sourceId = $_.sourceId
                 repoUrl = $_.repoUrl
@@ -221,7 +287,7 @@ function New-PackLockfile {
                 chunkCount = $_.chunkCount
                 extractedAt = [DateTime]::UtcNow.ToString("o")
             }
-        }
+        })
 
         $lockfile = @{
             schemaVersion = 1
@@ -332,13 +398,13 @@ function Get-PackLockfile {
             else {
                 $latest = Join-Path $dir "latest.pack.lock.json"
                 if (Test-Path $latest) {
-                    return Get-Content $latest -Raw | ConvertFrom-Json -AsHashtable
+                    return ConvertFrom-LLMJsonToHashtable -Json (Get-Content $latest -Raw)
                 }
                 $files = Get-ChildItem -Path $dir -Filter "*.pack.lock.json" | Sort-Object LastWriteTime -Descending
             }
 
             if ($files) {
-                return Get-Content $files[0].FullName -Raw | ConvertFrom-Json -AsHashtable
+                return ConvertFrom-LLMJsonToHashtable -Json (Get-Content $files[0].FullName -Raw)
             }
         }
 
@@ -466,8 +532,13 @@ function Publish-PackBuild {
 
     process {
         # Verify transaction state
-        if ($Transaction.state -ne 'validate' -or $Transaction.stages.validate.status -ne 'completed') {
-            Write-Error "Cannot promote: transaction not in validated state. Current state: $($Transaction.state)"
+        if ($Transaction.state -ne 'validate') {
+            Write-Warning "Cannot promote: transaction not in validate state. Current state: $($Transaction.state)"
+            return $null
+        }
+
+        if ($Transaction.stages.validate.status -eq 'failed') {
+            Write-Warning "Cannot promote: validation stage has failed."
             return $null
         }
 
@@ -571,7 +642,7 @@ function Get-PackBuildStatus {
         $promotedBuilds = @()
 
         if (Test-Path $stagingDir) {
-            $stagingBuilds = Get-ChildItem -Path $stagingDir -Filter "*.pack.lock.json" |
+            $stagingBuilds = @(Get-ChildItem -Path $stagingDir -Filter "*.pack.lock.json" |
                 Where-Object { $_.Name -ne 'latest.pack.lock.json' } |
                 ForEach-Object {
                     $content = Get-Content $_.FullName -Raw | ConvertFrom-Json
@@ -580,11 +651,11 @@ function Get-PackBuildStatus {
                         Built = $content.builtUtc
                         Toolkit = $content.toolkitVersion
                     }
-                }
+                })
         }
 
         if (Test-Path $promotedDir) {
-            $promotedBuilds = Get-ChildItem -Path $promotedDir -Filter "*.pack.lock.json" |
+            $promotedBuilds = @(Get-ChildItem -Path $promotedDir -Filter "*.pack.lock.json" |
                 Where-Object { $_.Name -ne 'latest.pack.lock.json' } |
                 ForEach-Object {
                     $content = Get-Content $_.FullName -Raw | ConvertFrom-Json
@@ -593,7 +664,7 @@ function Get-PackBuildStatus {
                         Built = $content.builtUtc
                         Toolkit = $content.toolkitVersion
                     }
-                }
+                })
         }
 
         return [PSCustomObject]@{

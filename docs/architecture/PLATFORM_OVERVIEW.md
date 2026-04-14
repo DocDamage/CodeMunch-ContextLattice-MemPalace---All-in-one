@@ -393,7 +393,8 @@ Add-DisputeClaim -DisputeSet $dispute -ClaimSource "godot-engine" -ClaimContent 
 
 ```powershell
 # Install the platform (one-time)
-.\install-module.ps1
+Import-Module .\module\LLMWorkflow\LLMWorkflow.psd1 -Force
+Install-LLMWorkflow -NoProfileUpdate
 
 # Bootstrap any project
 llmup

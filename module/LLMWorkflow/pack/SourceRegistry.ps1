@@ -71,6 +71,57 @@ $script:ValidSourceStates = @(
     'removed'
 )
 
+if (-not (Get-Command ConvertTo-LLMHashtable -ErrorAction SilentlyContinue)) {
+    function ConvertTo-LLMHashtable {
+        [CmdletBinding()]
+        param([Parameter(ValueFromPipeline = $true)]$InputObject)
+
+        process {
+            if ($null -eq $InputObject) { return $null }
+
+            if ($InputObject -is [System.Collections.IDictionary]) {
+                $hash = @{}
+                foreach ($key in $InputObject.Keys) {
+                    $hash[$key] = ConvertTo-LLMHashtable -InputObject $InputObject[$key]
+                }
+                return $hash
+            }
+
+            if ($InputObject -is [PSCustomObject] -or $InputObject -is [System.Management.Automation.PSCustomObject]) {
+                $hash = @{}
+                foreach ($prop in $InputObject.PSObject.Properties) {
+                    $hash[$prop.Name] = ConvertTo-LLMHashtable -InputObject $prop.Value
+                }
+                return $hash
+            }
+
+            if ($InputObject -is [System.Collections.IEnumerable] -and $InputObject -isnot [string]) {
+                $result = @()
+                foreach ($item in $InputObject) {
+                    $result += ,(ConvertTo-LLMHashtable -InputObject $item)
+                }
+                return $result
+            }
+
+            return $InputObject
+        }
+    }
+}
+
+if (-not (Get-Command ConvertFrom-LLMJsonToHashtable -ErrorAction SilentlyContinue)) {
+    function ConvertFrom-LLMJsonToHashtable {
+        [CmdletBinding()]
+        param([Parameter(Mandatory)][string]$Json)
+
+        $convertFromJson = Get-Command ConvertFrom-Json -ErrorAction Stop
+        if ($convertFromJson.Parameters.ContainsKey('AsHashtable')) {
+            return ($Json | ConvertFrom-Json -AsHashtable)
+        }
+
+        return ConvertTo-LLMHashtable -InputObject ($Json | ConvertFrom-Json)
+    }
+}
+
 <#
 .SYNOPSIS
     Creates a new source registry entry.
@@ -145,6 +196,10 @@ function New-SourceRegistryEntry {
         [string]$Priority = 'P2',
 
         [Parameter()]
+        [ValidateSet('active', 'deprecated', 'retired', 'quarantined', 'removed')]
+        [string]$State = 'active',
+
+        [Parameter()]
         [string]$License,
 
         [Parameter()]
@@ -185,7 +240,7 @@ function New-SourceRegistryEntry {
             parserSuccessRate = $null
             refreshCadence = $RefreshCadence
             lastReviewedUtc = [DateTime]::UtcNow.ToString("o")
-            state = 'active'
+            state = $State
             collections = $Collections
             riskNotes = $RiskNotes
             contributionNotes = @()
@@ -242,12 +297,19 @@ function New-SourceFamilyEntry {
     )
 
     process {
+        $memberList = if ($Members -and $Members.Count -gt 0) {
+            @($Members)
+        }
+        else {
+            @($CanonicalSource)
+        }
+
         return @{
             schemaVersion = 1
             familyId = $FamilyId
             canonicalSource = $CanonicalSource
             familyType = $FamilyType
-            members = $Members
+            members = $memberList
             notes = $Notes
             createdUtc = [DateTime]::UtcNow.ToString("o")
             updatedUtc = [DateTime]::UtcNow.ToString("o")
@@ -391,7 +453,7 @@ function Get-SourceRegistry {
             }
         }
 
-        $content = Get-Content $Path -Raw | ConvertFrom-Json -AsHashtable
+        $content = ConvertFrom-LLMJsonToHashtable -Json (Get-Content $Path -Raw)
         return $content
     }
 }
@@ -526,7 +588,8 @@ function Get-SourceByPriority {
             [PSCustomObject]$_.Value
         }
 
-        return $result | Sort-Object priority
+        $sorted = @($result | Sort-Object priority)
+        Write-Output -NoEnumerate $sorted
     }
 }
 
@@ -563,7 +626,8 @@ function Get-SourceByAuthorityRole {
             [PSCustomObject]$_.Value
         }
 
-        return $result
+        $items = @($result)
+        Write-Output -NoEnumerate $items
     }
 }
 
@@ -611,8 +675,8 @@ function Get-RetrievalPrioritySources {
         $priorityOrder = @('P0', 'P1', 'P2', 'P3', 'P4', 'P5')
         $trustOrder = @('High', 'Medium-High', 'Medium', 'Low')
 
-        $result = $active | ForEach-Object {
-            $source = $_.Value
+        $ranked = $active | ForEach-Object {
+            $source = [PSCustomObject]$_.Value
             [PSCustomObject]@{
                 Source = $source
                 PriorityRank = $priorityOrder.IndexOf($source.priority)
@@ -622,7 +686,8 @@ function Get-RetrievalPrioritySources {
             $_.Source
         }
 
-        return $result
+        $result = @($ranked)
+        Write-Output -NoEnumerate $result
     }
 }
 

@@ -200,7 +200,7 @@ Examples:
 }
 
 # Main execution
-Write-Info "LLM Workflow Toolkit Container v0.2.0 (Windows)"
+Write-Info "LLM Workflow Toolkit Container v0.9.6 (Windows)"
 
 # Initialize
 Test-ContainerEnvironment
@@ -257,3 +257,4 @@ switch ($Command.ToLower()) {
         & pwsh -NoProfile -Command $Command
     }
 }
+

@@ -84,38 +84,8 @@ $script:DefaultConfig = @{
     lastModified = [DateTime]::UtcNow.ToString("yyyy-MM-ddTHH:mm:ssZ")
 }
 
-$script:TelemetryTraceLog = [System.Collections.ArrayList]::new()
+# Telemetry is now handled via centralized helpers in telemetry/TelemetryHelpers.ps1
 
-function Write-FunctionTelemetry {
-    param(
-        [string]$CorrelationId,
-        [string]$FunctionName,
-        [hashtable]$Attributes = @{}
-    )
-
-    $newSpanCmd = Get-Command New-Span -ErrorAction SilentlyContinue
-    $startSpanCmd = Get-Command Start-Span -ErrorAction SilentlyContinue
-    $stopSpanCmd = Get-Command Stop-Span -ErrorAction SilentlyContinue
-
-    if ($newSpanCmd -and $startSpanCmd -and $stopSpanCmd) {
-        $span = & $newSpanCmd -Name $FunctionName -CorrelationId $CorrelationId -Attributes $Attributes |
-                & $startSpanCmd |
-                & $stopSpanCmd -Status OK
-        [void]$script:TelemetryTraceLog.Add($span)
-        return $span
-    }
-
-    $entry = [pscustomobject][ordered]@{
-        timestamp     = [DateTime]::UtcNow.ToString("yyyy-MM-ddTHH:mm:ss.fffffffZ")
-        correlationId = $CorrelationId
-        function      = $FunctionName
-        attributes    = $Attributes
-    }
-
-    Write-Verbose "[$FunctionName] Telemetry: $($entry | ConvertTo-Json -Compress)"
-    [void]$script:TelemetryTraceLog.Add($entry)
-    return $entry
-}
 
 # In-memory write buffer for batching
 $script:WriteBuffer = [System.Collections.Generic.List[hashtable]]::new()
