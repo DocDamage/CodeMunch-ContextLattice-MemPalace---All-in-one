@@ -1,0 +1,82 @@
+Target: `module/LLMWorkflow/ingestion/ExternalIngestion.ps1`
+
+Reason:
+- stop silently dropping malformed link parse failures during docs-site crawl
+- push secret-scan file read failures into structured logs instead of only vague warnings
+- stop silently swallowing ingestion work-dir cleanup failures
+
+---
+
+## Patch A: surface malformed docs-site links in `Extract-LinksFromHtml`
+
+Replace:
+
+```powershell
+foreach ($m in $matches) {
+    try {
+        $uri = New-Object Uri($baseUri, $m.Groups[1].Value)
+        if ($uri.Host -eq $baseUri.Host) { $links += $uri.AbsoluteUri }
+    } catch {}
+}
+```
+
+With:
+
+```powershell
+foreach ($m in $matches) {
+    try {
+        $uri = New-Object Uri($baseUri, $m.Groups[1].Value)
+        if ($uri.Host -eq $baseUri.Host) {
+            $links += $uri.AbsoluteUri
+        }
+    }
+    catch {
+        Write-Verbose "[$script:ModuleName] Skipping malformed documentation link '$($m.Groups[1].Value)': $($_.Exception.Message)"
+    }
+}
+```
+
+## Patch B: make secret-scan file read failures explicit in `Start-IngestionJob`
+
+Replace:
+
+```powershell
+catch {
+    $runResult.warnings += "Failed to scan: $file - $_"
+}
+```
+
+With:
+
+```powershell
+catch {
+    $message = "Failed to scan '$file' for secrets: $($_.Exception.Message)"
+    $runResult.warnings += $message
+    Write-IngestionLog -Level WARN -Message $message -JobId $JobId -Metadata @{ file = $file }
+}
+```
+
+## Patch C: surface ingestion work-dir cleanup failure
+
+Replace:
+
+```powershell
+if (Test-Path $workDir) {
+    Remove-Item -Path $workDir -Recurse -Force -ErrorAction SilentlyContinue
+}
+```
+
+With:
+
+```powershell
+if (Test-Path $workDir) {
+    try {
+        Remove-Item -Path $workDir -Recurse -Force -ErrorAction Stop
+    }
+    catch {
+        $cleanupMessage = "Failed to remove ingestion work directory '$workDir': $($_.Exception.Message)"
+        $runResult.warnings += $cleanupMessage
+        Write-IngestionLog -Level WARN -Message $cleanupMessage -JobId $JobId -Metadata @{ workDir = $workDir }
+    }
+}
+```
