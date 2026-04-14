@@ -50,33 +50,35 @@ docker run -it -v $(pwd):/workspace llm-workflow shell
 ## Image Variants
 
 | Tag | Description | Base Image |
-|-----|-------------|------------|
+|-----|------------|-----------|
 | `latest` | Linux container with PowerShell | `mcr.microsoft.com/powershell:latest` |
 | `windows` | Windows Server Core container | `mcr.microsoft.com/powershell:windowsservercore-ltsc2022` |
 
 ## Docker Compose
 
+This repo uses Docker Compose v2 syntax (`docker compose`), not the legacy `docker-compose` CSI.
+
 ### Basic Setup
 
 ```bash
 # Start services
-docker-compose up -d
+docker compose up -d
 
 # Run workflow
-docker-compose run --rm llm-workflow
+docker compose run --rm llm-workflow
 
 # Stop services
-docker-compose down
+docker compose down
 ```
 
 ### With Optional Ollama
 
 ```bash
 # Start with Ollama for local LLM inference
-docker-compose --profile ollama up -d
+docker compose --profile ollama up -d
 
 # Pull a model
-docker-compose exec ollama ollama pull llama3
+docker compose exec ollama ollama pull llama3
 ```
 
 ### Custom Configuration
@@ -97,7 +99,7 @@ services:
 ### API Keys
 
 | Variable | Provider | Example |
-|----------|----------|---------|
+|----------|---------|--------|
 | `OPENAI_API_KEY` | OpenAI | `sk-...` |
 | `ANTHROPIC_API_KEY` | Claude | `sk-ant-...` |
 | `KIMI_API_KEY` | Moonshot | `sk-...` |
@@ -108,31 +110,31 @@ services:
 ### ContextLattice Configuration
 
 | Variable | Default | Description |
-|----------|---------|-------------|
+|----------|--------|-----------|
 | `CONTEXTLATTICE_ORCHESTRATOR_URL` | `http://contextlattice:8075` | Orchestrator endpoint |
 | `CONTEXTLATTICE_ORCHESTRATOR_API_KEY` | - | API key for authentication |
 
 ### MemPalace Configuration
 
 | Variable | Default | Description |
-|----------|---------|-------------|
+|----------|--------|-----------|
 | `MEMPALACE_PALACE_PATH` | `/data/mempalace` | ChromaDB storage path |
 
 ### Provider URLs (optional)
 
 | Variable | Default |
-|----------|---------|
-| `OPENAI_BASE_URL` | `https://api.openai.com/v1` |
+|----------|--------|
+| `OPENAI_BASE_URL  | `https://api.openai.com/v1` |
 | `ANTHROPIC_BASE_URL` | `https://api.anthropic.com/v1` |
-| `KIMI_BASE_URL` | `https://api.moonshot.cn/v1` |
+| `KIMI_BASE_URL  | `https://api.moonshot.cn/v1` |
 | `GEMINI_BASE_URL` | `https://generativelanguage.googleapis.com/v1beta/openai` |
-| `GLM_BASE_URL` | `https://open.bigmodel.cn/api/paas/v4` |
-| `OLLAMA_BASE_URL` | `http://host.docker.internal:11434` |
+| `GLM_BASE_URL  | `https://open.bigmodel.cn/api/paas/v4``|
+| `OLLAMA_BASE_URL  | `http://host.docker.internal:11434` |
 
 ### Other Settings
 
 | Variable | Default | Description |
-|----------|---------|-------------|
+|----------|--------|-----------|
 | `LLM_PROVIDER` | `openai` | Default provider preference |
 | `LLM_WORKFLOW_LOG_LEVEL` | `INFO` | Logging verbosity |
 
@@ -141,14 +143,14 @@ services:
 ### Required
 
 ```bash
--v $(pwd):/workspace          # Your project files
+-v $(pwd):/workspace          # your project files
 ```
 
 ### Optional
 
 ```bash
--v mempalace-data:/data/mempalace  # Persistent ChromaDB storage
--v /path/to/.env:/workspace/.env:ro # Environment file
+-v mempalace-data:/data/mempalace  # persistent ChromaDB storage
+-v /path/to/.env:/workspace/.env:ro # environment file
 ```
 
 ## CI/CD Integration
