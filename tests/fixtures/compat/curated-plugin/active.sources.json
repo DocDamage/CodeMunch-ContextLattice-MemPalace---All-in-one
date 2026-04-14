@@ -1,0 +1,21 @@
+{
+  "packId": "curated-plugin-pack",
+  "sources": {
+    "curated-plugin-stable": {
+      "sourceId": "curated-plugin-stable",
+      "repoUrl": "https://github.com/example/curated-plugin-stable",
+      "selectedRef": "v2.4.1",
+      "parseMode": "default",
+      "trustTier": "High",
+      "authorityRole": "exemplar-pattern",
+      "priority": "P2",
+      "state": "active",
+      "collections": ["plugins", "curated-plugins"],
+      "engineTarget": "rpgmaker-mz",
+      "engineMinVersion": "1.7.0",
+      "engineMaxVersion": "1.9.99",
+      "refreshCadence": "30-day",
+      "lastReviewedUtc": "2026-04-13T00:00:00Z"
+    }
+  }
+}
