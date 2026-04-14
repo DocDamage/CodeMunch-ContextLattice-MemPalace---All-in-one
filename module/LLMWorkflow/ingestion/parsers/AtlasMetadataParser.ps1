@@ -106,6 +106,9 @@ function Read-AtlasJson {
         meta = $meta
         frameCount = $frames.Count
         parsedAt = [DateTime]::UtcNow.ToString('o')
+        provenance = [ordered]@{ sourceFile = (Resolve-Path -LiteralPath $FilePath).Path; parsedBy = 'AtlasMetadataParser'; parsedAt = [DateTime]::UtcNow.ToString('o') }
+        license = 'unknown'
+        extractionDepth = 'deep'
     }
 }
 

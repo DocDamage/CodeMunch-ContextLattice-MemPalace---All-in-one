@@ -113,6 +113,9 @@ function Read-SpriteSheetJson {
         meta = $meta
         frameCount = $frames.Count
         parsedAt = [DateTime]::UtcNow.ToString('o')
+        provenance = [ordered]@{ sourceFile = (Resolve-Path -LiteralPath $FilePath).Path; parsedBy = 'SpriteSheetParser'; parsedAt = [DateTime]::UtcNow.ToString('o') }
+        license = 'unknown'
+        extractionDepth = 'deep'
     }
 }
 
@@ -218,6 +221,9 @@ function Read-AsepriteJson {
         meta = $meta
         frameCount = $frames.Count
         parsedAt = [DateTime]::UtcNow.ToString('o')
+        provenance = [ordered]@{ sourceFile = (Resolve-Path -LiteralPath $FilePath).Path; parsedBy = 'SpriteSheetParser'; parsedAt = [DateTime]::UtcNow.ToString('o') }
+        license = 'unknown'
+        extractionDepth = 'deep'
     }
 }
 
@@ -284,6 +290,9 @@ function Export-SpriteSheetManifest {
         parsedAt = $SpriteSheetData.parsedAt
         exportedAt = [DateTime]::UtcNow.ToString('o')
         parserVersion = $script:ModuleVersion
+        provenance = [ordered]@{ sourceFile = $SpriteSheetData.sourcePath; parsedBy = 'SpriteSheetParser'; parsedAt = [DateTime]::UtcNow.ToString('o') }
+        license = 'unknown'
+        extractionDepth = 'deep'
     }
 }
 

@@ -76,6 +76,7 @@ $script:ExtensionMapping = @{
     
     # Blender Engine
     '.py'       = @{ Parser = 'BlenderPython'; Function = 'Invoke-BlenderPythonParse'; PackType = 'blender-engine'; FileType = 'blender-python' }
+    '.blend'    = @{ Parser = 'GeometryNodes'; Function = 'Invoke-GeometryNodesParse'; PackType = 'blender-engine'; FileType = 'geometry-nodes' }
 
     # Unreal Engine
     '.uplugin'  = @{ Parser = 'UnrealDescriptor'; Function = 'Invoke-UnrealDescriptorParse'; PackType = 'unreal-engine'; FileType = 'unreal-plugin' }
@@ -115,6 +116,8 @@ $script:SchemaDefinitions = @{
                 }
             }
             elementCounts = @{ type = 'object' }
+            provenance = @{ type = 'object' }
+            license = @{ type = 'string' }
             parsedAt = @{ type = 'string'; format = 'date-time' }
         }
     }
@@ -134,6 +137,8 @@ $script:SchemaDefinitions = @{
             nodes = @{ type = 'array' }
             connections = @{ type = 'array' }
             editableInstances = @{ type = 'array' }
+            provenance = @{ type = 'object' }
+            license = @{ type = 'string' }
             parsedAt = @{ type = 'string'; format = 'date-time' }
         }
     }
@@ -164,6 +169,8 @@ $script:SchemaDefinitions = @{
             order = @{ type = 'object' }
             structs = @{ type = 'array' }
             sourceFile = @{ type = 'string' }
+            provenance = @{ type = 'object' }
+            license = @{ type = 'string' }
             parsedAt = @{ type = 'string'; format = 'date-time' }
         }
     }
@@ -193,6 +200,8 @@ $script:SchemaDefinitions = @{
             imports = @{ type = 'array' }
             dependencies = @{ type = 'array' }
             geometryNodes = @{ type = 'object' }
+            provenance = @{ type = 'object' }
+            license = @{ type = 'string' }
             sourceFile = @{ type = 'string' }
             parsedAt = @{ type = 'string'; format = 'date-time' }
             compatibility = @{ type = 'object' }
@@ -212,6 +221,8 @@ $script:SchemaDefinitions = @{
             functions = @{ type = 'array' }
             renderMode = @{ type = 'array' }
             sourceFile = @{ type = 'string' }
+            provenance = @{ type = 'object' }
+            license = @{ type = 'string' }
         }
     }
     
@@ -225,6 +236,8 @@ $script:SchemaDefinitions = @{
             links = @{ type = 'array' }
             inputs = @{ type = 'array' }
             outputs = @{ type = 'array' }
+            provenance = @{ type = 'object' }
+            license = @{ type = 'string' }
             parsedAt = @{ type = 'string'; format = 'date-time' }
         }
     }
@@ -263,6 +276,8 @@ $script:SchemaDefinitions = @{
             modules = @{ type = 'array' }
             plugins = @{ type = 'array' }
             sourceFile = @{ type = 'string' }
+            provenance = @{ type = 'object' }
+            license = @{ type = 'string' }
             parsedAt = @{ type = 'string'; format = 'date-time' }
             compatibility = @{ type = 'object' }
         }
@@ -286,6 +301,8 @@ $script:SchemaDefinitions = @{
             modules = @{ type = 'array' }
             plugins = @{ type = 'array' }
             sourceFile = @{ type = 'string' }
+            provenance = @{ type = 'object' }
+            license = @{ type = 'string' }
             parsedAt = @{ type = 'string'; format = 'date-time' }
             compatibility = @{ type = 'object' }
         }
@@ -484,15 +501,21 @@ function New-ExtractionEnvelope {
         [array]$Warnings = @(),
         
         [Parameter()]
-        [hashtable]$Metadata = @{}
+        [hashtable]$Metadata = @{},
+        
+        [Parameter()]
+        [string]$ExtractionDepth = 'deep'
     )
     
     return @{
         extractionId = $ExtractionId
         extractedAt = [DateTime]::UtcNow.ToString("o")
         sourceFile = $SourceFile
+        provenance = [ordered]@{ sourceFile = $SourceFile; extractedBy = 'ExtractionPipeline'; extractedAt = [DateTime]::UtcNow.ToString('o') }
+        license = 'unknown'
         fileType = $FileType
         packType = $PackType
+        extractionDepth = $ExtractionDepth
         success = $Success
         errors = $Errors
         warnings = $Warnings
@@ -717,7 +740,11 @@ function Invoke-StructuredExtraction {
         
         [Parameter()]
         [ValidateSet('json', 'object', 'hashtable')]
-        [string]$OutputFormat = 'hashtable'
+        [string]$OutputFormat = 'hashtable',
+        
+        [Parameter()]
+        [ValidateSet('inventory', 'deep')]
+        [string]$ExtractionDepth = 'deep'
     )
     
     begin {
@@ -739,7 +766,8 @@ function Invoke-StructuredExtraction {
                 -FileType 'unknown' `
                 -PackType ($PackType -or 'unknown') `
                 -Success $false `
-                -Errors @("File not found: $FilePath")
+                -Errors @("File not found: $FilePath") `
+                -ExtractionDepth $ExtractionDepth
             
             return ConvertTo-OutputFormat -Envelope $envelope -Format $OutputFormat
         }
@@ -787,7 +815,8 @@ function Invoke-StructuredExtraction {
                 -FileType $detectedFileType `
                 -PackType ($detectedPackType -or 'unknown') `
                 -Success $false `
-                -Errors @("Unsupported file type: $extension")
+                -Errors @("Unsupported file type: $extension") `
+                -ExtractionDepth $ExtractionDepth
             
             return ConvertTo-OutputFormat -Envelope $envelope -Format $OutputFormat
         }
@@ -828,7 +857,8 @@ function Invoke-StructuredExtraction {
             -Data $data `
             -Errors $errors `
             -Warnings $warnings `
-            -Metadata $metadata
+            -Metadata $metadata `
+            -ExtractionDepth $ExtractionDepth
         
         return ConvertTo-OutputFormat -Envelope $envelope -Format $OutputFormat
     }
@@ -1390,6 +1420,8 @@ function Reset-ExtractionPipeline {
     Write-Verbose "[$script:ModuleName] Pipeline state reset"
 }
 
+Set-Alias -Name 'Invoke-ExtractionPipeline' -Value 'Invoke-StructuredExtraction'
+
 # Export module members (only if loaded as a module)
 if ($MyInvocation.InvocationName -ne '.') {
     Export-ModuleMember -Function @(
@@ -1401,5 +1433,7 @@ if ($MyInvocation.InvocationName -ne '.') {
         'Export-ExtractionReport'
         'Get-ExtractionPipelineVersion'
         'Reset-ExtractionPipeline'
+    ) -Alias @(
+        'Invoke-ExtractionPipeline'
     )
 }

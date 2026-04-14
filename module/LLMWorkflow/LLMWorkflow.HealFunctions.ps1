@@ -239,15 +239,29 @@ function Find-PythonInstallation {
     
     # Common Windows Python locations
     if ($IsWindows -or ($PSVersionTable.PSVersion.Major -lt 6)) {
-        $pythonRoot = "C:\Python"
-        if (Test-Path $pythonRoot) {
-            $versions = Get-ChildItem -Path $pythonRoot -Directory -ErrorAction SilentlyContinue | 
-                Where-Object { $_.Name -match '^\d+' } |
-                Sort-Object Name -Descending
-            foreach ($ver in $versions) {
-                $pythonExe = Join-Path $ver.FullName "python.exe"
-                if (Test-Path $pythonExe) {
-                    $possiblePaths += $pythonExe
+        # Search common install roots via environment variables and wildcards
+        $searchRoots = @(
+            (Join-Path $env:ProgramFiles 'Python*'),
+            (Join-Path ${env:ProgramFiles(x86)} 'Python*'),
+            'C:\Python*'
+        ) | Where-Object { -not [string]::IsNullOrWhiteSpace($_) }
+
+        foreach ($rootPattern in $searchRoots) {
+            $roots = Get-ChildItem -Path $rootPattern -Directory -ErrorAction SilentlyContinue
+            foreach ($pythonRoot in $roots) {
+                $versions = Get-ChildItem -Path $pythonRoot.FullName -Directory -ErrorAction SilentlyContinue |
+                    Where-Object { $_.Name -match '^\d+' } |
+                    Sort-Object Name -Descending
+                foreach ($ver in $versions) {
+                    $pythonExe = Join-Path $ver.FullName 'python.exe'
+                    if (Test-Path $pythonExe) {
+                        $possiblePaths += $pythonExe
+                    }
+                }
+                # Also check root-level python.exe
+                $rootPython = Join-Path $pythonRoot.FullName 'python.exe'
+                if (Test-Path $rootPython) {
+                    $possiblePaths += $rootPython
                 }
             }
         }
@@ -258,22 +272,19 @@ function Find-PythonInstallation {
             $possiblePaths += $storePath
         }
         
-        # Py launcher
-        $pyPath = "C:\Windows\py.exe"
+        # Py launcher (use WINDIR/SystemRoot instead of hardcoded C:\Windows)
+        $windowsDir = if ($env:SystemRoot) { $env:SystemRoot } elseif ($env:WINDIR) { $env:WINDIR } else { 'C:\Windows' }
+        $pyPath = Join-Path $windowsDir 'py.exe'
         if (Test-Path $pyPath) {
             $possiblePaths += $pyPath
         }
     } else {
-        # Linux/Mac common locations
-        $unixPaths = @(
-            "/usr/bin/python3",
-            "/usr/local/bin/python3",
-            "/opt/python3/bin/python3",
-            "$HOME/.local/bin/python3"
-        )
-        foreach ($path in $unixPaths) {
-            if (Test-Path $path) {
-                $possiblePaths += $path
+        # Linux/Mac common locations using wildcards for portability
+        $unixSearchPaths = @('/usr/bin/python*', '/usr/local/bin/python*', '/opt/python*/bin/python*', "$HOME/.local/bin/python*")
+        foreach ($pattern in $unixSearchPaths) {
+            $matches = Get-ChildItem -Path $pattern -File -ErrorAction SilentlyContinue
+            foreach ($match in $matches) {
+                $possiblePaths += $match.FullName
             }
         }
     }

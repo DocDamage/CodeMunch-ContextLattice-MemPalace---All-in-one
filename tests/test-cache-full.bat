@@ -1,8 +1,9 @@
+@REM Local-dev helper: not intended for CI use.
 @echo off
 echo === Testing RetrievalCache Module ===
 
 powershell -Command "
-Import-Module 'C:\Users\Doc\Desktop\Projects\CodeMunch-ContextLattice-MemPalace---All-in-one\module\LLMWorkflow\retrieval\RetrievalCache.ps1' -Force 2>$null
+Import-Module '%~dp0..\module\LLMWorkflow\retrieval\RetrievalCache.ps1' -Force 2>$null
 
 # Test 1: Cache Key Generation
 Write-Host 'Test 1: Cache Key Generation' -ForegroundColor Yellow

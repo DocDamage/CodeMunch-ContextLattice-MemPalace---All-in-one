@@ -143,6 +143,28 @@ Describe "DurableOrchestrator Module Tests" {
             # Counter should remain 0 because both steps were already completed
             $shared.counter | Should -Be 0
         }
+
+        It "Should resume after multiple failures and eventually complete" {
+            $shared = @{ failCount = 2 }
+            $steps = @(
+                @{ Name = "step1"; Action = { "ok" } },
+                @{ Name = "step2"; Action = { if ($shared.failCount -gt 0) { $shared.failCount-- ; throw "intentional failure" } ; "ok2" } }
+            )
+            $wf = New-DurableWorkflow -WorkflowId "multi-resume-wf" -Steps $steps -ProjectRoot $script:TestRoot
+
+            { Invoke-DurableWorkflow -Workflow $wf -ProjectRoot $script:TestRoot } | Should -Throw "*intentional failure*"
+            $state1 = Get-DurableWorkflowState -WorkflowId "multi-resume-wf" -RunId $wf.RunId -ProjectRoot $script:TestRoot
+            $state1.status | Should -Be "failed"
+
+            { Resume-DurableWorkflow -Workflow $wf -ProjectRoot $script:TestRoot } | Should -Throw "*intentional failure*"
+            $state2 = Get-DurableWorkflowState -WorkflowId "multi-resume-wf" -RunId $wf.RunId -ProjectRoot $script:TestRoot
+            $state2.status | Should -Be "failed"
+
+            $result = Resume-DurableWorkflow -Workflow $wf -ProjectRoot $script:TestRoot
+            $result.Status | Should -Be "completed"
+            @($result.StepResults).Count | Should -Be 2
+            $result.StepResults[1].status | Should -Be "success"
+        }
     }
 
     Context "Stop-DurableWorkflow Function" {
@@ -164,6 +186,54 @@ Describe "DurableOrchestrator Module Tests" {
 
             $diskState = Get-DurableWorkflowState -WorkflowId "fresh-stop-wf" -RunId $state.runId -ProjectRoot $script:TestRoot
             $diskState.status | Should -Be "stopped"
+        }
+
+        It "Should resume a stopped workflow and complete remaining steps" {
+            $shared = @{ counter = 0 }
+            $steps = @(
+                @{ Name = "step1"; Action = { $shared.counter++ ; "ok1" } },
+                @{ Name = "step2"; Action = { $shared.counter++ ; "ok2" } }
+            )
+            $wf = New-DurableWorkflow -WorkflowId "stopped-resume-wf" -Steps $steps -ProjectRoot $script:TestRoot
+
+            Write-Checkpoint -WorkflowId $wf.WorkflowId -RunId $wf.RunId -StepIndex 1 `
+                -StepResults @(
+                    [pscustomobject]@{ stepName = "step1"; stepIndex = 0; status = "success"; output = "ok1"; timestamp = [DateTime]::UtcNow.ToString("yyyy-MM-ddTHH:mm:ssZ") }
+                ) -Status "stopped" -ProjectRoot $script:TestRoot
+
+            $result = Resume-DurableWorkflow -Workflow $wf -ProjectRoot $script:TestRoot
+            $result.Status | Should -Be "completed"
+            @($result.StepResults).Count | Should -Be 2
+            $result.StepResults[1].stepName | Should -Be "step2"
+            $result.StepResults[1].status | Should -Be "success"
+            $shared.counter | Should -Be 1
+        }
+    }
+
+    Context "Checkpoint corruption handling" {
+        It "Should throw a meaningful error when resuming from corrupted checkpoint JSON" {
+            $wf = New-DurableWorkflow -WorkflowId "corrupt-wf" -Steps @(@{ Name = "s1"; Action = { "a" } }) -ProjectRoot $script:TestRoot
+            $cpDir = Get-CheckpointDirectory -ProjectRoot $script:TestRoot
+            $cpPath = Join-Path $cpDir "$($wf.WorkflowId).$($wf.RunId).checkpoint.json"
+            "this is not json{{" | Out-File -FilePath $cpPath -Encoding utf8 -Force
+
+            { Resume-DurableWorkflow -Workflow $wf -ProjectRoot $script:TestRoot } | Should -Throw
+        }
+    }
+
+    Context "Retry logic integration" {
+        It "Should retry transient failures up to MaxRetryCount before failing" {
+            $shared = @{ attempts = 0 }
+            $steps = @(
+                @{ Name = "flakyStep"; Action = { $shared.attempts++ ; throw [System.IO.IOException]::new("Network connection unavailable") } }
+            )
+            $wf = New-DurableWorkflow -WorkflowId "retry-wf" -Steps $steps -ProjectRoot $script:TestRoot
+
+            { Invoke-DurableWorkflow -Workflow $wf -ProjectRoot $script:TestRoot -MaxRetryCount 2 -RetryDelaySeconds 0 } | Should -Throw "*flakyStep*"
+
+            $shared.attempts | Should -Be 3
+            $state = Get-DurableWorkflowState -WorkflowId "retry-wf" -RunId $wf.RunId -ProjectRoot $script:TestRoot
+            $state.status | Should -Be "failed"
         }
     }
 }

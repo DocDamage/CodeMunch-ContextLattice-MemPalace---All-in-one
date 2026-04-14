@@ -37,6 +37,18 @@ if (Test-Path -LiteralPath $LoggingModulePath) {
     Import-Module $LoggingModulePath -Force -ErrorAction SilentlyContinue
 }
 
+# Import MCP Tool Registry for lifecycle and policy enforcement
+$ToolRegistryPath = Join-Path $PSScriptRoot "MCPToolRegistry.ps1"
+if (Test-Path -LiteralPath $ToolRegistryPath) {
+    . $ToolRegistryPath
+}
+
+# Import Policy Adapter for gateway policy enforcement
+$PolicyAdapterPath = Join-Path $PSScriptRoot "../policy/PolicyAdapter.ps1"
+if (Test-Path -LiteralPath $PolicyAdapterPath) {
+    . $PolicyAdapterPath
+}
+
 #region Module State
 
 # In-memory gateway state
@@ -62,6 +74,7 @@ $script:GatewayState = @{
         loadBalancingStrategy = 'round-robin'  # round-robin, least-connections, priority
         stdioMode = $true
         httpPort = 8080
+        executionMode = 'standard'
     }
 }
 
@@ -257,7 +270,11 @@ function Start-MCPCompositeGateway {
         [int]$Port = 8080,
 
         [Parameter()]
-        [string]$Host = 'localhost'
+        [string]$Host = 'localhost',
+
+        [Parameter()]
+        [ValidateSet('standard', 'interactive', 'ci', 'watch', 'heal-watch', 'scheduled', 'mcp-readonly', 'mcp-mutating')]
+        [string]$ExecutionMode = 'standard'
     )
 
     begin {
@@ -278,6 +295,12 @@ function Start-MCPCompositeGateway {
         $script:GatewayState.transport = $Transport
         $script:GatewayState.httpPort = $Port
         $script:GatewayState.httpHost = $Host
+        $script:GatewayState.config.executionMode = $ExecutionMode
+
+        # Initialize default policy adapter
+        if (Get-Command New-PolicyAdapter -ErrorAction SilentlyContinue) {
+            $script:GatewayState.policyAdapter = New-PolicyAdapter -EngineType "fallback" -FallbackMode "in-process"
+        }
 
         # Load configuration if provided
         if ($ConfigPath -and (Test-Path -LiteralPath $ConfigPath)) {
@@ -761,6 +784,63 @@ function Invoke-MCPGatewayRequest {
         $route.requestCount++
         $route.lastRequestAt = [DateTime]::UtcNow.ToString("o")
 
+        # Query tool registry for lifecycle and policy enforcement
+        $toolRecord = $null
+        $warnings = @()
+        if (Get-Command Get-MCPTool -ErrorAction SilentlyContinue) {
+            $toolRecord = Get-MCPTool -ToolId $ToolName
+        }
+
+        if (-not $toolRecord) {
+            Write-Verbose "Tool '$ToolName' not found in registry. Allowing execution for backward compatibility."
+        }
+        else {
+            # Enforce lifecycle state at dispatch
+            $lifecycleState = $toolRecord.lifecycleState
+            if ($lifecycleState -eq 'retired') {
+                return New-JsonRpcErrorResponse -Id $requestId -Code 9 -Message "Tool has been retired and is no longer available." -CorrelationId $CorrelationId
+            }
+            if ($lifecycleState -eq 'draft') {
+                return New-JsonRpcErrorResponse -Id $requestId -Code -32601 -Message "Tool is not yet available for invocation." -CorrelationId $CorrelationId
+            }
+            if ($lifecycleState -eq 'deprecated') {
+                $warnings += "Tool '$ToolName' is deprecated."
+                if ($toolRecord.deprecationNotice) {
+                    $warnings += $toolRecord.deprecationNotice
+                }
+                if ($toolRecord.replacedBy) {
+                    $warnings += "Replacement tool: $($toolRecord.replacedBy)"
+                }
+            }
+
+            # Enforce executionModeRequirements
+            if ($toolRecord.executionModeRequirements -and $toolRecord.executionModeRequirements.Count -gt 0) {
+                $currentMode = $script:GatewayState.config.executionMode
+                if ($toolRecord.executionModeRequirements -notcontains $currentMode) {
+                    return New-JsonRpcErrorResponse -Id $requestId -Code 9 -Message "PolicyBlocked: Tool '$ToolName' cannot execute in '$currentMode' mode." -CorrelationId $CorrelationId
+                }
+            }
+
+            # Invoke policy adapter before execution
+            if (Get-Command Invoke-PolicyDecision -ErrorAction SilentlyContinue) {
+                $policyAdapter = $script:GatewayState.policyAdapter
+                if (-not $policyAdapter) {
+                    $policyAdapter = New-PolicyAdapter -EngineType "fallback" -FallbackMode "in-process"
+                    $script:GatewayState.policyAdapter = $policyAdapter
+                }
+                $policyResult = Invoke-PolicyDecision -Adapter $policyAdapter -Domain 'mcp_exposure' -InputObject $toolRecord
+                if ($policyResult.Decision -eq 'deny') {
+                    return New-JsonRpcErrorResponse -Id $requestId -Code 9 -Message "PolicyBlocked: $($policyResult.Explanation)" -CorrelationId $CorrelationId
+                }
+            }
+
+            # Confirmation gate for destructive tools in interactive mode
+            $isDestructive = ($toolRecord.isDestructive -eq $true) -or ($toolRecord.safetyLevel -eq 'destructive')
+            if ($isDestructive -and $script:GatewayState.config.executionMode -eq 'interactive') {
+                return New-JsonRpcErrorResponse -Id $requestId -Code 9 -Message "PolicyBlocked: Destructive tool '$ToolName' requires confirmation before execution in interactive mode." -CorrelationId $CorrelationId
+            }
+        }
+
         # Execute the tool via appropriate endpoint
         try {
             $response = Invoke-ToolAtEndpoint -Route $route -ToolName $ToolName -Arguments $Arguments -SessionId $SessionId -CorrelationId $CorrelationId
@@ -777,7 +857,7 @@ function Invoke-MCPGatewayRequest {
             }
 
             # Return JSON-RPC 2.0 success response
-            return New-JsonRpcSuccessResponse -Id $requestId -Result $response -CorrelationId $CorrelationId
+            return New-JsonRpcSuccessResponse -Id $requestId -Result $response -CorrelationId $CorrelationId -Warnings $warnings
         }
         catch {
             $duration = ([DateTime]::UtcNow - $startTime).TotalMilliseconds
@@ -1484,7 +1564,11 @@ function Start-MCPGateway {
         [switch]$AutoLoadRoutes,
 
         [Parameter()]
-        [string]$ConfigPath = ''
+        [string]$ConfigPath = '',
+
+        [Parameter()]
+        [ValidateSet('standard', 'interactive', 'ci', 'watch', 'heal-watch', 'scheduled', 'mcp-readonly', 'mcp-mutating')]
+        [string]$ExecutionMode = 'standard'
     )
 
     process {
@@ -1493,6 +1577,7 @@ function Start-MCPGateway {
             Port = $Port
             Host = $Host
             AutoLoadRoutes = $AutoLoadRoutes
+            ExecutionMode = $ExecutionMode
         }
         if ($ConfigPath) {
             $params['ConfigPath'] = $ConfigPath
@@ -1870,7 +1955,10 @@ function New-JsonRpcSuccessResponse {
         [object]$Result,
 
         [Parameter()]
-        [string]$CorrelationId = ''
+        [string]$CorrelationId = '',
+
+        [Parameter()]
+        [string[]]$Warnings = @()
     )
 
     $response = [PSCustomObject]@{
@@ -1881,6 +1969,10 @@ function New-JsonRpcSuccessResponse {
 
     if (-not [string]::IsNullOrEmpty($CorrelationId)) {
         $response | Add-Member -NotePropertyName 'correlationId' -NotePropertyValue $CorrelationId -Force
+    }
+
+    if ($Warnings -and $Warnings.Count -gt 0) {
+        $response | Add-Member -NotePropertyName 'warnings' -NotePropertyValue $Warnings -Force
     }
 
     return $response

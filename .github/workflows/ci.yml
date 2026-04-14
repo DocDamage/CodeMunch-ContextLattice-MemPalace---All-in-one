@@ -120,6 +120,12 @@ jobs:
         run: |
           .\tools\ci\invoke-pester-safe.ps1 -Path .\tests -CI
 
+      - name: Security Baseline Gate
+        shell: ${{ matrix.shell }}
+        run: |
+          . .\scripts\security\Invoke-SecurityBaseline.ps1
+          Invoke-SecurityBaseline -ProjectRoot . -OutputPath .\security-reports -FailOnCritical
+
   linux-ci:
     name: Linux CI (Experimental)
     needs: lint

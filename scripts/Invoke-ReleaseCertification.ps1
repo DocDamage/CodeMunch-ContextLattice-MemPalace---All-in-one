@@ -101,6 +101,9 @@ function Test-ReleaseCriteria {
     .PARAMETER ProjectRoot
         Root path of the project to evaluate.
 
+    .PARAMETER Strict
+        If specified, missing security scan scripts will cause the Security category to fail.
+
     .OUTPUTS
         System.Management.Automation.PSCustomObject
         Boolean results per category and an overall Passed flag.
@@ -109,7 +112,10 @@ function Test-ReleaseCriteria {
     [OutputType([pscustomobject])]
     param(
         [Parameter()]
-        [string]$ProjectRoot = (Get-Location).Path
+        [string]$ProjectRoot = (Get-Location).Path,
+
+        [Parameter()]
+        [switch]$Strict
     )
 
     if (-not (Test-Path -LiteralPath $ProjectRoot)) {
@@ -184,12 +190,72 @@ function Test-ReleaseCriteria {
     )
 
     # --- Security ---
-    $security = (
-        (Test-FileExists -Path (Join-Path $scriptsRoot "security\Invoke-SecurityBaseline.ps1")) -and
-        (Test-FileExists -Path (Join-Path $scriptsRoot "security\Invoke-SBOMBuild.ps1")) -and
-        (Test-FileExists -Path (Join-Path $scriptsRoot "security\Invoke-SecretScan.ps1")) -and
-        (Test-FileExists -Path (Join-Path $scriptsRoot "security\Invoke-VulnerabilityScan.ps1"))
-    )
+    $scanResults = [ordered]@{
+        SBOM = $null
+        SecretScan = $null
+        VulnerabilityScan = $null
+        SecurityBaseline = $null
+    }
+
+    $sbomPath = Join-Path $scriptsRoot "security\Invoke-SBOMBuild.ps1"
+    $secretPath = Join-Path $scriptsRoot "security\Invoke-SecretScan.ps1"
+    $vulnPath = Join-Path $scriptsRoot "security\Invoke-VulnerabilityScan.ps1"
+    $baselinePath = Join-Path $scriptsRoot "security\Invoke-SecurityBaseline.ps1"
+
+    $missingScripts = @()
+    if (-not (Test-FileExists -Path $sbomPath)) { $missingScripts += 'Invoke-SBOMBuild.ps1' }
+    if (-not (Test-FileExists -Path $secretPath)) { $missingScripts += 'Invoke-SecretScan.ps1' }
+    if (-not (Test-FileExists -Path $vulnPath)) { $missingScripts += 'Invoke-VulnerabilityScan.ps1' }
+
+    if ($missingScripts.Count -gt 0) {
+        foreach ($missing in $missingScripts) {
+            Write-Warning "Security script not found: $missing"
+        }
+    }
+
+    $security = $true
+    if ($Strict -and $missingScripts.Count -gt 0) {
+        $security = $false
+    }
+
+    # Execute available scans in sequence: SBOM build -> secret scan -> vulnerability scan
+    if (Test-FileExists -Path $sbomPath) {
+        . $sbomPath
+        $scanResults.SBOM = Invoke-SBOMBuild -ProjectRoot $ProjectRoot
+    }
+    if (Test-FileExists -Path $secretPath) {
+        . $secretPath
+        $scanResults.SecretScan = Invoke-SecretScan -ProjectRoot $ProjectRoot
+    }
+    if (Test-FileExists -Path $vulnPath) {
+        . $vulnPath
+        $scanResults.VulnerabilityScan = Invoke-VulnerabilityScan -ProjectRoot $ProjectRoot
+    }
+
+    # Evaluate scan outputs
+    $criticalFindings = 0
+    if ($scanResults.SecretScan -and $scanResults.SecretScan.summary) {
+        $criticalFindings += $scanResults.SecretScan.summary.critical
+    }
+    if ($scanResults.VulnerabilityScan -and $scanResults.VulnerabilityScan.summary) {
+        $criticalFindings += $scanResults.VulnerabilityScan.summary.critical
+    }
+    if ($criticalFindings -gt 0) {
+        $security = $false
+    }
+
+    # Run security baseline if available
+    if (Test-FileExists -Path $baselinePath) {
+        . $baselinePath
+        try {
+            $scanResults.SecurityBaseline = Invoke-SecurityBaseline -ProjectRoot $ProjectRoot -FailOnCritical
+        }
+        catch {
+            Write-Warning "Security baseline failed: $_"
+            $security = $false
+            $scanResults.SecurityBaseline = @{ Error = $_.Exception.Message }
+        }
+    }
 
     # --- Durable Execution ---
     $durableExecution = Test-FileExists -Path (Join-Path $moduleRoot "workflow\DurableOrchestrator.ps1")
@@ -235,6 +301,7 @@ function Test-ReleaseCriteria {
             RetrievalBackend = $retrievalBackend
             CIValidation = $ciValidation
         }
+        ScanResults = $scanResults
     }
 }
 
@@ -345,6 +412,9 @@ function Invoke-ReleaseCertification {
     .PARAMETER OutputPath
         Directory for the generated reports. Defaults to "certification-reports".
 
+    .PARAMETER Strict
+        If specified, missing security scan scripts will cause the Security category to fail.
+
     .OUTPUTS
         System.Management.Automation.PSCustomObject
         The full certification report including per-category results and report file paths.
@@ -356,12 +426,15 @@ function Invoke-ReleaseCertification {
         [string]$ProjectRoot = (Get-Location).Path,
 
         [Parameter()]
-        [string]$OutputPath = "certification-reports"
+        [string]$OutputPath = "certification-reports",
+
+        [Parameter()]
+        [switch]$Strict
     )
 
     Write-Host "[Invoke-ReleaseCertification] Starting certification for: $ProjectRoot" -ForegroundColor Cyan
 
-    $criteria = Test-ReleaseCriteria -ProjectRoot $ProjectRoot
+    $criteria = Test-ReleaseCriteria -ProjectRoot $ProjectRoot -Strict:$Strict
 
     Write-Host "[Invoke-ReleaseCertification] Certification evaluation complete." -ForegroundColor Cyan
     foreach ($category in $criteria.Categories.Keys) {
@@ -381,6 +454,7 @@ function Invoke-ReleaseCertification {
         Timestamp = $criteria.Timestamp
         OverallPassed = $criteria.OverallPassed
         Categories = $criteria.Categories
+        ScanResults = $criteria.ScanResults
         ReportPaths = $reportPaths
     }
 

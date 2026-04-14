@@ -139,6 +139,8 @@ function Invoke-RPGMakerAssetCatalogParse {
         }
     }
 
+    $catalog.extractionDepth = if ($IncludePluginMetadata -and $catalog.statistics.parsedPluginCount -gt 0) { 'deep' } else { 'inventory' }
+
     return $catalog
 }
 
@@ -166,7 +168,7 @@ function Get-RPGMakerAssetEntries {
         [switch]$IncludePluginMetadata
     )
 
-    $absolutePath = Join-Path $ProjectRoot ($RelativePath -replace '/', '\')
+    $absolutePath = [System.IO.Path]::Combine($ProjectRoot, ($RelativePath -replace '/', [System.IO.Path]::DirectorySeparatorChar))
     if (-not (Test-Path -LiteralPath $absolutePath)) {
         return @()
     }
@@ -219,7 +221,7 @@ function Test-RPGMakerAssetCatalog {
         'Game.rpgproject',
         'img',
         'audio',
-        'js\plugins'
+        ([System.IO.Path]::Combine('js', 'plugins'))
     )
 
     foreach ($marker in $markers) {

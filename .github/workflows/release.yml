@@ -32,6 +32,27 @@ jobs:
           "tag=$tag" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
           "version=$version" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
 
+      - name: Run Security Scans
+        shell: powershell
+        run: |
+          . .\scripts\security\Invoke-SecretScan.ps1
+          $secretReport = Invoke-SecretScan -ProjectRoot .
+
+          . .\scripts\security\Invoke-VulnerabilityScan.ps1
+          $vulnReport = Invoke-VulnerabilityScan -ProjectRoot .
+
+          . .\scripts\security\Invoke-SBOMBuild.ps1
+          $sbomResult = Invoke-SBOMBuild -ProjectRoot .
+
+          $criticalFindings = $secretReport.summary.critical + $vulnReport.summary.critical
+          Write-Host "Secret scan critical findings: $($secretReport.summary.critical)"
+          Write-Host "Vulnerability scan critical findings: $($vulnReport.summary.critical)"
+          Write-Host "SBOM components: $($sbomResult.componentCount)"
+
+          if ($criticalFindings -gt 0) {
+            throw "Critical security findings detected. Release blocked."
+          }
+
       - name: Build Module Archive
         id: package
         shell: powershell

@@ -90,6 +90,9 @@ function Invoke-UnrealDescriptorParse {
             plugins = $plugins
             sourceFile = $sourceFile
             parsedAt = [DateTime]::UtcNow.ToString('o')
+            provenance = [ordered]@{ sourceFile = $sourceFile; parsedBy = 'UnrealDescriptorParser'; parsedAt = [DateTime]::UtcNow.ToString('o') }
+            license = 'unknown'
+            extractionDepth = 'deep'
             compatibility = $compatibility
         }
     }

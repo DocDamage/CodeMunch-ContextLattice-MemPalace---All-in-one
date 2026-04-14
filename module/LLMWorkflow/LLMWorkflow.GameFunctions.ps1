@@ -4,7 +4,7 @@
 
 Set-StrictMode -Version Latest
 
-$GameTemplateRoot = Join-Path $PSScriptRoot "templates\game"
+$GameTemplateRoot = Join-Path $PSScriptRoot 'templates' 'game'
 $GamePresetPath = Join-Path $GameTemplateRoot "game-preset.json"
 
 function Get-GamePresetPath {
@@ -537,7 +537,7 @@ function Get-LLMWorkflowAssetCategory {
         [string]$Extension
     )
 
-    $path = $RelativePath.ToLowerInvariant()
+    $path = $RelativePath.ToLowerInvariant().Replace('\', '/')
     $isImage = $Extension -in @(".png", ".jpg", ".jpeg", ".webp", ".gif", ".bmp", ".tga", ".psd")
     $isAudio = $Extension -in @(".wav", ".mp3", ".ogg", ".flac", ".aac", ".m4a")
     $isModel = $Extension -in @(".fbx", ".obj", ".gltf", ".glb", ".blend", ".dae")
@@ -575,7 +575,7 @@ function Get-LLMWorkflowAssetKind {
         [string]$Extension
     )
 
-    $path = $RelativePath.ToLowerInvariant()
+    $path = $RelativePath.ToLowerInvariant().Replace('\', '/')
 
     switch ($Category) {
         "spritesheets" {
@@ -786,9 +786,9 @@ function New-LLMWorkflowGamePreset {
     
     # Copy template files
     $templateFiles = @(
-        @{ Source = "GDD.md"; Dest = "docs\GDD.md" },
-        @{ Source = "TASKS.md"; Dest = "docs\TASKS.md" },
-        @{ Source = "ASSET_MANIFEST.json"; Dest = "assets\ASSET_MANIFEST.json" }
+        @{ Source = "GDD.md"; Dest = (Join-Path 'docs' 'GDD.md') },
+        @{ Source = "TASKS.md"; Dest = (Join-Path 'docs' 'TASKS.md') },
+        @{ Source = "ASSET_MANIFEST.json"; Dest = (Join-Path 'assets' 'ASSET_MANIFEST.json') }
     )
     
     $createdFiles = @()
@@ -811,7 +811,7 @@ function New-LLMWorkflowGamePreset {
     }
     
     # Create game-preset.json config
-    $configPath = Join-Path $projectPath ".llm-workflow\game-preset.json"
+    $configPath = Join-Path $projectPath '.llm-workflow' 'game-preset.json'
     $config = @{
         projectName = $ProjectName
         created = (Get-Date -Format "yyyy-MM-dd")
@@ -820,13 +820,17 @@ function New-LLMWorkflowGamePreset {
         jamMode = $JamMode.IsPresent
         version = "1.0.0"
     }
+    $config.provenance = [ordered]@{
+        createdBy = 'LLMWorkflow.GameFunctions'
+        createdAt = [DateTime]::UtcNow.ToString('o')
+    }
     
     if (Test-Path -LiteralPath $configPath) {
         Write-Host "[gameteam] Exists: .llm-workflow/game-preset.json" -ForegroundColor DarkGray
     } else {
         $config | ConvertTo-Json -Depth 3 | Set-Content -LiteralPath $configPath -Encoding UTF8
         Write-Host "[gameteam] Created: .llm-workflow/game-preset.json" -ForegroundColor Gray
-        $createdFiles += ".llm-workflow/game-preset.json"
+        $createdFiles += Join-Path '.llm-workflow' 'game-preset.json'
     }
     
     # Apply template-specific defaults if specified
@@ -855,6 +859,7 @@ function New-LLMWorkflowGamePreset {
         JamMode = $JamMode.IsPresent
         CreatedFolders = $folders
         CreatedFiles = $createdFiles
+        Provenance = $config.provenance
         Success = $true
     }
 }
@@ -886,6 +891,10 @@ function Get-LLMWorkflowGameTemplates {
             Description = $t.description
             Tags = $t.tags
             DefaultEngine = $t.defaultEngine
+            Provenance = [ordered]@{
+                generatedBy = 'LLMWorkflow.GameFunctions'
+                generatedAt = [DateTime]::UtcNow.ToString('o')
+            }
         }
     }
     
@@ -920,11 +929,13 @@ function Export-LLMWorkflowAssetManifest {
         [switch]$ScanFolders,
         [string]$OutputPath = "",
         [ValidateSet("json", "csv")]
-        [string]$Format = "json"
+        [string]$Format = "json",
+        [ValidateSet("inventory", "deep")]
+        [string]$ExtractionDepth = "inventory"
     )
     
     $projectPath = Resolve-Path -LiteralPath $ProjectRoot
-    $manifestPath = Join-Path $projectPath "assets\ASSET_MANIFEST.json"
+    $manifestPath = Join-Path $projectPath 'assets' 'ASSET_MANIFEST.json'
     
     # Load or create manifest
     $manifest = $null
@@ -945,6 +956,12 @@ function Export-LLMWorkflowAssetManifest {
         $manifest = Merge-LLMWorkflowAssetManifest -ExistingManifest $manifest -ProjectName (Split-Path -Leaf $projectPath)
     }
     $manifest.lastUpdated = (Get-Date -Format "yyyy-MM-dd")
+    $manifest.extractionDepth = $ExtractionDepth
+    $manifest.provenance = [ordered]@{
+        generatedBy = 'LLMWorkflow.GameFunctions'
+        generatedAt = [DateTime]::UtcNow.ToString('o')
+        projectRoot = $ProjectRoot
+    }
 
     # Scan folders if requested
     if ($ScanFolders) {
@@ -1047,6 +1064,16 @@ function Export-LLMWorkflowAssetManifest {
 
         Write-Host "[gameteam] Found $totalCount assets" -ForegroundColor Green
     }
+
+    # Normalize license field across all assets
+    foreach ($cat in @($manifest.categories.Keys)) {
+        foreach ($asset in $manifest.categories[$cat].assets) {
+            if ($null -eq $asset -or [string]::IsNullOrWhiteSpace([string]$asset.license)) {
+                if ($asset -is [System.Collections.IDictionary]) { $asset['license'] = 'unknown' }
+                else { $asset | Add-Member -NotePropertyName 'license' -NotePropertyValue 'unknown' -Force }
+            }
+        }
+    }
     
     # Determine output path
     if ([string]::IsNullOrWhiteSpace($OutputPath)) {
@@ -1097,6 +1124,8 @@ function Export-LLMWorkflowAssetManifest {
         TotalSize = $manifest.totalSize
         ManifestPath = $OutputPath
         Format = $Format
+        ExtractionDepth = $manifest.extractionDepth
+        Provenance = $manifest.provenance
     }
 }
 
@@ -1147,7 +1176,7 @@ function Invoke-LLMWorkflowGameUp {
     $projectPath = Resolve-Path -LiteralPath $ProjectRoot
     
     # Check for existing game preset
-    $gamePresetPath = Join-Path $projectPath ".llm-workflow\game-preset.json"
+    $gamePresetPath = Join-Path $projectPath '.llm-workflow' 'game-preset.json'
     $isGameProject = Test-Path -LiteralPath $gamePresetPath
     
     # Auto-detect game mode

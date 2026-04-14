@@ -28,6 +28,11 @@
 
 Set-StrictMode -Version Latest
 
+$failureTaxonomyPath = Join-Path $PSScriptRoot 'FailureTaxonomy.ps1'
+if (Test-Path $failureTaxonomyPath) {
+    . $failureTaxonomyPath
+}
+
 $script:CheckpointDirName = ".llm-workflow\checkpoints"
 
 #===============================================================================
@@ -112,12 +117,29 @@ function Write-Checkpoint {
         timestamp   = [DateTime]::UtcNow.ToString("yyyy-MM-ddTHH:mm:ssZ")
     }
 
-    try {
-        $json = $data | ConvertTo-Json -Depth 10 -Compress:$false
-        [System.IO.File]::WriteAllText($path, $json, [System.Text.Encoding]::UTF8)
+    $json = $data | ConvertTo-Json -Depth 10 -Compress:$false
+    $writeAttempts = 3
+    $writeSuccess = $false
+    for ($a = 1; $a -le $writeAttempts; $a++) {
+        try {
+            $json | Out-File -FilePath $path -Encoding utf8 -Force -ErrorAction Stop
+            $writeSuccess = $true
+            break
+        }
+        catch [System.IO.IOException] {
+            if ($a -lt $writeAttempts) {
+                Start-Sleep -Milliseconds 100
+            }
+            else {
+                throw "Failed to write checkpoint to '$path': $_"
+            }
+        }
+        catch {
+            throw "Failed to write checkpoint to '$path': $_"
+        }
     }
-    catch {
-        throw "Failed to write checkpoint to '$path': $_"
+    if (-not $writeSuccess) {
+        throw "Failed to write checkpoint to '$path' after $writeAttempts attempts."
     }
 }
 
@@ -264,7 +286,11 @@ function Invoke-DurableWorkflow {
 
         [switch]$Resume,
 
-        [string]$ProjectRoot = "."
+        [string]$ProjectRoot = ".",
+
+        [int]$MaxRetryCount = 3,
+
+        [int]$RetryDelaySeconds = 2
     )
 
     $wf = $Workflow
@@ -315,30 +341,51 @@ function Invoke-DurableWorkflow {
 
         $output = $null
         $status = "success"
+        $stepSucceeded = $false
 
-        try {
-            if ($action) {
-                $result = & $action
-                if ($null -ne $result) {
-                    $output = ($result | Out-String).Trim()
+        for ($attempt = 0; $attempt -le $MaxRetryCount; $attempt++) {
+            try {
+                if ($action) {
+                    $result = & $action
+                    if ($null -ne $result) {
+                        $output = ($result | Out-String).Trim()
+                    }
+                }
+                $stepSucceeded = $true
+                break
+            }
+            catch {
+                $isRecoverable = $false
+                if ($_.Exception) {
+                    $isRecoverable = Test-RecoverableFailure -Exception $_.Exception
+                }
+
+                if ($isRecoverable -and $attempt -lt $MaxRetryCount) {
+                    $delay = $RetryDelaySeconds * ($attempt + 1)
+                    Write-Verbose "[DurableOrchestrator] Step '$stepName' failed (attempt $($attempt + 1)). Retrying in $delay seconds..."
+                    Start-Sleep -Seconds $delay
+                }
+                else {
+                    $status = "failed"
+                    $output = $_.Exception.Message
+
+                    $record = [pscustomobject]@{
+                        stepName  = $stepName
+                        stepIndex = $i
+                        status    = $status
+                        output    = $output
+                        timestamp = [DateTime]::UtcNow.ToString("yyyy-MM-ddTHH:mm:ssZ")
+                    }
+                    $stepResults.Add($record) | Out-Null
+                    Write-Checkpoint -WorkflowId $workflowId -RunId $runId -StepIndex $i `
+                        -StepResults $stepResults.ToArray() -Status "failed" -ProjectRoot $projRoot
+                    throw "Workflow step '$stepName' failed: $_"
                 }
             }
         }
-        catch {
-            $status = "failed"
-            $output = $_.Exception.Message
 
-            $record = [pscustomobject]@{
-                stepName  = $stepName
-                stepIndex = $i
-                status    = $status
-                output    = $output
-                timestamp = [DateTime]::UtcNow.ToString("yyyy-MM-ddTHH:mm:ssZ")
-            }
-            $stepResults.Add($record) | Out-Null
-            Write-Checkpoint -WorkflowId $workflowId -RunId $runId -StepIndex $i `
-                -StepResults $stepResults.ToArray() -Status "failed" -ProjectRoot $projRoot
-            throw "Workflow step '$stepName' failed: $_"
+        if (-not $stepSucceeded) {
+            throw "Workflow step '$stepName' failed after $MaxRetryCount retries."
         }
 
         $record = [pscustomobject]@{
@@ -363,6 +410,29 @@ function Invoke-DurableWorkflow {
         StepResults = $stepResults.ToArray()
         Status      = "completed"
     }
+}
+
+function Start-DurableWorkflow {
+    <#
+    .SYNOPSIS
+        Creates and immediately executes a durable workflow with sensible defaults.
+    #>
+    [CmdletBinding()]
+    [OutputType([hashtable])]
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$WorkflowId,
+
+        [Parameter(Mandatory = $true)]
+        [array]$Steps,
+
+        [string]$RunId = "",
+
+        [string]$ProjectRoot = "."
+    )
+
+    $wf = New-DurableWorkflow -WorkflowId $WorkflowId -Steps $Steps -RunId $RunId -ProjectRoot $ProjectRoot
+    return Invoke-DurableWorkflow -Workflow $wf -ProjectRoot $ProjectRoot -MaxRetryCount 3
 }
 
 function Get-DurableWorkflowState {
@@ -504,6 +574,7 @@ if ($ExecutionContext.SessionState.Module) {
     Export-ModuleMember -Function @(
         'New-DurableWorkflow',
         'Invoke-DurableWorkflow',
+        'Start-DurableWorkflow',
         'Get-DurableWorkflowState',
         'Resume-DurableWorkflow',
         'Stop-DurableWorkflow'

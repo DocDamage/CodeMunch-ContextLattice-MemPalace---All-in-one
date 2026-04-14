@@ -76,6 +76,9 @@ function Set-MCPToolLifecycleState {
         [string]$ReplacedBy = "",
 
         [Parameter()]
+        [string]$ReviewApprovalId = "",
+
+        [Parameter()]
         [System.Collections.Hashtable]$Registry = $null
     )
 
@@ -101,6 +104,12 @@ function Set-MCPToolLifecycleState {
             $validation = Test-MCPToolLifecycleTransition -FromState $currentState -ToState $State
             if (-not $validation.IsValid) {
                 throw "Invalid lifecycle transition from '$currentState' to '$State': $($validation.Reason)"
+            }
+        }
+
+        if ($State -eq 'stable' -and $tool.reviewRequired -eq $true -and -not $Force) {
+            if ([string]::IsNullOrWhiteSpace($ReviewApprovalId)) {
+                throw "Promotion to stable requires a review approval ID."
             }
         }
 

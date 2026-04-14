@@ -5,7 +5,7 @@
 #>
 
 $ErrorActionPreference = "Stop"
-$ProjectRoot = "C:\Users\Doc\Desktop\Projects\CodeMunch-ContextLattice-MemPalace---All-in-one"
+$ProjectRoot = Resolve-Path (Join-Path $PSScriptRoot '..')
 
 # Cleanup first
 Remove-Item "$ProjectRoot\.llm-workflow\locks\*.lock" -Force -ErrorAction SilentlyContinue
