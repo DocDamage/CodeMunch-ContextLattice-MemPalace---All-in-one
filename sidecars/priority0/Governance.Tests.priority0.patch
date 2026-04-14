@@ -1,0 +1,81 @@
+Target: `tests/Governance.Tests.ps1`
+
+Reason:
+- add regression coverage for the `Invoke-PackGoldenTasks` confidence-summary fix
+- verify the pack summary uses `Validation.Confidence` instead of looking for a missing top-level `Confidence` field
+
+---
+
+## Patch: add confidence aggregation regression test
+
+Add under `Describe "GoldenTasks Module Tests"`:
+
+```powershell
+    Context "Invoke-PackGoldenTasks confidence aggregation" {
+        BeforeEach {
+            $script:testTasksForConfidence = @(
+                New-GoldenTask -TaskId "gt-test-pack-101" -Name "Task 101" `
+                    -PackId "test-pack" -Query "Query 101" `
+                    -ExpectedResult @{ result = "success" } -Category "codegen" -Difficulty "easy",
+                New-GoldenTask -TaskId "gt-test-pack-102" -Name "Task 102" `
+                    -PackId "test-pack" -Query "Query 102" `
+                    -ExpectedResult @{ result = "success" } -Category "analysis" -Difficulty "medium"
+            )
+
+            Mock Get-PredefinedGoldenTasks {
+                return $script:testTasksForConfidence
+            }
+
+            Mock Invoke-GoldenTask {
+                param($Task)
+
+                switch ($Task.taskId) {
+                    "gt-test-pack-101" {
+                        return @{
+                            Task = @{
+                                TaskId = "gt-test-pack-101"
+                                Name = "Task 101"
+                                PackId = "test-pack"
+                                Category = "codegen"
+                                Difficulty = "easy"
+                            }
+                            Success = $true
+                            Validation = @{
+                                Success = $true
+                                Confidence = 0.90
+                            }
+                        }
+                    }
+                    "gt-test-pack-102" {
+                        return @{
+                            Task = @{
+                                TaskId = "gt-test-pack-102"
+                                Name = "Task 102"
+                                PackId = "test-pack"
+                                Category = "analysis"
+                                Difficulty = "medium"
+                            }
+                            Success = $true
+                            Validation = @{
+                                Success = $true
+                                Confidence = 0.70
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        It "Uses Validation.Confidence when summarizing pack golden task runs" {
+            $result = Invoke-PackGoldenTasks -PackId "test-pack"
+
+            $result.TasksRun | Should -Be 2
+            $result.Passed | Should -Be 2
+            $result.AverageConfidence | Should -Be 0.8
+        }
+    }
+```
+
+Expected effect:
+- fails against the buggy implementation that reads `$_ .Confidence`
+- passes once the summary uses `Validation.Confidence`
