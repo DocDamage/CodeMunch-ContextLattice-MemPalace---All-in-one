@@ -1,0 +1,107 @@
+Target: `module/LLMWorkflow/governance/GoldenTasks.ps1`
+
+Reason:
+- remove empty or effectively silent exception handling used for property access under strict mode
+- replace console-only summary output in reusable module functions
+- fix confidence summary signal loss in `Invoke-PackGoldenTasks`
+
+---
+
+## Patch A: replace silent property-access catches in `Invoke-PackGoldenTasks`
+
+Replace:
+
+```powershell
+if ($t -is [hashtable]) {
+    $taskCategory = $t['category']
+    $taskDifficulty = $t['difficulty']
+    $taskTags = $t['tags']
+} else {
+    try { $taskCategory = $t.category } catch { }
+    try { $taskDifficulty = $t.difficulty } catch { }
+    try { $taskTags = $t.tags } catch { }
+}
+```
+
+With:
+
+```powershell
+if ($t -is [hashtable]) {
+    $taskCategory = $t['category']
+    $taskDifficulty = $t['difficulty']
+    $taskTags = $t['tags']
+}
+else {
+    if ($t.PSObject.Properties['category']) {
+        $taskCategory = $t.category
+    }
+    if ($t.PSObject.Properties['difficulty']) {
+        $taskDifficulty = $t.difficulty
+    }
+    if ($t.PSObject.Properties['tags']) {
+        $taskTags = $t.tags
+    }
+}
+```
+
+## Patch B: fix average-confidence aggregation path in `Invoke-PackGoldenTasks`
+
+Replace:
+
+```powershell
+$measure = $resultList | Measure-Object -Property {
+    $conf = 0.0
+    if ($_ -is [hashtable]) { $conf = $_['Confidence'] }
+    else { try { $conf = $_.Confidence } catch { $conf = 0 } }
+    $conf
+} -Average
+```
+
+With:
+
+```powershell
+$measure = $resultList | Measure-Object -Property {
+    $conf = 0.0
+    if ($_ -is [hashtable]) {
+        if ($_['Validation'] -and $_['Validation']['Confidence'] -ne $null) {
+            $conf = $_['Validation']['Confidence']
+        }
+    }
+    else {
+        if ($_.PSObject.Properties['Validation'] -and $_.Validation -and
+            $_.Validation.PSObject.Properties['Confidence'] -and
+            $_.Validation.Confidence -ne $null) {
+            $conf = $_.Validation.Confidence
+        }
+    }
+    $conf
+} -Average
+```
+
+## Patch C: replace `Write-Host` summary output with `Write-Information`
+
+In `Invoke-PackGoldenTasks`, replace:
+
+```powershell
+Write-Host "`nGolden Task Summary for '$PackId':" -ForegroundColor Cyan
+Write-Host "  Tasks Run: $($summary.TasksRun)" -ForegroundColor White
+Write-Host "  Passed: $($summary.Passed)" -ForegroundColor Green
+Write-Host "  Failed: $($summary.Failed)" -ForegroundColor Red
+Write-Host "  Pass Rate: $([math]::Round($summary.PassRate * 100, 2))%" -ForegroundColor Yellow
+Write-Host "  Avg Confidence: $($summary.AverageConfidence)" -ForegroundColor White
+```
+
+With:
+
+```powershell
+Write-Information "Golden Task Summary for '$PackId':"
+Write-Information "  Tasks Run: $($summary.TasksRun)"
+Write-Information "  Passed: $($summary.Passed)"
+Write-Information "  Failed: $($summary.Failed)"
+Write-Information "  Pass Rate: $([math]::Round($summary.PassRate * 100, 2))%"
+Write-Information "  Avg Confidence: $($summary.AverageConfidence)"
+```
+
+Apply the same output change to:
+- `Invoke-GoldenTaskSuite`
+- `Compare-GoldenTaskRuns`
