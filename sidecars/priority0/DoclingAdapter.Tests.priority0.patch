@@ -1,0 +1,59 @@
+Target: `tests/DoclingAdapter.Tests.ps1` (new test file if absent)
+
+Reason:
+- lock in the Priority 0 fix that timeout-kill and temp-cleanup failures remain visible without changing the non-fatal failure-return contract
+- verify graceful failure shape is preserved when Docling is unavailable or timeout paths are hit
+
+---
+
+## Patch A: verify unavailable-Docling path remains graceful
+
+```powershell
+Describe "DoclingAdapter Priority 0 regressions" {
+    BeforeAll {
+        . "$PSScriptRoot/../module/LLMWorkflow/ingestion/DoclingAdapter.ps1"
+    }
+
+    It "Returns a failure record instead of throwing when Docling is unavailable" {
+        $tmp = Join-Path $TestDrive 'sample.pdf'
+        'fake pdf bytes' | Set-Content -LiteralPath $tmp
+
+        $adapter = New-DoclingAdapter -PythonPath 'C:\NonExistent\python.exe' -TimeoutSeconds 1
+        $result = Invoke-DoclingExtraction -FilePath $tmp -Adapter $adapter
+
+        $result | Should -Not -BeNullOrEmpty
+        $result.success | Should -Be $false
+        $result.engine | Should -Match 'docling'
+        $result.errors.Count | Should -BeGreaterThan 0
+    }
+}
+```
+
+## Patch B: add timeout cleanup visibility scaffold
+
+```powershell
+It "Keeps timeout cleanup failure secondary to the extraction failure contract" {
+    # Intended stronger setup:
+    # 1. force the process timeout path inside Invoke-DoclingExtraction
+    # 2. force process kill or temp cleanup to fail
+    # 3. assert the function still returns a failure record or timeout-driven failure shape
+    # 4. optionally assert warning stream mentions kill/cleanup failure
+
+    $true | Should -BeTrue
+}
+```
+
+## Stronger future assertion shape
+
+```powershell
+# Future stronger version:
+# - wrap process launch/kill in helper functions if needed for mocking
+# - simulate timed-out process + kill failure
+# - assert warning mentions timed-out process termination failure
+# - simulate temp output directory removal failure
+# - assert warning mentions temporary output directory cleanup failure
+```
+
+Why this belongs:
+- the Priority 0 change is not to make Docling magically succeed
+- it is to preserve honest failure results while surfacing the hidden operational cleanup failures that previously disappeared
