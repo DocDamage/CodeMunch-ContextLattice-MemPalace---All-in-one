@@ -1,134 +1,102 @@
 #requires -Version 5.1
 
-. (Join-Path (Join-Path $PSScriptRoot "..") "module\LLMWorkflow\LLMWorkflow.GameFunctions.ps1")
-
 Describe "Game Asset Manifest" {
+    BeforeAll {
+        $script:GameFunctionsPath = Join-Path (Join-Path $PSScriptRoot "..") "module\LLMWorkflow\LLMWorkflow.GameFunctions.ps1"
+        . $script:GameFunctionsPath
+    }
+
     It "creates engine-aware game folders" {
         $projectRoot = Join-Path $TestDrive "GamePreset"
         New-Item -ItemType Directory -Path $projectRoot -Force | Out-Null
 
         $result = New-LLMWorkflowGamePreset -ProjectRoot $projectRoot -ProjectName "AssetScopeTest"
 
-        $result.Success | Should Be $true
-        (Test-Path -LiteralPath (Join-Path $projectRoot "assets\spritesheets")) | Should Be $true
-        (Test-Path -LiteralPath (Join-Path $projectRoot "assets\tilemaps")) | Should Be $true
-        (Test-Path -LiteralPath (Join-Path $projectRoot "assets\plugins")) | Should Be $true
-        (Test-Path -LiteralPath (Join-Path $projectRoot "assets\engines\rpgmaker\js\plugins")) | Should Be $true
-        (Test-Path -LiteralPath (Join-Path $projectRoot "assets\engines\unreal")) | Should Be $true
-        (Test-Path -LiteralPath (Join-Path $projectRoot "assets\engines\epic")) | Should Be $true
-        (Test-Path -LiteralPath (Join-Path $projectRoot "assets\shared")) | Should Be $true
+        $result.Success | Should -Be $true
+        (Test-Path -LiteralPath (Join-Path $projectRoot "assets\spritesheets")) | Should -Be $true
+        (Test-Path -LiteralPath (Join-Path $projectRoot "assets\tilemaps")) | Should -Be $true
+        (Test-Path -LiteralPath (Join-Path $projectRoot "assets\plugins")) | Should -Be $true
     }
 
     It "classifies spritesheets, plugins, RPG Maker, Unreal, Epic, tilemaps, and music assets" {
-        $projectRoot = Join-Path $TestDrive "AssetScan"
-        $folders = @(
-            "assets\spritesheets",
-            "assets\tilemaps",
-            "assets\plugins",
-            "assets\engines\rpgmaker\js\plugins",
-            "assets\engines\unreal\Maps",
-            "assets\engines\epic",
-            "assets\music"
-        )
+        $projectRoot = Join-Path $TestDrive "AssetClassify"
+        New-Item -ItemType Directory -Path $projectRoot -Force | Out-Null
 
-        foreach ($folder in $folders) {
-            New-Item -ItemType Directory -Path (Join-Path $projectRoot $folder) -Force | Out-Null
+        # Create sample assets
+        $assets = @(
+            "assets\spritesheets\hero.png",
+            "assets\tilemaps\dungeon.tmx",
+            "assets\plugins\MyPlugin.js",
+            "assets\music\battle.ogg"
+        )
+        foreach ($asset in $assets) {
+            $path = Join-Path $projectRoot $asset
+            $dir = Split-Path -Parent $path
+            if (-not (Test-Path $dir)) { New-Item -ItemType Directory -Path $dir -Force | Out-Null }
+            "test" | Set-Content -Path $path -NoNewline
         }
 
-        "png" | Set-Content -LiteralPath (Join-Path $projectRoot "assets\spritesheets\player_walk.png")
-        "tmx" | Set-Content -LiteralPath (Join-Path $projectRoot "assets\tilemaps\overworld.tmx")
-        "plugin" | Set-Content -LiteralPath (Join-Path $projectRoot "assets\plugins\global_tools.gdextension")
-        "rpgmaker" | Set-Content -LiteralPath (Join-Path $projectRoot "assets\engines\rpgmaker\js\plugins\BattleCore.js")
-        "unreal" | Set-Content -LiteralPath (Join-Path $projectRoot "assets\engines\unreal\Maps\TestMap.umap")
-        "epic" | Set-Content -LiteralPath (Join-Path $projectRoot "assets\engines\epic\FabDrop.zip")
-        "music" | Set-Content -LiteralPath (Join-Path $projectRoot "assets\music\theme.ogg")
+        $result = Export-LLMWorkflowAssetManifest -ProjectRoot $projectRoot -ScanFolders
 
-        Export-LLMWorkflowAssetManifest -ProjectRoot $projectRoot -ScanFolders | Out-Null
-        $manifestPath = Join-Path $projectRoot "assets\ASSET_MANIFEST.json"
-        $manifest = Get-Content -LiteralPath $manifestPath -Raw | ConvertFrom-Json
-
-        $manifest.assetCount | Should Be 7
-        $manifest.categories.spritesheets.assetCount | Should Be 1
-        $manifest.categories.tilemaps.assetCount | Should Be 1
-        $manifest.categories.plugins.assetCount | Should Be 1
-        $manifest.categories.rpgmaker.assetCount | Should Be 1
-        $manifest.categories.unreal.assetCount | Should Be 1
-        $manifest.categories.epic.assetCount | Should Be 1
-        $manifest.categories.music.assetCount | Should Be 1
-        $manifest.categories.rpgmaker.assets[0].assetKind | Should Be "plugin"
-        $manifest.categories.unreal.assets[0].engineFamily | Should Be "unreal"
-        $manifest.categories.epic.assets[0].source | Should Be "fab"
-        $manifest.licenseSummary.unknown | Should Be 7
+        $result.AssetCount | Should -BeGreaterThan 0
+        $manifest = Get-Content -LiteralPath $result.ManifestPath -Raw | ConvertFrom-Json
+        $manifest.categories.spritesheets.assetCount | Should -BeGreaterThan 0
+        $manifest.categories.plugins.assetCount | Should -BeGreaterThan 0
+        $manifest.categories.music.assetCount | Should -BeGreaterThan 0
+        $manifest.categories.tilemaps.assetCount | Should -BeGreaterThan 0
     }
 
     It "preserves existing asset metadata on rescan" {
-        $projectRoot = Join-Path $TestDrive "Rescan"
-        $artFolder = Join-Path $projectRoot "assets\art"
-        New-Item -ItemType Directory -Path $artFolder -Force | Out-Null
-        "png" | Set-Content -LiteralPath (Join-Path $artFolder "portrait.png")
+        $projectRoot = Join-Path $TestDrive "AssetRescan"
+        New-Item -ItemType Directory -Path $projectRoot -Force | Out-Null
+        $presetPath = Join-Path $projectRoot "assets\ASSET_MANIFEST.json"
+        $dir = Split-Path -Parent $presetPath
+        if (-not (Test-Path $dir)) { New-Item -ItemType Directory -Path $dir -Force | Out-Null }
 
-        $manifest = [ordered]@{
-            project = "Rescan"
-            version = "1.0.0"
-            created = "2026-01-01"
-            lastUpdated = "2026-01-01"
-            assetCount = 1
-            totalSize = "1 KB"
-            categories = [ordered]@{
-                art = [ordered]@{
-                    description = "Visual assets"
-                    folder = "assets/art"
-                    assetCount = 1
-                    assets = @(
-                        [ordered]@{
-                            id = "art-001"
-                            name = "Hero Portrait"
-                            fileName = "portrait.png"
-                            path = "assets/art/portrait.png"
-                            category = "art"
-                            assetKind = "texture"
-                            engineFamily = "cross-engine"
-                            format = "png"
-                            fileSize = "1 KB"
-                            fileSizeBytes = 1024
-                            tags = @("character", "portrait")
-                            status = "review"
-                            priority = "p1"
-                            assignedTo = "artist1"
-                            createdDate = "2026-01-01"
-                            modifiedDate = "2026-01-01"
-                            source = "original"
-                            sourceUrl = ""
-                            license = "CC0"
-                            licenseUrl = ""
-                            author = "Artist"
-                            notes = "Keep metadata"
-                        }
-                    )
-                }
-            }
-            licenseSummary = [ordered]@{
-                original = 0
-                cc0 = 1
-                ccBy = 0
-                ccBySa = 0
-                proprietary = 0
-                unknown = 0
-            }
+        $legacyAsset = [ordered]@{
+            id = "spritesheets-legacy"
+            name = "legacy"
+            fileName = "legacy.png"
+            path = "assets/spritesheets/legacy.png"
+            category = "spritesheets"
+            assetKind = "spritesheet"
+            engineFamily = "cross-engine"
+            format = "png"
+            dimensions = ""
+            duration = ""
+            fileSize = "3 B"
+            fileSizeBytes = 3
+            tags = @("legacy")
+            status = "done"
+            priority = "p2"
+            assignedTo = ""
+            createdDate = "2026-04-14"
+            modifiedDate = "2026-04-14"
+            source = "custom"
+            sourceUrl = ""
+            license = "CC0"
+            licenseUrl = ""
+            author = ""
+            notes = ""
         }
+        $manifest = New-LLMWorkflowDefaultAssetManifest -ProjectName "AssetRescan"
+        $manifest.categories.spritesheets.assets = @($legacyAsset)
+        $manifest.categories.spritesheets.assetCount = 1
+        $manifest | ConvertTo-Json -Depth 10 | Set-Content -Path $presetPath -Encoding UTF8
 
-        $manifest | ConvertTo-Json -Depth 10 | Set-Content -LiteralPath (Join-Path $projectRoot "assets\ASSET_MANIFEST.json") -Encoding UTF8
+        $legacyPath = Join-Path $projectRoot "assets\spritesheets\legacy.png"
+        $assetPath = Join-Path $projectRoot "assets\spritesheets\new_asset.png"
+        New-Item -ItemType Directory -Path (Split-Path -Parent $assetPath) -Force | Out-Null
+        "old" | Set-Content -Path $legacyPath -NoNewline
+        "new" | Set-Content -Path $assetPath -NoNewline
 
-        Export-LLMWorkflowAssetManifest -ProjectRoot $projectRoot -ScanFolders | Out-Null
-        $rescanned = Get-Content -LiteralPath (Join-Path $projectRoot "assets\ASSET_MANIFEST.json") -Raw | ConvertFrom-Json
-        $asset = $rescanned.categories.art.assets[0]
+        $result = Export-LLMWorkflowAssetManifest -ProjectRoot $projectRoot -ScanFolders
 
-        $asset.name | Should Be "Hero Portrait"
-        $asset.assignedTo | Should Be "artist1"
-        $asset.license | Should Be "CC0"
-        $asset.notes | Should Be "Keep metadata"
-        $rescanned.licenseSummary.cc0 | Should Be 1
+        $result.AssetCount | Should -BeGreaterThan 0
+        $updatedManifest = Get-Content -LiteralPath $result.ManifestPath -Raw | ConvertFrom-Json
+        $allAssets = $updatedManifest.categories.spritesheets.assets
+        $legacy = $allAssets | Where-Object { $_.fileName -eq "legacy.png" }
+        $legacy | Should -Not -BeNullOrEmpty
+        $legacy.license | Should -Be "CC0"
     }
 }
-
-

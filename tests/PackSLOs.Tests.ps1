@@ -8,12 +8,12 @@
 #>
 
 # Import the module
-$modulePath = Join-Path $PSScriptRoot '..' 'module' 'LLMWorkflow' 'governance' 'PackSLOs.ps1'
-. $modulePath
+$modulePath = Join-Path $PSScriptRoot '..\module\LLMWorkflow\governance\PackSLOs.ps1'
+try { . $modulePath } catch { if ($_.Exception.Message -notlike '*Export-ModuleMember*') { throw } }
 
 # Test data
 $testPackId = 'test-pack'
-$testTelemetryDir = Join-Path $PSScriptRoot '..' '.llm-workflow' 'telemetry'
+$testTelemetryDir = Join-Path (Join-Path $PSScriptRoot '..') '.llm-workflow\telemetry'
 
 # Helper function to clean up test data
 function Cleanup-TestData {
@@ -182,7 +182,7 @@ Describe "PackSLOs Module" {
     }
 
     Context "Export/Import PackSLO" {
-        $exportPath = Join-Path $PSScriptRoot '..' '.llm-workflow' 'exports' 'test-export.json'
+        $exportPath = Join-Path (Join-Path (Join-Path (Join-Path $PSScriptRoot '..') '.llm-workflow') 'exports') 'test-export.json'
         
         BeforeAll {
             # Ensure exports directory exists

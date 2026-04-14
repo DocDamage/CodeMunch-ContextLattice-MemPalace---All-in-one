@@ -4,7 +4,7 @@
 
 Set-StrictMode -Version Latest
 
-$GameTemplateRoot = Join-Path $PSScriptRoot 'templates' 'game'
+$GameTemplateRoot = Join-Path (Join-Path $PSScriptRoot 'templates') 'game'
 $GamePresetPath = Join-Path $GameTemplateRoot "game-preset.json"
 
 function Get-GamePresetPath {
@@ -811,7 +811,7 @@ function New-LLMWorkflowGamePreset {
     }
     
     # Create game-preset.json config
-    $configPath = Join-Path $projectPath '.llm-workflow' 'game-preset.json'
+    $configPath = Join-Path (Join-Path $projectPath '.llm-workflow') 'game-preset.json'
     $config = @{
         projectName = $ProjectName
         created = (Get-Date -Format "yyyy-MM-dd")
@@ -935,7 +935,7 @@ function Export-LLMWorkflowAssetManifest {
     )
     
     $projectPath = Resolve-Path -LiteralPath $ProjectRoot
-    $manifestPath = Join-Path $projectPath 'assets' 'ASSET_MANIFEST.json'
+    $manifestPath = Join-Path (Join-Path $projectPath 'assets') 'ASSET_MANIFEST.json'
     
     # Load or create manifest
     $manifest = $null
@@ -1176,7 +1176,7 @@ function Invoke-LLMWorkflowGameUp {
     $projectPath = Resolve-Path -LiteralPath $ProjectRoot
     
     # Check for existing game preset
-    $gamePresetPath = Join-Path $projectPath '.llm-workflow' 'game-preset.json'
+    $gamePresetPath = Join-Path (Join-Path $projectPath '.llm-workflow') 'game-preset.json'
     $isGameProject = Test-Path -LiteralPath $gamePresetPath
     
     # Auto-detect game mode

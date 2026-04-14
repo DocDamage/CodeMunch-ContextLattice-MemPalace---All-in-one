@@ -1,8 +1,9 @@
 # Extraction Pipeline Tests
 # Tests for Phase 4 Structured Extraction Pipeline
 
+Describe 'Extraction Pipeline Tests' {
 BeforeAll {
-    $ModulePath = Join-Path $PSScriptRoot '..' 'module' 'LLMWorkflow' 'ingestion'
+    $ModulePath = Join-Path (Join-Path (Join-Path (Join-Path $PSScriptRoot '..') 'module') 'LLMWorkflow') 'ingestion'
     $ParserPath = Join-Path $ModulePath 'parsers'
     
     # Import all extraction modules
@@ -370,14 +371,14 @@ Describe "Batch Extraction" {
     BeforeAll {
         # Create multiple test files
         1..3 | ForEach-Object {
-            @"
+            @'
 extends Node2D
 class_name TestClass$_
 
 signal signal$_
 
 @export var var$_: int = $_
-"@ | Set-Content -Path (Join-Path $TestDir "test_$_.gd")
+'@ | Set-Content -Path (Join-Path $TestDir "test_$_.gd")
         }
     }
     
@@ -403,4 +404,5 @@ AfterAll {
     if (Test-Path $TestDir) {
         Remove-Item -Path $TestDir -Recurse -Force
     }
+}
 }

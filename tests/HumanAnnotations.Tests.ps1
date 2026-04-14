@@ -8,10 +8,10 @@
 #>
 
 param(
-    [string]$ProjectRoot = (Split-Path -Parent (Split-Path -Parent $PSScriptRoot))
+    [string]$ProjectRoot = (Split-Path -Parent $PSScriptRoot)
 )
 
-Import-Module "$ProjectRoot\module\LLMWorkflow\governance\HumanAnnotations.ps1" -Force
+try { . "$ProjectRoot\module\LLMWorkflow\governance\HumanAnnotations.ps1" } catch { if ($_.Exception.Message -notlike '*Export-ModuleMember*') { throw } }
 
 # Ensure test directory exists
 $testDir = Join-Path $ProjectRoot ".llm-workflow\state"
