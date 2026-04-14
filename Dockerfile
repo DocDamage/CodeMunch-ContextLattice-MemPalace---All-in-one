@@ -58,7 +58,7 @@ COPY tools/ /opt/llm-workflow/tools/
 COPY docker/ /opt/llm-workflow/docker/
 
 # Install PowerShell module
-RUN pwsh -NoProfile -Command "\
+RUN pwsh -NoProfile -Command "\\
     \$ModulePath = '/root/.local/share/powershell/Modules/LLMWorkflow/0.2.0'; \
     New-Item -ItemType Directory -Path \$ModulePath -Force | Out-Null; \
     Copy-Item -Path '/opt/llm-workflow/module/LLMWorkflow/*' -Destination \$ModulePath -Recurse -Force; \
@@ -67,7 +67,8 @@ RUN pwsh -NoProfile -Command "\
 
 # Copy entrypoint script
 COPY docker/entrypoint.sh /opt/llm-workflow/entrypoint.sh
-RUN chmod +x /opt/llm-workflow/entrypoint.sh
+RUN sed -i 's/\r$//' /opt/llm-workflow/entrypoint.sh && \
+    chmod +x /opt/llm-workflow/entrypoint.sh
 
 # Set working directory
 WORKDIR /workspace
@@ -76,7 +77,7 @@ WORKDIR /workspace
 VOLUME ["/workspace", "/root/.mempalace/palace"]
 
 # Entrypoint
-ENTRYPOINT ["/opt/llm-workflow/entrypoint.sh"]
+ENTRYPOINT ["/bin/bash", "/opt/llm-workflow/entrypoint.sh"]
 
 # Default command
 CMD ["llmup"]

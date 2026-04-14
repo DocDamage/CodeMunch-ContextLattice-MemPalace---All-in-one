@@ -4,7 +4,7 @@ on:
   push:
     branches: [main, develop]
     tags: ['v*']
-    paths: 
+    paths:
       - 'Dockerfile*'
       - 'docker/**'
       - 'docker-compose*.yml'
@@ -13,7 +13,7 @@ on:
       - '.github/workflows/docker-build.yml'
   pull_request:
     branches: [main]
-    paths: 
+    paths:
       - 'Dockerfile*'
       - 'docker/**'
       - 'docker-compose*.yml'
@@ -111,14 +111,26 @@ jobs:
 
       - name: Wait for ChromaDB
         run: |
+          set -e
           for i in {1..30}; do
-            if curl -f http://localhost:8000/api/v1/heartbeat; then
-              echo "ChromaDB is ready!"
-              break
+            if curl -fsS http://localhost:8000/api/v2/heartbeat >/dev/null; then
+              echo "ChromaDB is ready! (/api/v2/heartbeat)"
+              exit 0
+            fi
+            if curl -fsS http://localhost:8000/api/v1/heartbeat >/dev/null; then
+              echo "ChromaDB is ready! (/api/v1/heartbeat)"
+              exit 0
+            fi
+            if curl -fsS http://localhost:8000/ >/dev/null; then
+              echo "ChromaDB is responding! (/)"
+              exit 0
             fi
             echo "Waiting for ChromaDB... ($i/30)"
             sleep 2
           done
+          echo "ChromaDB did not become ready in time"
+          docker compose logs chromadb || true
+          exit 1
 
       - name: Test llm-workflow service
         run: |

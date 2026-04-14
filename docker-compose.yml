@@ -57,8 +57,6 @@ services:
     depends_on:
       chromadb:
         condition: service_started
-      contextlattice:
-        condition: service_healthy
     restart: unless-stopped
 
   # ChromaDB service for local MemPalace
@@ -78,7 +76,7 @@ services:
     networks:
       - llm-network
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/api/v1/heartbeat"]
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/v2/heartbeat"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -87,6 +85,8 @@ services:
 
   # ContextLattice Orchestrator (optional local instance)
   contextlattice:
+    profiles:
+      - contextlattice
     image: ${CONTEXTLATTICE_IMAGE:-alpine:latest}
     container_name: llm-contextlattice
     environment:
