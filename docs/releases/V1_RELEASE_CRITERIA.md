@@ -25,7 +25,7 @@ A v1.0 release of LLMWorkflow is certified only when **all** of the following qu
 **Do the docs agree on what the current state is?**
 
 ### Requirement
-- The [`VERSION`](../VERSION) file is the single source of truth for the declared version.
+- The [`VERSION`](../../VERSION) file is the single source of truth for the declared version.
 - [`docs/releases/RELEASE_STATE.md`](../../docs/releases/RELEASE_STATE.md) accurately describes the state of every major component.
 - [`docs/reference/DOCS_TRUTH_MATRIX.md`](../../docs/reference/DOCS_TRUTH_MATRIX.md) has been reconciled and shows no unacknowledged drift.
 - All top-level documents (`README.md`, `docs/implementation/PROGRESS.md`, canonical docs) agree on version and metric counts.
@@ -233,3 +233,4 @@ Before the release candidate is promoted to v1.0:
 4. Obtain sign-off from the release owner documented in `docs/releases/RELEASE_CERTIFICATION_CHECKLIST.md`.
 
 **If any criterion fails, the release is blocked until remediation and re-certification.**
+

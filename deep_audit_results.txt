@@ -1,282 +1,450 @@
-=================== LARGE MONOLITHIC FILES (>1000 lines) ===================
-MLModelDeploymentPipeline.ps1 (2787 lines)
-ExternalIngestion.ps1 (2732 lines)
-AIGenerationPipeline.ps1 (2701 lines)
-GodotQuestExtractor.ps1 (2613 lines)
-GoldenTasks.ps1 (2545 lines)
-GodotAIBehaviorExtractor.ps1 (2495 lines)
-SnapshotManager.ps1 (2431 lines)
-ReplayHarness.ps1 (2253 lines)
-PackSLOs.ps1 (2171 lines)
-FederatedMemory.ps1 (2168 lines)
-MCPCompositeGateway.ps1 (2166 lines)
-DashboardViews.ps1 (2147 lines)
-MCPToolkitServer.ps1 (2124 lines)
-GodotTestFrameworkExtractor.ps1 (2105 lines)
-GodotInventoryExtractor.ps1 (2101 lines)
-ShaderParser.ps1 (2046 lines)
-NaturalLanguageConfig.ps1 (2026 lines)
-OpenAPIExtractor.ps1 (2000 lines)
-Journal.ps1 (1942 lines)
-IncidentBundle.ps1 (1905 lines)
-HumanAnnotations.ps1 (1845 lines)
-RPGMakerPluginParser.ps1 (1784 lines)
-GoldenTaskDefinitions.ps1 (1747 lines)
-GodotNetworkingExtractor.ps1 (1688 lines)
-CaveatRegistry.ps1 (1683 lines)
-RetrievalCache.ps1 (1677 lines)
-HumanReviewGates.ps1 (1636 lines)
-Compatibility.ps1 (1605 lines)
-GDScriptParser.ps1 (1549 lines)
-LLMWorkflow.HealFunctions.ps1 (1544 lines)
-InterPackTransport.ps1 (1516 lines)
-NotebookParser.ps1 (1482 lines)
-Planner.ps1 (1455 lines)
-QueryRouter.ps1 (1413 lines)
-ExtractionPipeline.ps1 (1405 lines)
-GodotDialogueExtractor.ps1 (1388 lines)
-MCPToolkitGodot.ps1 (1361 lines)
-CrossPackArbitration.ps1 (1351 lines)
-TrafficCaptureParser.ps1 (1347 lines)
-EvidencePolicy.ps1 (1331 lines)
-AnswerPlan.ps1 (1329 lines)
-AtomicWrite.ps1 (1288 lines)
-GitHooks.ps1 (1287 lines)
-Filters.ps1 (1277 lines)
-BlenderPythonParser.ps1 (1276 lines)
-GeometryNodesParser.ps1 (1255 lines)
-ConfidencePolicy.ps1 (1237 lines)
-Notifications.ps1 (1218 lines)
-LLMWorkflow.GameFunctions.ps1 (1197 lines)
-MCPToolkitBlender.ps1 (1158 lines)
-RetrievalProfiles.ps1 (1145 lines)
-HealthScore.ps1 (1139 lines)
-DataFramePatternExtractor.ps1 (1107 lines)
-StateFile.ps1 (1088 lines)
-FileLock.ps1 (1080 lines)
-HumanReviewRules.ps1 (1070 lines)
-VectorStoreExtractor.ps1 (1024 lines)
-ProvenanceTracker.ps1 (1001 lines)
+# Technical Debt Audit and v1.0 Remediation Strategy
 
-=================== MISSING STRICT MODE ===================
-LLMWorkflow.Dashboard.ps1
-LLMWorkflow.GameFunctions.ps1
-LLMWorkflow.PluginFunctions.ps1
-Config.ps1
-ConfigCLI.ps1
-ConfigPath.ps1
-ConfigSchema.ps1
-NaturalLanguageConfig.ps1
-TypeConverters.ps1
-Policy.Tests.ps1
-GoldenTaskDefinitions.ps1
-GoldenTaskHelpers.ps1
-GoldenTasks.ps1
-GodotSceneParser.ps1
-AIGenerationPipeline.ps1
-ExampleUsage.ps1
-MLModelDeploymentPipeline.ps1
-ProvenanceTracker.ps1
-VoiceAnimationPipeline.ps1
-PackManifest.ps1
-PackTransaction.ps1
-SourceRegistry.ps1
-bootstrap-llm-workflow.ps1
-install-global-llm-workflow.ps1
-bootstrap.ps1
-check.ps1
-bootstrap-project.ps1
-index-project.ps1
-bootstrap-project.ps1
-verify.ps1
-bootstrap-project.ps1
-sync-from-mempalace.ps1
-Compatibility.ps1
-Filters.ps1
+## Document Purpose
 
-=================== DUPLICATE FUNCTION NAMES ===================
-Test-AnsiSupport defined in: DashboardViews.ps1, LLMWorkflow.Dashboard.ps1
-Import-EnvFile defined in: LLMWorkflow.Dashboard.ps1, bootstrap-llm-workflow.ps1
-ConvertTo-Hashtable defined in: AtomicWrite.ps1, ConfigPath.ps1, FileLock.ps1, Journal.ps1, TypeConverters.ps1, GoldenTaskHelpers.ps1, HumanAnnotations.ps1, HumanReviewStorage.ps1, ReplayHarness.ps1, ExternalIngestion.ps1, CaveatRegistry.ps1, Filters.ps1
-Get-ConfigValue defined in: Config.ps1, VoiceModelExtractor.ps1
-Set-NestedValue defined in: Config.ps1, ConfigCLI.ps1
-Convert-PSObjectToHashtable defined in: TypeConverters.ps1, RetrievalProfiles.ps1
-New-IncludeExcludeFilter defined in: ExternalIngestion.ps1, Filters.ps1
-Test-PathAgainstFilter defined in: ExternalIngestion.ps1, Filters.ps1
-Get-FileChecksum defined in: ExtractionPipeline.ps1, ProvenanceTracker.ps1
-Get-FileMetadata defined in: ExtractionPipeline.ps1, GodotAIBehaviorExtractor.ps1, GodotInventoryExtractor.ps1
-ConvertTo-NormalizedType defined in: ComponentLibraryExtractor.ps1, GDScriptParser.ps1, RPGMakerPluginParser.ps1
-Get-DocCommentForLine defined in: ComponentLibraryExtractor.ps1, GDScriptParser.ps1
-New-ProvenanceMetadata defined in: GodotAIBehaviorExtractor.ps1, GodotDialogueExtractor.ps1, GodotInventoryExtractor.ps1, GodotNetworkingExtractor.ps1, GodotQuestExtractor.ps1, GodotTestFrameworkExtractor.ps1, NotebookParser.ps1, OpenAPIExtractor.ps1
-Register-MCPTool defined in: MCPToolkitServer.ps1, MCPToolRegistry.ps1
-Get-MCPTool defined in: MCPToolkitServer.ps1, MCPToolRegistry.ps1
-ConvertTo-LLMHashtable defined in: PackManifest.ps1, PackTransaction.ps1, SourceRegistry.ps1
-ConvertFrom-LLMJsonToHashtable defined in: PackManifest.ps1, PackTransaction.ps1, SourceRegistry.ps1
-Write-Step defined in: bootstrap-llm-workflow.ps1, install-global-llm-workflow.ps1
-Write-PluginLog defined in: bootstrap.ps1, check.ps1
+This document is the actionable technical-debt companion to the current implementation and release-planning docs.
+Its job is not to restate every audit script result line-for-line.
+Its job is to translate the audit signal into a coherent remediation order for the path to `v1.0`.
 
-=================== POTENTIAL MISSING TESTS (Heuristic) ===================
-Modules without direct matching *.Tests.ps1 files:
-LLMWorkflow.GameFunctions.ps1
-LLMWorkflow.PluginFunctions.ps1
-AtomicWrite.ps1
-CommandContract.ps1
-ExecutionMode.ps1
-FileLock.ps1
-Journal.ps1
-Logging.ps1
-PackVisibility.ps1
-Policy.ps1
-RunId.ps1
-StateFile.ps1
-TypeConverters.ps1
-Visibility.ps1
-Workspace.ps1
-...and 100 more
+This report should be read alongside:
+- `docs/implementation/REMAINING_WORK.md`
+- `docs/implementation/LLMWorkflow_Post_0.9.6_Strategic_Execution_Plan.md`
+- `docs/implementation/PROGRESS.md`
+- `docs/releases/CHANGELOG.md`
 
-=================== SILENTLYCONTINUE ABUSE ===================
-Found 219 instances of ErrorAction SilentlyContinue
+---
 
-=================== TODO/FIXME/HACK COUNTS (Top 20) ===================
-LLMWorkflow.GameFunctions.ps1: 8
-MLModelDeploymentPipeline.ps1: 1
+## Executive Summary
 
-=================== WRITE-HOST USAGE IN MODULES (Top 20) ===================
-DashboardViews.ps1: 82
-LLMWorkflow.HealFunctions.ps1: 62
-MLModelDeploymentPipeline.ps1: 53
-LLMWorkflow.Dashboard.ps1: 50
-ExampleUsage.ps1: 46
-GoldenTasks.ps1: 24
-AIGenerationPipeline.ps1: 24
-LLMWorkflow.GameFunctions.ps1: 20
-ProvenanceTracker.ps1: 17
-Planner.ps1: 15
-ConfigCLI.ps1: 13
-Policy.ps1: 7
-InterPackTransport.ps1: 6
-HumanReviewRules.ps1: 6
-GitHooks.ps1: 4
-Journal.ps1: 3
-ExecutionMode.ps1: 2
-FileLock.ps1: 2
-RetrievalCache.ps1: 2
-VoiceAnimationPipeline.ps1: 2
+The repository is no longer in danger of failing because it lacks features.
+It is in danger of slowing down, regressing, or becoming harder to trust because too much of the implementation surface still carries prototype-era debt.
 
-=================== GLOBAL STATE ($global:) ===================
+The audit signal is clear:
+- the codebase is broad and capable, but structurally uneven
+- operational trust is being weakened by silent-failure patterns and inconsistent module contracts
+- several core modules have grown large enough to resist safe change
+- newer ingestion work is moving in the right direction, but it is entering the same repo-wide discipline gap unless governance catches up
 
-=================== EMPTY CATCH BLOCKS ===================
-GoldenTasks.ps1: 3
-DoclingAdapter.ps1: 2
-GeometryNodesParser.ps1: 2
-ExternalIngestion.ps1: 1
+The correct move is not random cleanup.
+The correct move is a staged hardening program with explicit release gates.
 
-=================== OVERUSED $args (Missing explicit parameters) ===================
-GitHooks.ps1: 3
-BlenderPythonParser.ps1: 3
-CommandContract.ps1: 2
-AIGenerationPipeline.ps1: 1
+The highest-risk debt clusters are:
+1. error suppression and weak failure visibility
+2. monolithic files and helper duplication in core modules
+3. missing PowerShell contract hygiene such as `Set-StrictMode`, `[CmdletBinding()]`, `.SYNOPSIS`, and `[OutputType()]`
+4. portability and security debt such as hardcoded paths, `Invoke-Expression`, and heuristic secret findings
+5. uneven test coverage and evidence quality around foundational modules
 
-=================== ALIAS USAGE (% or ?) IN MODULES ===================
+There are also meaningful positives in the current audit:
+- no giant functions over the configured threshold were flagged
+- no `$global:` state usage was flagged
+- no alias abuse using `%` or `?` was flagged
+- new engine-facing asset ingestion work is already landing with tests, which means the platform is still moving forward while hardening work begins
 
-=================== MISSING [CmdletBinding()] (Top 20) ===================
-AIGenerationPipeline.ps1: 19 missing out of 34 functions
-DashboardViews.ps1: 11 missing out of 30 functions
-entrypoint.ps1: 11 missing out of 11 functions
-NaturalLanguageConfig.ps1: 10 missing out of 26 functions
-ProvenanceTracker.ps1: 7 missing out of 13 functions
-Planner.ps1: 7 missing out of 17 functions
-ExampleUsage.ps1: 7 missing out of 7 functions
-GoldenTaskHelpers.ps1: 5 missing out of 6 functions
-AnswerPlan.ps1: 5 missing out of 16 functions
-ExternalIngestion.ps1: 4 missing out of 36 functions
-LLMWorkflow.psm1: 4 missing out of 21 functions
-PackSLOs.ps1: 3 missing out of 22 functions
-EducationalContentExtractor.ps1: 3 missing out of 10 functions
-HumanReviewStorage.ps1: 2 missing out of 8 functions
-LLMWorkflow.HealFunctions.ps1: 2 missing out of 16 functions
-SpriteSheetParser.ps1: 2 missing out of 6 functions
-AtlasMetadataParser.ps1: 2 missing out of 6 functions
-TelemetryHelpers.ps1: 2 missing out of 3 functions
-CommandContract.ps1: 2 missing out of 9 functions
-MLConceptExtractor.ps1: 1 missing out of 7 functions
+---
 
-=================== MISSING .SYNOPSIS HELP (Top 20) ===================
-BlenderPythonParser.ps1: 22 missing out of 23 functions
-AIGenerationPipeline.ps1: 18 missing out of 34 functions
-LLMWorkflow.GameFunctions.ps1: 18 missing out of 22 functions
-bootstrap-llm-workflow.ps1: 18 missing out of 18 functions
-LLMWorkflow.psm1: 16 missing out of 21 functions
-LLMWorkflow.Dashboard.ps1: 16 missing out of 17 functions
-MCPGatewayRouting.ps1: 13 missing out of 13 functions
-MCPGatewayResilience.ps1: 13 missing out of 13 functions
-entrypoint.ps1: 11 missing out of 11 functions
-UnrealDescriptorParser.ps1: 11 missing out of 12 functions
-deploy-composite-gateway.ps1: 11 missing out of 12 functions
-mcp-server-manager.ps1: 10 missing out of 11 functions
-VoiceAnimationPipeline.ps1: 10 missing out of 10 functions
-DashboardViews.ps1: 9 missing out of 30 functions
-NaturalLanguageConfig.ps1: 9 missing out of 26 functions
-doctor-llm-workflow.ps1: 9 missing out of 9 functions
-RPGMakerAssetCatalogParser.ps1: 9 missing out of 10 functions
-GeometryNodesParser.ps1: 8 missing out of 16 functions
-deploy-blender-mcp.ps1: 8 missing out of 9 functions
-test-mcp-connection.ps1: 8 missing out of 9 functions
+## Current Head Reality
 
-=================== HARDCODED SECRETS (HEURISTIC) ===================
-NaturalLanguageConfig.ps1: 1 matches
-LLMWorkflow.HealFunctions.ps1: 1 matches
+The audit needs to be read in the context of current head, not an earlier snapshot of the project.
+Recent work has already started to strengthen the mixed-artifact and game-asset side of the platform.
 
-=================== SILENT OUTPUT SUPPRESSION ($null = or | Out-Null) (Top 20) ===================
-MLModelDeploymentPipeline.ps1: 25 instances
-ProvenanceTracker.ps1: 24 instances
-GitHooks.ps1: 15 instances
-HumanAnnotations.ps1: 13 instances
-AIGenerationPipeline.ps1: 12 instances
-InterPackTransport.ps1: 11 instances
-deploy-composite-gateway.ps1: 9 instances
-SnapshotManager.ps1: 8 instances
-ExternalIngestion.ps1: 7 instances
-PackSLOs.ps1: 7 instances
-AnswerPlan.ps1: 7 instances
-VoiceAnimationPipeline.ps1: 7 instances
-Notifications.ps1: 7 instances
-LLMWorkflow.psm1: 5 instances
-entrypoint.ps1: 5 instances
-AtomicWrite.ps1: 5 instances
-LLMWorkflow.HealFunctions.ps1: 5 instances
-GoldenTasks.ps1: 5 instances
-Journal.ps1: 4 instances
-bootstrap-llm-workflow.ps1: 4 instances
+### Recently Landed or In Flight
 
-=================== UNAPPROVED POWERSHELL VERBS ===================
-NaturalLanguageConfig.ps1: 11 unapproved (Build-ConfigFromIntent, Build-PackInitConfig, Build-PackUpdateConfig, Build-PackRemoveConfig, Build-ModeChangeConfig, Build-ProfileSwitchConfig, Build-TrustUpdateConfig, Build-ProviderConfig, Build-NotificationConfig, Build-FilterConfig, Build-GenericConfig)
-GeometryNodesParser.ps1: 8 unapproved (Detect-GeometryNodesInputType, Parse-GeometryNodesFromJson, Parse-GeometryNodesFromPython, Parse-GeometryNodesFromBlendText, Extract-NodesFromPythonContent, Extract-LinksFromPythonContent, Extract-GroupInputsFromPythonContent, Extract-GroupOutputsFromPythonContent)
-ExampleUsage.ps1: 7 unapproved (Example-VoiceAnimationPipeline, Example-AIGenerationPipeline, Example-AIGenerationWorkflowOrchestrator, Example-MLModelDeploymentPipeline, Example-ProvenanceTracker, Example-CombinedWorkflow, Run-AllExamples)
-ConfidencePolicy.ps1: 6 unapproved (Calculate-RelevanceComponent, Calculate-AuthorityComponent, Calculate-ConsistencyComponent, Calculate-CoverageComponent, Calculate-OverallConfidence, Build-ConfidenceReasoning)
-bootstrap-llm-workflow.ps1: 5 unapproved (Ensure-ToolFolder, Ensure-PythonImport, Ensure-CodemunchCommand, Ensure-PythonCommand, Ensure-CodemunchRuntime)
-MLModelDeploymentPipeline.ps1: 5 unapproved (Deploy-ToGodot, Deploy-ToTarget, Package-MLModelForRuntime, Deploy-MLModelToGodot, Deploy-MLModelToBlender)
-BlenderPythonParser.ps1: 4 unapproved (Parse-OperatorClass, Parse-PanelClass, Parse-PropertyArguments, Parse-OperatorParameters)
-GodotTestFrameworkExtractor.ps1: 4 unapproved (Extract-TestSuites, Extract-TestCases, Extract-TestFixtures, Extract-TestAssertions)
-GodotDialogueExtractor.ps1: 4 unapproved (Extract-DialogueResources, Extract-DialogueCharacters, Extract-DialogueTimelines, Extract-DialogueVariables)
-GodotAIBehaviorExtractor.ps1: 4 unapproved (Extract-BehaviorTreeNodes, Extract-StateMachineStates, Extract-AIActionDefinitions, Extract-BlackboardSchema)
-PolicyAdapter.ps1: 4 unapproved (Evaluate-ExecutionModePolicy, Evaluate-McpExposurePolicy, Evaluate-InterpackTransferPolicy, Evaluate-WorkspaceBoundaryPolicy)
-MCPGatewayResilience.ps1: 4 unapproved (Record-MCPSuccess, Record-MCPFailure, Record-CircuitBreakerSuccess, Record-CircuitBreakerFailure)
-RetrievalCache.ps1: 3 unapproved (Acquire-CacheLock, Release-CacheLock, Perform-LRUEviction)
-QueryRouter.ps1: 3 unapproved (Route-QueryToPacks, Calculate-PackRelevance, Apply-ProfileBoosts)
-NotebookParser.ps1: 3 unapproved (Extract-NotebookCells, Extract-NotebookOutputs, Extract-NotebookMetadata)
-ExternalIngestion.ps1: 3 unapproved (Parse-GitHubUrl, Extract-LinksFromHtml, Parse-GitLabUrl)
-OpenAPIExtractor.ps1: 3 unapproved (Extract-OpenAPIPaths, Extract-OpenAPISchemas, Extract-OpenAPISecurity)
-MCPToolkitServer.ps1: 2 unapproved (Process-MCPHttpRequest, Process-MCPRequest)
-Config.ps1: 2 unapproved (Track-Source, Flatten-Config)
-install-global-llm-workflow.ps1: 2 unapproved (Ensure-Dir, llm-workflow)
-HumanAnnotations.ps1: 2 unapproved (Apply-Annotations, Vote-Annotation)
-EvidencePolicy.ps1: 2 unapproved (Filter-EvidenceByPolicy, Sort-BySourceAuthority)
-MCPCompositeGateway.ps1: 2 unapproved (Process-MCPGatewayRequest, Ensure-GatewayRunning)
-ProvenanceTracker.ps1: 2 unapproved (Load-ProvenanceRecord, Validate-ProvenanceIntegrity)
-HumanReviewGates.ps1: 1 unapproved (Reject-ReviewRequest)
-GoldenTaskHelpers.ps1: 1 unapproved (Extract-ResponseProperties)
-ConfigCLI.ps1: 1 unapproved (Flatten-ConfigForOutput)
-FileLock.ps1: 1 unapproved (Release-AllLocks)
-Journal.ps1: 1 unapproved (Rotate-Journal)
-Logging.ps1: 1 unapproved (Should-Redact)
+The repository now includes concrete foundation work for broader game and engine asset support, including:
+- engine-aware asset manifest categories and game preset scaffolding
+- classification for spritesheets, tilemaps, plugins, RPG Maker assets, Unreal assets, Epic or Fab assets, and shared asset bundles
+- Unreal descriptor extraction for `.uplugin` and `.uproject`
+- RPG Maker asset catalog parsing for common asset families and plugin metadata
+- regression tests covering the new asset-manifest, Unreal descriptor, and RPG Maker asset-catalog flows
+
+That is good progress.
+It also raises the quality bar.
+The repo is no longer experimenting with whether mixed-artifact ingestion exists.
+It is now responsible for making that ingestion maintainable, documented, and operationally trustworthy.
+
+---
+
+## How to Read This Audit
+
+Not every finding class has the same meaning.
+This report separates true release blockers from hygiene debt and from heuristic-only signals.
+
+### High-Confidence Findings
+
+These are direct, actionable issues that should be treated as real debt unless a specific case is intentionally justified:
+- missing `Set-StrictMode`
+- missing `[CmdletBinding()]`
+- missing `.SYNOPSIS`
+- missing `[OutputType()]`
+- duplicate helper definitions
+- empty `catch` blocks
+- unapproved PowerShell verbs
+- `Invoke-Expression` usage
+- `Write-Host` usage inside reusable modules
+
+### Heuristic Findings
+
+These findings are valuable, but they require human review before being treated as defects:
+- potential missing tests
+- hardcoded secrets
+- hardcoded absolute paths
+- output suppression using `Out-Null` or `$null =`
+
+### Scale Snapshot
+
+The present audit evidence shows:
+- `58` monolithic files over `1000` lines
+- `32` files missing `Set-StrictMode`
+- `19` duplicate function-name collisions
+- `219` instances of `-ErrorAction SilentlyContinue`
+- `4` empty catch-block locations
+- `30` files with unapproved PowerShell verbs
+- widespread help and contract gaps across top-level modules
+
+This is not a one-sprint cleanup.
+It is also not a reason to stop delivery.
+It is a reason to sequence the work deliberately.
+
+---
+
+## Release Blockers by Priority
+
+### Priority 0: Failure Visibility and Unsafe Execution
+
+These are the most important issues to clear before `v1.0` certification.
+They directly affect diagnosability, safety, and trust.
+
+#### P0 Findings
+- `219` uses of `-ErrorAction SilentlyContinue`
+- `4` empty catch-block locations across `GoldenTasks.ps1`, `GeometryNodesParser.ps1`, `DoclingAdapter.ps1`, and `ExternalIngestion.ps1`
+- `Invoke-Expression` usage in `audit4.ps1` and `Invoke-VulnerabilityScan.ps1`
+- heavy `Write-Host` usage in modules that should prefer pipeline-safe output and structured diagnostics
+
+#### Why This Matters
+- silent failure breaks operator confidence and test signal
+- swallowed exceptions make regressions look like success
+- `Invoke-Expression` increases security and predictability risk
+- `Write-Host` pushes the repo toward UI-style scripting instead of composable tooling
+
+#### Exit Criteria
+- every silent-failure site is either removed or explicitly justified with a comment and bounded fallback behavior
+- empty catch blocks are eliminated
+- `Invoke-Expression` is removed or isolated behind a documented, reviewed exception
+- reusable modules prefer `Write-Verbose`, `Write-Information`, or object output
+
+### Priority 1: Structural Refactoring of God Modules
+
+The repo has too many large files for safe maintenance.
+The problem is not just style.
+The problem is reviewability, test isolation, ownership clarity, and regression radius.
+
+#### Highest-Pressure Modules
+- `MLModelDeploymentPipeline.ps1` at `2787` lines
+- `ExternalIngestion.ps1` at `2732` lines
+- `AIGenerationPipeline.ps1` at `2701` lines
+- `GodotQuestExtractor.ps1` at `2613` lines
+- `GoldenTasks.ps1` at `2545` lines
+- `ExtractionPipeline.ps1` at `1405` lines
+- `LLMWorkflow.GameFunctions.ps1` at `1197` lines
+
+#### Why This Matters
+- broad files accumulate hidden coupling
+- helper reuse becomes copy-paste reuse instead of canonical reuse
+- test fixtures become larger and slower to reason about
+- new capabilities, including game-asset ingestion, risk inheriting the same structural debt pattern
+
+#### Exit Criteria
+- the largest modules are split into coherent private helper files or submodules
+- duplicate helpers are replaced with canonical shared implementations
+- each refactored surface has targeted tests at its new boundaries
+- ownership of key modules becomes obvious from the file layout
+
+### Priority 2: Module Contracts and PowerShell Hygiene
+
+This is the largest broad-spectrum debt class.
+It is less dramatic than silent failure, but it affects every developer and every downstream consumer.
+
+#### Signal Highlights
+- `32` files missing `Set-StrictMode`
+- top offenders missing `[CmdletBinding()]` include `AIGenerationPipeline.ps1`, `entrypoint.ps1`, `DashboardViews.ps1`, and `NaturalLanguageConfig.ps1`
+- top offenders missing `.SYNOPSIS` include `BlenderPythonParser.ps1`, `bootstrap-llm-workflow.ps1`, `LLMWorkflow.GameFunctions.ps1`, `UnrealDescriptorParser.ps1`, and `RPGMakerAssetCatalogParser.ps1`
+- top offenders missing `[OutputType()]` include `AIGenerationPipeline.ps1`, `LLMWorkflow.GameFunctions.ps1`, `LLMWorkflow.psm1`, and `NaturalLanguageConfig.ps1`
+- `30` files include unapproved PowerShell verbs
+
+#### Why This Matters
+- weak contracts make functions harder to discover and trust
+- strict mode gaps let bugs survive longer than they should
+- help gaps slow onboarding and reduce self-documentation quality
+- inconsistent verbing makes the public surface feel improvised
+
+#### Exit Criteria
+- every reusable module starts with `Set-StrictMode -Version Latest` or a documented compatibility equivalent
+- exported and reusable internal functions get `[CmdletBinding()]`
+- public and semi-public functions get `.SYNOPSIS`
+- exported functions get `[OutputType()]` where it improves predictability
+- unapproved verbs are renamed or consciously grandfathered with documentation
+
+### Priority 3: Portability, Security, and Release Discipline
+
+These issues are partly heuristic, but they are still important for a trustworthy release.
+
+#### Findings
+- heuristic hardcoded-secret matches in `LLMWorkflow.HealFunctions.ps1` and `NaturalLanguageConfig.ps1`
+- hardcoded absolute path signal in `entrypoint.ps1`, MCP deploy scripts, audit helpers, and scratch-style tooling
+- potential test gaps around foundational modules like `AtomicWrite.ps1`, `CommandContract.ps1`, `FileLock.ps1`, `Journal.ps1`, `TypeConverters.ps1`, `Workspace.ps1`, and related runtime surfaces
+
+#### Why This Matters
+- `v1.0` should not depend on local-machine assumptions
+- security reviews cannot dismiss secret-like strings without inspection
+- release confidence depends on tests around state, locking, contracts, and workspace rules
+
+#### Exit Criteria
+- every heuristic secret finding is triaged and either removed, rotated, or documented as false positive
+- hardcoded paths are migrated to `$PSScriptRoot`, config, or environment-bound resolution where appropriate
+- core runtime primitives have direct tests or clear indirect coverage evidence
+
+---
+
+## Recommended Workstreams
+
+### Workstream 1: Failure-Handling Sweep
+
+Focus first on the places where the system can lie about its own health.
+
+#### Immediate Targets
+- `GoldenTasks.ps1`
+- `GeometryNodesParser.ps1`
+- `DoclingAdapter.ps1`
+- `ExternalIngestion.ps1`
+- modules with the heaviest `Write-Host` footprint such as `DashboardViews.ps1`, `LLMWorkflow.HealFunctions.ps1`, `MLModelDeploymentPipeline.ps1`, and `LLMWorkflow.Dashboard.ps1`
+
+#### Deliverables
+- no empty catches
+- reduced silent-failure count
+- structured logging guidance for module authors
+- explicit exception policy for expected versus unexpected failures
+
+### Workstream 2: Core Module Decomposition
+
+This should target the highest-change, highest-risk files first rather than trying to split every large file at once.
+
+#### First Candidates
+- `MLModelDeploymentPipeline.ps1`
+- `ExternalIngestion.ps1`
+- `AIGenerationPipeline.ps1`
+- `GoldenTasks.ps1`
+- `ExtractionPipeline.ps1`
+- `LLMWorkflow.GameFunctions.ps1`
+
+#### Deliverables
+- decomposed helper files with canonical ownership
+- reduced duplicate helper footprint
+- tests pinned to the new seams
+- lower blast radius for future changes
+
+### Workstream 3: Public Surface and Help Contracts
+
+This is the governance track for module shape and discoverability.
+
+#### First Candidates
+- `LLMWorkflow.psm1`
+- `LLMWorkflow.GameFunctions.ps1`
+- `bootstrap-llm-workflow.ps1`
+- `AIGenerationPipeline.ps1`
+- `NaturalLanguageConfig.ps1`
+- `DashboardViews.ps1`
+- `UnrealDescriptorParser.ps1`
+- `RPGMakerAssetCatalogParser.ps1`
+
+#### Deliverables
+- strict mode added where missing
+- `[CmdletBinding()]`, `.SYNOPSIS`, and `[OutputType()]` applied to prioritized modules
+- approved verb naming pass
+- clearer help for newly added game-asset ingestion utilities so they do not become second-class surfaces
+
+### Workstream 4: Test and Evidence Coverage Hardening
+
+The repo now has valuable test momentum in newer asset-ingestion work.
+That should become the norm, not the exception.
+
+#### First Candidates
+- `AtomicWrite.ps1`
+- `CommandContract.ps1`
+- `FileLock.ps1`
+- `Journal.ps1`
+- `TypeConverters.ps1`
+- `Workspace.ps1`
+- `StateFile.ps1`
+- `LLMWorkflow.GameFunctions.ps1`
+
+#### Deliverables
+- direct tests for state, locking, and contract primitives
+- explicit mapping between critical modules and test files
+- fewer audit findings that rely on heuristic test inference
+
+### Workstream 5: Security and Portability Review
+
+This workstream converts heuristic warnings into verified outcomes.
+
+#### First Candidates
+- `LLMWorkflow.HealFunctions.ps1`
+- `NaturalLanguageConfig.ps1`
+- `entrypoint.ps1`
+- deployment scripts for Blender and Godot MCP surfaces
+- audit and scratch scripts that still encode local absolute paths
+
+#### Deliverables
+- secret false positives resolved or removed
+- path resolution standardized
+- `Invoke-Expression` usage eliminated or formally exempted
+- clearer separation between production code, tooling, and scratch utilities
+
+---
+
+## Special Note on Mixed Artifact and Game Asset Ingestion
+
+This area deserves explicit attention because it is both a strength and a risk multiplier.
+
+The repo is actively expanding beyond text and code into engine descriptors, plugin metadata, spritesheets, tilemaps, and asset catalogs.
+That is strategically correct.
+It also means ingestion modules must not repeat the same historical debt pattern seen elsewhere in the repo.
+
+### What This Means Practically
+- new ingestion modules should ship with tests from day one
+- parser modules should have help and command contracts early, not later
+- descriptor inventory support and deep binary extraction support must remain clearly distinguished
+- marketplace or engine-specific provenance rules should be designed before the surface grows further
+
+### Immediate Governance Targets
+- `UnrealDescriptorParser.ps1`
+- `RPGMakerAssetCatalogParser.ps1`
+- `SpriteSheetParser.ps1`
+- `AtlasMetadataParser.ps1`
+- `ExtractionPipeline.ps1`
+- `LLMWorkflow.GameFunctions.ps1`
+
+This is one of the places where the repo can improve while still growing.
+We should keep that momentum, but with stronger discipline than earlier phases had.
+
+---
+
+## Strengths Worth Preserving
+
+A good audit should not only point at flaws.
+It should also identify where the project is already doing something right.
+
+Current positive signals include:
+- broad capability coverage across orchestration, extraction, packs, governance, and engine-facing tooling
+- no flagged `$global:` state usage
+- no flagged giant functions beyond the configured threshold
+- no flagged alias abuse using `%` or `?`
+- recent additions in the game-asset area landing with tests instead of relying entirely on later cleanup
+
+These strengths matter because they show the repo is not in chaos.
+It is in transition.
+The hardening work is substantial, but it is tractable.
+
+---
+
+## v1.0 Readiness Gate
+
+This audit recommends the following minimum bar before calling the repository `v1.0` ready:
+
+1. no unresolved empty catch blocks in production modules
+2. `Invoke-Expression` removed from production and security-sensitive paths
+3. silent failure patterns materially reduced and justified where retained
+4. top-tier monolithic modules decomposed enough to reduce review and testing risk
+5. strict mode and function-contract hygiene applied to core public surfaces
+6. foundational runtime modules have direct or clearly evidenced automated coverage
+7. mixed-artifact and game-asset ingestion utilities are documented, tested, and clearly scoped
+8. portability and secret heuristics are triaged to closure, not ignored
+
+If those gates are not met, the repo may still be feature-rich, but it will not yet be release-trustworthy.
+
+---
+
+## Evidence Appendix
+
+The following appendix preserves the most useful current audit data in a cleaner reference format.
+It is still a summary, not a full raw scanner dump.
+
+### Largest Monolithic Files
+- `MLModelDeploymentPipeline.ps1` - `2787` lines
+- `ExternalIngestion.ps1` - `2732` lines
+- `AIGenerationPipeline.ps1` - `2701` lines
+- `GodotQuestExtractor.ps1` - `2613` lines
+- `GoldenTasks.ps1` - `2545` lines
+- `GodotAIBehaviorExtractor.ps1` - `2495` lines
+- `SnapshotManager.ps1` - `2431` lines
+- `ReplayHarness.ps1` - `2253` lines
+- `PackSLOs.ps1` - `2171` lines
+- `FederatedMemory.ps1` - `2168` lines
+- `MCPCompositeGateway.ps1` - `2166` lines
+- `DashboardViews.ps1` - `2147` lines
+- `MCPToolkitServer.ps1` - `2124` lines
+- `GodotTestFrameworkExtractor.ps1` - `2105` lines
+- `GodotInventoryExtractor.ps1` - `2101` lines
+- `ShaderParser.ps1` - `2046` lines
+- `NaturalLanguageConfig.ps1` - `2026` lines
+- `OpenAPIExtractor.ps1` - `2000` lines
+- `Journal.ps1` - `1942` lines
+- `IncidentBundle.ps1` - `1905` lines
+- `RPGMakerPluginParser.ps1` - `1784` lines
+- `ExtractionPipeline.ps1` - `1405` lines
+- `LLMWorkflow.GameFunctions.ps1` - `1197` lines
+
+### Missing Strict Mode
+- `32` files were flagged as missing `Set-StrictMode`
+- notable examples include `AIGenerationPipeline.ps1`, `Compatibility.ps1`, `Config.ps1`, `GoldenTasks.ps1`, `LLMWorkflow.Dashboard.ps1`, `LLMWorkflow.GameFunctions.ps1`, `MLModelDeploymentPipeline.ps1`, `NaturalLanguageConfig.ps1`, `PackManifest.ps1`, `ProvenanceTracker.ps1`, and `VoiceAnimationPipeline.ps1`
+
+### Duplicate Function Names
+- `ConvertTo-Hashtable` appears in `AtomicWrite.ps1`, `ConfigPath.ps1`, `FileLock.ps1`, `Journal.ps1`, `TypeConverters.ps1`, `GoldenTaskHelpers.ps1`, `HumanAnnotations.ps1`, `HumanReviewStorage.ps1`, `ReplayHarness.ps1`, `ExternalIngestion.ps1`, `CaveatRegistry.ps1`, and `Filters.ps1`
+- `ConvertFrom-LLMJsonToHashtable` appears in `PackManifest.ps1`, `PackTransaction.ps1`, and `SourceRegistry.ps1`
+- `ConvertTo-LLMHashtable` appears in `PackManifest.ps1`, `PackTransaction.ps1`, and `SourceRegistry.ps1`
+- `Get-FileChecksum` appears in `ExtractionPipeline.ps1` and `ProvenanceTracker.ps1`
+- `Get-FileMetadata` appears in `ExtractionPipeline.ps1`, `GodotAIBehaviorExtractor.ps1`, and `GodotInventoryExtractor.ps1`
+- `New-IncludeExcludeFilter` and `Test-PathAgainstFilter` appear in both `ExternalIngestion.ps1` and `Filters.ps1`
+- `New-ProvenanceMetadata` is duplicated across several extractor modules
+
+### Missing Tests Heuristic
+- the audit flagged likely test gaps around modules such as `AtomicWrite.ps1`, `CommandContract.ps1`, `ExecutionMode.ps1`, `FileLock.ps1`, `Journal.ps1`, `LLMWorkflow.GameFunctions.ps1`, `Logging.ps1`, `PackVisibility.ps1`, `Policy.ps1`, `RunId.ps1`, `StateFile.ps1`, `TypeConverters.ps1`, `Visibility.ps1`, and `Workspace.ps1`
+- this should be treated as a triage queue, not as proof of absent coverage
+
+### Silent Failure and Output Suppression
+- `219` instances of `-ErrorAction SilentlyContinue` were flagged
+- top output-suppression concentration includes `MLModelDeploymentPipeline.ps1`, `ProvenanceTracker.ps1`, `GitHooks.ps1`, `HumanAnnotations.ps1`, `AIGenerationPipeline.ps1`, `InterPackTransport.ps1`, and `ExternalIngestion.ps1`
+
+### Write-Host Hotspots
+- `DashboardViews.ps1` - `82`
+- `LLMWorkflow.HealFunctions.ps1` - `62`
+- `MLModelDeploymentPipeline.ps1` - `53`
+- `LLMWorkflow.Dashboard.ps1` - `50`
+- `ExampleUsage.ps1` - `46`
+- `AIGenerationPipeline.ps1` - `24`
+- `GoldenTasks.ps1` - `24`
+- `LLMWorkflow.GameFunctions.ps1` - `20`
+
+### Empty Catch Blocks
+- `GoldenTasks.ps1` - `3`
+- `GeometryNodesParser.ps1` - `2`
+- `DoclingAdapter.ps1` - `2`
+- `ExternalIngestion.ps1` - `1`
+
+### Missing Function Contracts
+- highest `CmdletBinding` gap: `AIGenerationPipeline.ps1` with `19` missing out of `34`
+- highest `.SYNOPSIS` gaps include `BlenderPythonParser.ps1`, `bootstrap-llm-workflow.ps1`, `LLMWorkflow.GameFunctions.ps1`, `AIGenerationPipeline.ps1`, `LLMWorkflow.Dashboard.ps1`, `LLMWorkflow.psm1`, `UnrealDescriptorParser.ps1`, and `RPGMakerAssetCatalogParser.ps1`
+- highest `[OutputType()]` gaps include `AIGenerationPipeline.ps1`, `LLMWorkflow.GameFunctions.ps1`, `LLMWorkflow.psm1`, `NaturalLanguageConfig.ps1`, and `ExternalIngestion.ps1`
+
+### Unapproved Verb Hotspots
+- `NaturalLanguageConfig.ps1` - `11`
+- `GeometryNodesParser.ps1` - `8`
+- `ExampleUsage.ps1` - `7`
+- `ConfidencePolicy.ps1` - `6`
+- `MLModelDeploymentPipeline.ps1` - `5`
+- `bootstrap-llm-workflow.ps1` - `5`
+
+### Portability and Security Heuristics
+- hardcoded absolute-path signal is strongest in `entrypoint.ps1` and several deployment or audit helper scripts
+- heuristic secret matches were flagged in `LLMWorkflow.HealFunctions.ps1` and `NaturalLanguageConfig.ps1`
+- these findings need manual review before remediation decisions are finalized
+

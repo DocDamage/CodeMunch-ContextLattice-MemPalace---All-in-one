@@ -9,7 +9,7 @@ This is a stabilization, integration, ingestion-hardening, and v1.0-readiness pl
 
 ## Related Docs
 - [Implementation Progress](./PROGRESS.md)
-- [Technical Debt Audit](./TECHNICAL_DEBT_AUDIT.md)
+- [Technical Debt Audit Summary](./TECHNICAL_DEBT_AUDIT.md)
 - [Remaining Work](./REMAINING_WORK.md)
 
 The platform is already beyond the point where raw feature count is the main problem.
@@ -39,15 +39,52 @@ The platform already has a strong architecture across:
 What it still needs is coherence at the program level.
 The main risks are no longer lack of ideas. The main risks are drift, ambiguity, weak observability, and uneven ingestion quality across non-code artifacts.
 
-The execution plan therefore focuses on eight tightly-scoped workstreams:
-1. versioning and documentation truth
-2. observability and evaluation backbone
-3. policy externalization and enforcement
-4. artifact and game asset ingestion hardening
-5. security and supply-chain enforcement
-6. durable orchestration for long-running work
-7. retrieval substrate upgrades and MCP governance
-8. v1.0 certification and release discipline
+The strategic plan still uses eight workstreams, but those workstreams should now be read through a release-priority lens.
+
+The current release priorities are:
+1. failure visibility and unsafe execution cleanup
+2. structural refactoring and canonical ownership
+3. module contracts, PowerShell hygiene, and release-gate testing
+4. observability and policy on the critical path
+5. mixed artifact and game asset ingestion hardening
+6. security, portability, durable execution, and MCP governance
+
+The workstreams below are therefore not competing priorities.
+They are the implementation structure used to deliver those priorities coherently.
+
+## Release Priority Lens
+
+The planning docs now share the same ordering on purpose.
+
+### Priority 0 - Failure Visibility and Unsafe Execution
+- remove silent-failure patterns
+- eliminate empty catches
+- reduce `Write-Host` misuse in reusable modules
+- keep degraded behavior visible to tests and operators
+
+### Priority 1 - Structural Refactoring and Canonical Ownership
+- decompose the largest modules
+- replace duplicated helper definitions with canonical implementations
+- reduce review radius and file-level ambiguity
+
+### Priority 2 - Module Contracts and Release-Gate Quality
+- add `Set-StrictMode`, `[CmdletBinding()]`, `.SYNOPSIS`, and `[OutputType()]` where they materially improve trust
+- tighten parameter contracts
+- turn foundational coverage into enforceable CI gates
+
+### Priority 3 - Observability and Policy on the Critical Path
+- make failures traceable across routing, retrieval, arbitration, extraction, and MCP paths
+- ensure policy is active in real runtime decisions
+
+### Priority 4 - Mixed Artifact and Game Asset Ingestion Hardening
+- keep document, descriptor, and asset outputs governable
+- distinguish inventory support from deep extraction support honestly
+- normalize provenance and license data across expanding asset surfaces
+
+### Priority 5 - Security, Portability, Durable Execution, and MCP Governance
+- make security evidence part of promotion
+- reduce portability drift from local-path assumptions
+- make long-running recovery and MCP lifecycle rules enforceable
 
 ---
 
@@ -68,9 +105,10 @@ The execution plan therefore focuses on eight tightly-scoped workstreams:
 
 ### Remaining Program-Level Gaps
 
-- wildcard module export contract and duplicate helper definitions are still open high-risk debt
-- subsystem fork consolidation and canonical ownership are still incomplete
-- observability/policy/security workstreams need deeper runtime enforcement before v1.0 gates
+- silent-failure cleanup and exception visibility still need a focused sweep before v1.0 gates
+- large-module decomposition and duplicate helper reduction are still open maintenance risks
+- observability, policy, and security workstreams still need deeper runtime enforcement before release certification
+- mixed artifact and game-asset ingestion now has real momentum, but contract and provenance discipline need to catch up with the surface area
 
 ---
 
@@ -91,7 +129,8 @@ The platform now has early foundation work for broader game asset handling, incl
 - a multi-engine asset manifest model
 - asset classification for spritesheets, tilemaps, plugins, RPG Maker assets, Unreal assets, Epic/Fab assets, and shared bundles
 - Unreal descriptor extraction for `.uplugin` and `.uproject`
-- regression coverage for asset manifests and Unreal descriptor extraction
+- RPG Maker asset catalog parsing for common asset families and plugin metadata
+- regression coverage for asset manifests, Unreal descriptor extraction, and RPG Maker asset catalog parsing
 
 This matters because the ingestion roadmap is no longer hypothetical. Some of it has already started and must now be reflected in the strategic plan.
 
@@ -673,53 +712,63 @@ Any new asset intake path must preserve:
 
 # Delivery Sequence
 
-## Wave 0 - Reconcile truth
+## Wave 0 - Reconcile truth and expose failures
 Focus:
 - Workstream 1
+- the highest-value parts of Workstream 8
 
 Outcome:
 - docs, metrics, and release status stop contradicting each other
+- failure visibility becomes a release concern, not a cleanup afterthought
 
-## Wave 1 - Make the system observable
+## Wave 1 - Reduce structural risk
 Focus:
-- Workstream 2
+- structural refactoring needed across Workstreams 4, 6, and 7
+- canonical ownership and helper consolidation in the highest-risk modules
 
 Outcome:
-- answer lifecycle, parser failures, and tool paths become traceable and debuggable
+- the largest modules become safer to change
+- new work stops inheriting the same giant-file and duplicate-helper pattern
 
-## Wave 2 - Make policy system-grade
+## Wave 2 - Harden contracts and release gates
 Focus:
+- module contract quality across all workstreams
+- testing expansion plan items that convert risk into enforceable CI gates
+
+Outcome:
+- strict mode, help, output contracts, and critical tests become part of the baseline for core surfaces
+
+## Wave 3 - Make the system observable and governed
+Focus:
+- Workstream 2
 - Workstream 3
 
 Outcome:
-- permissions, review gates, and exposure boundaries gain explicit enforcement
+- answer lifecycle, parser failures, and tool paths become traceable and debuggable
+- permissions, review gates, and exposure boundaries gain explicit runtime enforcement
 
-## Wave 3 - Harden ingestion quality
+## Wave 4 - Harden ingestion quality
 Focus:
-- Workstream 4A and the highest-value parts of 4B
+- Workstream 4A
+- the highest-value parts of Workstream 4B
 
 Outcome:
 - mixed documents and the current game-asset scope become first-class, governable evidence inputs
 
-## Wave 4 - Lock down security posture
+## Wave 5 - Lock down security and promotion posture
 Focus:
 - Workstream 5
 
 Outcome:
-- scanning, SBOMs, and promotion gates become operational defaults
+- scanning, SBOMs, provenance expectations, and promotion gates become operational defaults
 
-## Wave 5 - Harden long-running execution
+## Wave 6 - Normalize durable execution and MCP governance
 Focus:
 - Workstream 6
-
-Outcome:
-- major workflows become resilient under interruption and retry
-
-## Wave 6 - Normalize backend and MCP governance
-Focus:
 - Workstream 7
 
 Outcome:
+- major workflows become resilient under interruption and retry
 - retrieval substrate and tool lifecycle stop drifting into ad hoc growth
 
 ## Wave 7 - Certify release readiness
@@ -889,20 +938,21 @@ Marketplace and Epic/Fab content can create ownership and redistribution confusi
 
 If execution continues immediately, the first concrete sequence should be:
 
-1. reconcile version and metric truth across docs
-2. add docs consistency validation to CI
-3. define the observability trace schema
-4. instrument routing, evidence, confidence, extraction, and MCP gateway paths
-5. write the policy externalization plan and begin adapter-based migration
-6. publish the artifact and game asset ingestion model
-7. normalize marketplace provenance and asset license handling
-8. add RPG Maker asset catalog extraction and a first spritesheet parser path
-9. add security baseline automation
-10. pilot durable execution on one workflow only
-11. formalize MCP registry and lifecycle controls
-12. freeze v1.0 release criteria and work backward from them
+1. clear the highest-risk silent-failure and empty-catch issues
+2. reconcile version and metric truth across docs and keep validation in CI
+3. decompose the highest-risk large modules and reduce duplicate helper drift
+4. harden strict mode, help, output contracts, and release-gate tests on core public surfaces
+5. define the observability trace schema
+6. instrument routing, evidence, confidence, extraction, and MCP gateway paths
+7. write the policy externalization plan and begin adapter-based migration
+8. publish and normalize the mixed artifact and game asset ingestion model
+9. normalize marketplace provenance and asset license handling
+10. add security baseline automation and promotion evidence requirements
+11. pilot durable execution on one workflow only
+12. formalize MCP registry and lifecycle controls
+13. freeze v1.0 release criteria and work backward from them
 
-That is the right order because it improves operational control first, while still acknowledging that artifact and game-asset ingestion is already part of the real roadmap.
+That is the right order because it reduces hidden risk first, then strengthens structure and release trust, while still acknowledging that artifact and game-asset ingestion is already part of the real roadmap.
 
 ---
 
@@ -938,3 +988,4 @@ This plan can be considered executed when:
 - at least one long-running workflow is durably recoverable
 - MCP tool growth is governed with lifecycle rules and metadata
 - the platform has a credible, testable v1.0 release path
+

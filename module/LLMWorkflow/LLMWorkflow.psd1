@@ -4,7 +4,7 @@
         'ingestion/ExternalIngestion.ps1',
         'ingestion/ExtractionPipeline.ps1'
     )
-    ModuleVersion = '1.0.0'
+    ModuleVersion = '0.9.6'
     GUID = '8e7e91da-f11c-4a09-8ba2-4af68cc2d5fc'
     Author = 'DocDamage'
     CompanyName = 'DocDamage'

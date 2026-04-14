@@ -1,7 +1,7 @@
 # PowerShell Unicode Safety Guide for AI Agents
 
 ## Related Docs
-- [Technical Debt Audit](../implementation/TECHNICAL_DEBT_AUDIT.md)
+- [Technical Debt Audit Summary](../implementation/TECHNICAL_DEBT_AUDIT.md)
 - [Implementation Progress](../implementation/PROGRESS.md)
 - [Remaining Work](../implementation/REMAINING_WORK.md)
 - [Troubleshooting Guide](../operations/TROUBLESHOOTING.md)
@@ -304,3 +304,4 @@ if ($errors.Count -gt 0) {
     $errors | ForEach-Object { Write-Error $_.Message }
 }
 ```
+

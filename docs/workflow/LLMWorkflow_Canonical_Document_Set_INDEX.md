@@ -5,7 +5,7 @@ This is the active canonical document set for the LLM Workflow platform.
 ## Related Docs
 - [Post-0.9.6 Strategic Execution Plan](../implementation/LLMWorkflow_Post_0.9.6_Strategic_Execution_Plan.md)
 - [Implementation Progress](../implementation/PROGRESS.md)
-- [Technical Debt Audit](../implementation/TECHNICAL_DEBT_AUDIT.md)
+- [Technical Debt Audit Summary](../implementation/TECHNICAL_DEBT_AUDIT.md)
 - [Remaining Work](../implementation/REMAINING_WORK.md)
 
 Use the files in this order:
@@ -61,7 +61,7 @@ It exists so that:
 | Phase 6 | Human Trust & Governance | ✅ Complete | `module/LLMWorkflow/governance/` (5 files, 85+ functions) |
 | Phase 7 | Platform Expansion (MCP, Inter-Pack) | ✅ Complete | `module/LLMWorkflow/mcp/`, `module/LLMWorkflow/interpack/`, `module/LLMWorkflow/snapshot/` (11 files, 250+ functions) |
 
-**Current Version:** 0.9.5  
+**Current Version:** 0.9.6  
 **Total Functions:** 800+  
 **Total Domain Packs:** 10 implemented  
 **Last Updated:** 2026-04-13
@@ -133,7 +133,7 @@ It exists so that:
 
 ## Current note
 
-**All Phases Complete (1-7):** The platform now supports 10 domain packs with 84 PowerShell modules and 800+ functions. MCP integration is fully deployed with `godot-mcp` and `blender-mcp` servers operational. Inter-pack pipelines are active for Blender→Godot, AI generation workflows, voice animation pipelines, and ML deployment chains.
+**All Phases Complete (1-7):** The platform now supports 10 domain packs with 121 PowerShell modules and 800+ functions. MCP integration is fully deployed with `godot-mcp` and `blender-mcp` servers operational. Inter-pack pipelines are active for Blender→Godot, AI generation workflows, voice animation pipelines, and ML deployment chains.
 
 **Appendage A Complete:** All 15 extended Godot sources have been integrated into the godot-engine pack, bringing the total to 43 sources. This includes testing frameworks (gdUnit4), AI behavior systems (LimboAI, FSM), dialogue systems (Dialogic, DialogueQuest), quest/inventory systems, rollback networking, editor VCS, signal visualization, save systems, RPG data frameworks (Pandora), chunk streaming (chunx), alternate voxel terrain, and platform-service integration.
 
@@ -154,3 +154,4 @@ It exists so that:
 - Composite gateway for multi-tool orchestration
 - Inter-pack transport with provenance preservation
 - Snapshot management and rollback across packs
+

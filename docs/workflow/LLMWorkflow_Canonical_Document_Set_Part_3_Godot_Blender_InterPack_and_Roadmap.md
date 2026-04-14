@@ -1429,9 +1429,9 @@ The platform now supports **10 domain packs**:
 
 ### Current Statistics
 
-- **84 PowerShell modules** across all phases
+- **121 PowerShell modules** across all phases
 - **800+ total functions**
-- **Version 0.9.5**
+- **Version 0.9.6**
 - **All retrieval profiles** (7 profiles) operational
 - **Golden task evaluation** framework active
 
@@ -1446,4 +1446,5 @@ The biggest risk has been addressed through disciplined implementation:
 
 The platform now maintains control of state, evidence, pack promotion, and private/public boundaries as it scales across multiple domain packs.
 
-**See [PROGRESS.md](../../docs/implementation/PROGRESS.md) and [PHASE5_PHASE6_IMPLEMENTATION_SUMMARY.md](PHASE5_PHASE6_IMPLEMENTATION_SUMMARY.md) for detailed implementation status.**
+**See [PROGRESS.md](../../docs/implementation/PROGRESS.md) and [PHASE7_IMPLEMENTATION_SUMMARY.md](../implementation/PHASE7_IMPLEMENTATION_SUMMARY.md) for detailed implementation status.**
+

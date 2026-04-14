@@ -1,8 +1,8 @@
 # LLM Workflow Platform — Overview
 
-**Version:** 0.8.0  
-**Last Updated:** 2026-04-12  
-**Total Functions:** 800+ | **Modules:** 84 | **Domain Packs:** 10
+**Version:** 0.9.6  
+**Last Updated:** 2026-04-13  
+**Total Functions:** 800+ | **Modules:** 121 | **Domain Packs:** 10
 
 ## Related Docs
 - [Architecture](./ARCHITECTURE.md)
@@ -27,11 +27,11 @@ The **LLM Workflow Platform** is a comprehensive, enterprise-grade system for st
 | Metric | Count |
 |--------|-------|
 | **Domain Packs** | 10 |
-| **PowerShell Modules** | 84 |
+| **PowerShell Modules** | 121 |
 | **Exported Functions** | 800+ |
-| **Extraction Parsers** | 25 |
+| **Extraction Parsers** | 30 |
 | **Retrieval Profiles** | 25+ |
-| **Golden Tasks** | 10 |
+| **Golden Tasks** | 60 |
 | **Supported File Formats** | 30+ |
 
 ### Target Audiences
@@ -581,27 +581,27 @@ Export-HealthReport -CompareWithPrevious
 
 ### Golden Task Validation
 
-**10 Predefined Golden Tasks:**
+**Sample Golden Tasks (10 shown of 60 total):**
 
 | Task ID | Pack | Description |
 |---------|------|-------------|
-| gt-rpgmaker-001 | rpgmaker-mz | Plugin skeleton generation |
-| gt-rpgmaker-002 | rpgmaker-mz | Conflict diagnosis |
-| gt-rpgmaker-003 | rpgmaker-mz | Notetag extraction |
-| gt-rpgmaker-004 | rpgmaker-mz | Patch analysis |
-| gt-godot-001 | godot-engine | GDScript class extraction |
-| gt-godot-002 | godot-engine | Signal connection analysis |
-| gt-godot-003 | godot-engine | Autoload setup verification |
-| gt-blender-001 | blender-engine | Operator registration |
-| gt-blender-002 | blender-engine | Geometry nodes parsing |
-| gt-blender-003 | blender-engine | Addon manifest validation |
+| gt-rpgmaker-mz-001 | rpgmaker-mz | Plugin skeleton generation |
+| gt-rpgmaker-mz-002 | rpgmaker-mz | Conflict diagnosis |
+| gt-rpgmaker-mz-003 | rpgmaker-mz | Notetag extraction |
+| gt-rpgmaker-mz-004 | rpgmaker-mz | Patch analysis |
+| gt-godot-001 | godot | GDScript class extraction |
+| gt-godot-002 | godot | Signal connection analysis |
+| gt-godot-003 | godot | Autoload setup verification |
+| gt-blender-001 | blender | Operator registration |
+| gt-blender-002 | blender | Geometry nodes parsing |
+| gt-blender-003 | blender | Addon manifest validation |
 
 ```powershell
 # Run all golden tasks for a pack
-$results = Invoke-PackGoldenTasks -PackId "godot-engine" -Parallel
+$results = Invoke-PackGoldenTasks -PackId "godot" -Parallel
 
 # Replay with new configuration
-$replay = Invoke-GoldenTaskReplay -TaskId "gt-rpgmaker-001" `
+$replay = Invoke-GoldenTaskReplay -TaskId "gt-rpgmaker-mz-001" `
                                   -BaselineConfig $oldConfig `
                                   -NewConfig $newConfig
 
@@ -615,7 +615,7 @@ if (Test-Regression -Baseline $before -Current $after) {
 
 ## 9. Additional Resources
 
-- **Full Documentation:** [README.md](README.md)
+- **Full Documentation:** [README.md](../../README.md)
 - **Architecture Details:** [docs/ARCHITECTURE.md](../../docs/architecture/ARCHITECTURE.md)
 - **Troubleshooting:** [docs/TROUBLESHOOTING.md](../../docs/operations/TROUBLESHOOTING.md)
 - **Canonical Documents:**
@@ -627,3 +627,4 @@ if (Test-Regression -Baseline $before -Current $after) {
 ---
 
 *End of Platform Overview*
+

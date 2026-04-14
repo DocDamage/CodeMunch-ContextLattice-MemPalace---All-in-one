@@ -9,7 +9,7 @@
 ## Related Docs
 - [Post-0.9.6 Strategic Execution Plan](./LLMWorkflow_Post_0.9.6_Strategic_Execution_Plan.md)
 - [Implementation Progress](./PROGRESS.md)
-- [Technical Debt Audit](./TECHNICAL_DEBT_AUDIT.md)
+- [Technical Debt Audit Summary](./TECHNICAL_DEBT_AUDIT.md)
 - [Remaining Work](./REMAINING_WORK.md)
 
 ---
@@ -419,3 +419,4 @@ The LLM Workflow platform is now feature-complete per the canonical document spe
 ---
 
 *For full architecture details, see the LLM Workflow Canonical Document Set.*
+

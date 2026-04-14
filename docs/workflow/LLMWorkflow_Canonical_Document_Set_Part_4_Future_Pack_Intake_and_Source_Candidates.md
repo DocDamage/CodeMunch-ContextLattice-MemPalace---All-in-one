@@ -382,13 +382,13 @@ Quick reference links to all implemented pack manifests and parsers:
 
 | Pack | Manifest | Parsers | Authority Roles |
 |------|----------|---------|-----------------|
-| **API Reverse Tooling** | [`packs/manifests/api-reverse-tooling.json`](packs/manifests/api-reverse-tooling.json) | `TrafficCaptureParser.ps1`<br>`OpenAPIExtractor.ps1` | `reverse-format`<br>`tooling-analyzer` |
-| **Notebook/Data Workflow** | [`packs/manifests/notebook-data-workflow.json`](packs/manifests/notebook-data-workflow.json) | `NotebookParser.ps1`<br>`DataFramePatternExtractor.ps1` | `notebook-tooling` |
-| **Agent Simulation** | [`packs/manifests/agent-simulation.json`](packs/manifests/agent-simulation.json) | `AgentPatternExtractor.ps1`<br>`VectorStoreExtractor.ps1` | `agent-simulation` |
-| **Voice/Audio Generation** | [`packs/manifests/voice-audio-generation.json`](packs/manifests/voice-audio-generation.json) | `VoiceModelExtractor.ps1`<br>`AudioProcessingExtractor.ps1` | `voice-generation` |
-| **Engine Reference** | [`packs/manifests/engine-reference.json`](packs/manifests/engine-reference.json) | `EngineArchitectureExtractor.ps1`<br>`ScriptRuntimeExtractor.ps1` | `engine-reference` |
-| **UI/Frontend Framework** | [`packs/manifests/ui-frontend-framework.json`](packs/manifests/ui-frontend-framework.json) | `ComponentLibraryExtractor.ps1`<br>`DesignSystemExtractor.ps1` | `frontend-framework`<br>`ui-component-library` |
-| **ML/Educational Reference** | [`packs/manifests/ml-educational-reference.json`](packs/manifests/ml-educational-reference.json) | `EducationalContentExtractor.ps1`<br>`MLConceptExtractor.ps1` | `educational-reference`<br>`math-reference` |
+| **API Reverse Tooling** | [`packs/manifests/api-reverse-tooling.json`](../../packs/manifests/api-reverse-tooling.json) | `TrafficCaptureParser.ps1`<br>`OpenAPIExtractor.ps1` | `reverse-format`<br>`tooling-analyzer` |
+| **Notebook/Data Workflow** | [`packs/manifests/notebook-data-workflow.json`](../../packs/manifests/notebook-data-workflow.json) | `NotebookParser.ps1`<br>`DataFramePatternExtractor.ps1` | `notebook-tooling` |
+| **Agent Simulation** | [`packs/manifests/agent-simulation.json`](../../packs/manifests/agent-simulation.json) | `AgentPatternExtractor.ps1`<br>`VectorStoreExtractor.ps1` | `agent-simulation` |
+| **Voice/Audio Generation** | [`packs/manifests/voice-audio-generation.json`](../../packs/manifests/voice-audio-generation.json) | `VoiceModelExtractor.ps1`<br>`AudioProcessingExtractor.ps1` | `voice-generation` |
+| **Engine Reference** | [`packs/manifests/engine-reference.json`](../../packs/manifests/engine-reference.json) | `EngineArchitectureExtractor.ps1`<br>`ScriptRuntimeExtractor.ps1` | `engine-reference` |
+| **UI/Frontend Framework** | [`packs/manifests/ui-frontend-framework.json`](../../packs/manifests/ui-frontend-framework.json) | `ComponentLibraryExtractor.ps1`<br>`DesignSystemExtractor.ps1` | `frontend-framework`<br>`ui-component-library` |
+| **ML/Educational Reference** | [`packs/manifests/ml-educational-reference.json`](../../packs/manifests/ml-educational-reference.json) | `EducationalContentExtractor.ps1`<br>`MLConceptExtractor.ps1` | `educational-reference`<br>`math-reference` |
 
 ---
 
@@ -432,3 +432,4 @@ That distinction matters because the toolkit should not mix:
 - historical web frameworks
 
 into one fake category.
+

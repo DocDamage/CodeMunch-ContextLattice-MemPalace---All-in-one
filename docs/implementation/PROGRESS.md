@@ -4,7 +4,7 @@ This document tracks the implementation progress against the IMPROVEMENT_PROPOSA
 
 ## Related Docs
 - [Post-0.9.6 Strategic Execution Plan](./LLMWorkflow_Post_0.9.6_Strategic_Execution_Plan.md)
-- [Technical Debt Audit](./TECHNICAL_DEBT_AUDIT.md)
+- [Technical Debt Audit Summary](./TECHNICAL_DEBT_AUDIT.md)
 - [Remaining Work](./REMAINING_WORK.md)
 
 ## Overall Status
@@ -23,10 +23,10 @@ This document tracks the implementation progress against the IMPROVEMENT_PROPOSA
 **Last Updated:** 2026-04-13
 
 **Current Version:** 0.9.6  
-**PowerShell Modules:** 108  
+**PowerShell Modules:** 121  
 **Domain Packs:** 10  
-**Extraction Parsers:** 31  
-**Golden Tasks:** 71  
+**Extraction Parsers:** 30  
+**Golden Tasks:** 60  
 **Performance Benchmark Suites:** 5
 
 ---
@@ -563,10 +563,10 @@ This means the strategic emphasis has shifted from raw expansion toward:
 | HumanAnnotations.ps1 | 12 | Annotations and overrides (7 types) |
 | PackSLOs.ps1 | 12 | SLOs and telemetry |
 | HumanReviewGates.ps1 | 22 | Review gates and approvals |
-| GoldenTasks.ps1 | 10 | 30 predefined golden tasks |
+| GoldenTasks.ps1 | 10 | 60 predefined golden tasks |
 | ReplayHarness.ps1 | 12 | Replay and regression testing |
 
-### Golden Tasks (30 Predefined)
+### Golden Tasks (60 Predefined)
 
 **RPG Maker MZ (10 tasks):**
 - Plugin skeleton generation
@@ -832,7 +832,7 @@ This means the strategic emphasis has shifted from raw expansion toward:
 | Compatibility | 16 | ✅ | `Compatibility.ps1` |
 | Notifications | 20 | ✅ | `Notifications.ps1` |
 | Performance benchmarks | 18 | ✅ | 5 benchmark suites |
-| Golden tasks | 19 | ✅ | 30 golden tasks |
+| Golden tasks | 19 | ✅ | 60 golden tasks |
 | MCP deployment | 21 | ✅ | `MCPDeployment.ps1` |
 | Inter-pack pipelines | 22 | ✅ | `InterPackTransport.ps1` |
 
@@ -993,7 +993,7 @@ module/LLMWorkflow/governance/
 ├── HumanAnnotations.ps1     # 12 functions - Annotations (7 types)
 ├── PackSLOs.ps1             # 12 functions - SLOs and telemetry
 ├── HumanReviewGates.ps1     # 22 functions - Review gates
-├── GoldenTasks.ps1          # 10 functions - 30 golden tasks
+├── GoldenTasks.ps1          # 10 functions - 60 golden tasks
 └── ReplayHarness.ps1        # 12 functions - Replay testing
 
 Total: 5 modules, 85+ functions, ~180KB
@@ -1003,10 +1003,10 @@ Total: 5 modules, 85+ functions, ~180KB
 ```
 module/LLMWorkflow/mcp/
 ├── MCPToolkitServer.ps1      # 6 functions - Native toolkit server (decomposed)
-�   +-- MCPToolkitGodot.ps1         # Godot tool handlers
-�   +-- MCPToolkitBlender.ps1       # Blender tool handlers
-�   +-- MCPToolkitPack.ps1          # Pack tool handlers
-�   +-- MCPToolkitRPGMaker.ps1      # RPG Maker tool handlers
+�   +-- MCPToolkitGodot.ps1         # Godot tool handlers
+�   +-- MCPToolkitBlender.ps1       # Blender tool handlers
+�   +-- MCPToolkitPack.ps1          # Pack tool handlers
+�   +-- MCPToolkitRPGMaker.ps1      # RPG Maker tool handlers
 ├── MCPCompositeGateway.ps1   # 8 functions - Composite gateway
 ├── MCPDeployment.ps1         # 12 functions - Deployment automation
 ├── MCPResourceManager.ps1    # 10 functions - Resource management
@@ -1078,7 +1078,7 @@ Total: 5 benchmark suites
 | Compatibility | 16 | ✅ | `Compatibility.ps1` |
 | Notifications | 20 | ✅ | `Notifications.ps1` |
 | Performance benchmarks | 18 | ✅ | 5 benchmark suites |
-| Golden tasks | 19 | ✅ | 30 golden tasks |
+| Golden tasks | 19 | ✅ | 60 golden tasks |
 | MCP deployment | 21 | ✅ | `MCPDeployment.ps1` |
 | Inter-pack pipelines | 22 | ✅ | `InterPackTransport.ps1` |
 
@@ -1123,6 +1123,7 @@ All 8 implementation phases are complete, but the repo is still in v1.0 hardenin
 - expand governance coverage only when test and policy enforcement keep pace
 
 For detailed backlog and exit criteria, see [REMAINING_WORK.md](./REMAINING_WORK.md).
+
 
 
 

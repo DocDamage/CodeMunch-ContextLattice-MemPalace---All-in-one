@@ -2,15 +2,16 @@
 
 [![Version](https://img.shields.io/badge/version-0.9.6-blue.svg)](https://github.com/yourusername/CodeMunch-ContextLattice-MemPalace)
 [![Packs](https://img.shields.io/badge/domain%20packs-10-green.svg)](#domain-packs)
-[![Modules](https://img.shields.io/badge/PowerShell%20modules-108-purple.svg)](#module-inventory)
-[![MCP](https://img.shields.io/badge/MCP%20tools-15+-orange.svg)](#advanced-features)
+[![Modules](https://img.shields.io/badge/PowerShell%20modules-121-purple.svg)](#module-inventory)
+[![MCP](https://img.shields.io/badge/MCP%20tools-55-orange.svg)](#advanced-features)
 
 Canonical toolkit repo for the integrated workflow:
 
 ## Related Docs
 - [Post-0.9.6 Strategic Execution Plan](docs/implementation/LLMWorkflow_Post_0.9.6_Strategic_Execution_Plan.md)
 - [Implementation Progress](docs/implementation/PROGRESS.md)
-- [Technical Debt Audit](docs/implementation/TECHNICAL_DEBT_AUDIT.md)
+- [Technical Debt Audit Summary](docs/implementation/TECHNICAL_DEBT_AUDIT.md)
+- [Detailed Working Audit](deep_audit_results.txt)
 - [Remaining Work](docs/implementation/REMAINING_WORK.md)
 
 ## Remediation Status (2026-04-13)
@@ -22,20 +23,20 @@ Canonical toolkit repo for the integrated workflow:
 - core/pack/framework/benchmark suites remediated and passing
 
 ### Still Left To Do
-- bound the public module export contract (remove wildcard API surface)
-- consolidate duplicate helper/function definitions across loaded modules
-- collapse parallel subsystem forks and finalize canonical ownership
-- finish secondary version metadata alignment across dashboard/release-note surfaces
-- continue observability, policy, and security hardening as v1.0 release gates
+- continue Priority 0 failure-visibility cleanup and silent-failure reduction
+- continue structural decomposition of the largest high-risk modules
+- harden strict mode, help, and output contracts on core public surfaces
+- deepen observability and policy enforcement on critical runtime paths
+- keep mixed-artifact and game-asset ingestion outputs governable, tested, and provenance-aware
 
 - `CodeMunch Pro` project indexing and MCP wrapper setup
 - `ContextLattice` project bootstrap + connectivity verification
 - `MemPalace -> ContextLattice` incremental bridge
 - **10 Domain Packs** with specialized knowledge extraction
-- **107 PowerShell Modules** for workflow automation
+- **121 PowerShell Modules** for workflow automation
 - **MCP Toolkit Servers** for Godot, Blender, and RPG Maker
 - **Inter-Pack Pipelines** for cross-domain asset workflows
-- **Golden Task Evaluations** with 30+ validation scenarios
+- **Golden Task Evaluations** with 60 predefined validation scenarios
 - one global command to bootstrap any repo in one shot
 
 ## Why Use This Toolkit?
@@ -123,7 +124,7 @@ graph TB
         A5[llmbenchmark]
     end
     
-    subgraph ModuleLayer["PowerShell Module Layer<br/>107 Modules"]
+    subgraph ModuleLayer["PowerShell Module Layer<br/>121 Modules"]
         B1[Invoke-LLMWorkflowUp]
         B2[Test-LLMWorkflowSetup]
         B3[Resolve-ProviderProfile]
@@ -323,7 +324,7 @@ flowchart TD
 |-----------|-------|-------------|
 | **Godot Pack Sources** | 43 | Indexed Godot engine documentation and reference sources |
 | **Source Families** | 11 | Hierarchical source categorization groups |
-| **Extraction Parsers** | 28 | Domain-specific structured extraction parsers |
+| **Extraction Parsers** | 30 | Domain-specific structured extraction parsers |
 
 For detailed architecture documentation, see [docs/ARCHITECTURE.md](docs/architecture/ARCHITECTURE.md).
 
@@ -764,16 +765,16 @@ $result.ValidationResults
 $results = Invoke-PackGoldenTasks -PackId "rpgmaker-mz" -Parallel
 
 # Get predefined tasks
-$tasks = Get-PredefinedGoldenTasks -PackId "godot-engine"
+$tasks = Get-PredefinedGoldenTasks -PackId "godot"
 ```
 
-**Predefined Golden Tasks (30 total across all packs):**
-- **RPG Maker MZ (8)**: Plugin skeleton, conflict diagnosis, notetag extraction, patch analysis, command registration, parameter validation, plugin ordering, save data handling
-- **Godot Engine (7)**: GDScript class, signal connection, autoload setup, scene instantiation, resource loading, shader material, node communication
-- **Blender Engine (6)**: Operator registration, geometry nodes, addon manifest, material setup, mesh optimization, rendering pipeline
-- **Voice/Audio (4)**: TTS generation, voice cloning, lip-sync mapping, audio pipeline processing
-- **Agent Simulation (3)**: Multi-agent setup, tool calling, memory persistence
-- **Notebook/Data (2)**: Jupyter extraction, HAR analysis
+**Predefined Golden Tasks (60 total across 6 pack families):**
+- **RPG Maker MZ (10)**: Plugin skeletons, conflict diagnosis, notetag extraction, engine patch analysis, command aliasing, parameter validation, event conversion, animation sequences, save customization, menu extension
+- **Godot (10)**: GDScript classes, signals, autoloads, scene inheritance, resource loading, custom nodes, editor plugins, shaders, input mapping, multiplayer patterns
+- **Blender (10)**: Operators, geometry nodes, addon manifests, panels, property groups, material nodes, rigging automation, render pipelines, import/export flows, keymaps
+- **API Reverse Tooling (10)**: Endpoint discovery, schema inference, OpenAPI generation, auth detection, GraphQL analysis, gRPC reconstruction, validation, rate limits, error patterns, changelog detection
+- **Notebook/Data Workflow (10)**: Versioning, output caching, lineage, dependency graphs, validation rules, visualization generation, profiling, feature engineering, training tracking, experiment comparison
+- **Agent Simulation (10)**: Setup, reward design, trajectory analysis, A/B testing, environment configuration, behavior validation, policy optimization, replay, metrics, collaboration patterns
 
 #### Replay Harness
 Before/after comparison for upgrades:
@@ -964,15 +965,15 @@ Export-BenchmarkReport -Results $results -Format html -OutputPath "./benchmark-r
 | Sync | Throughput, conflict resolution |
 | MCP | Tool invocation latency |
 
-### Golden Task Evaluations (30 Tasks)
-Comprehensive quality validation with 30 predefined real-world tasks:
+### Golden Task Evaluations (60 Tasks)
+Comprehensive quality validation with 60 predefined real-world tasks:
 
 ```powershell
 # Run all golden tasks
 $results = Invoke-AllGoldenTasks -Parallel -ReportResults
 
 # Run pack-specific tasks
-$results = Invoke-PackGoldenTasks -PackId "godot-engine" -Verbose
+$results = Invoke-PackGoldenTasks -PackId "godot" -Verbose
 
 # Check specific task
 $result = Invoke-GoldenTaskEval -TaskId "gt-godot-001" -RecordResults
@@ -982,16 +983,16 @@ $result.Passed  # $true or $false
 Export-GoldenTaskReport -Results $results -Format markdown
 ```
 
-**Golden Task Coverage (30 Total):**
+**Golden Task Coverage (60 Total):**
 
 | Pack | Tasks | Examples |
 |------|-------|----------|
-| RPG Maker MZ | 8 | Plugin skeleton, conflict diagnosis, notetag extraction, patch analysis |
-| Godot Engine | 7 | GDScript class, signal connection, autoload setup, scene instantiation |
-| Blender Engine | 6 | Operator registration, geometry nodes, addon manifest, material setup |
-| Voice/Audio | 4 | TTS generation, voice cloning, lip-sync, audio pipeline |
-| Agent Simulation | 3 | Multi-agent setup, tool calling, memory persistence |
-| Notebook/Data | 2 | Jupyter extraction, HAR analysis |
+| RPG Maker MZ | 10 | Plugin skeleton, conflict diagnosis, notetag extraction, patch analysis |
+| Godot | 10 | GDScript class, signal connection, autoload setup, scene instantiation |
+| Blender | 10 | Operator registration, geometry nodes, addon manifest, material setup |
+| API Reverse Tooling | 10 | Endpoint discovery, schema inference, OpenAPI generation, auth detection |
+| Notebook/Data Workflow | 10 | Notebook versioning, output caching, lineage tracking, validation rules |
+| Agent Simulation | 10 | Multi-agent setup, reward design, replay analysis, metrics collection |
 
 **SLO Targets:**
 | Metric | Target |
@@ -1888,5 +1889,7 @@ git commit -m "Release 0.2.1"
 
 PowerShell Gallery publish is automated on GitHub Release publish when
 `PSGALLERY_API_KEY` is configured in repo secrets.
+
+
 
 
