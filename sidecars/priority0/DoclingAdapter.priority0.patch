@@ -1,0 +1,84 @@
+Target: `module/LLMWorkflow/ingestion/DoclingAdapter.ps1`
+
+Reason:
+- stop silently swallowing timeout-kill failures
+- stop silently swallowing temp-directory cleanup failures
+
+---
+
+## Patch A: surface kill failure in `Test-DoclingAvailable`
+
+Replace:
+
+```powershell
+if (-not $process.HasExited) {
+    try { $process.Kill() } catch { }
+    return $false
+}
+```
+
+With:
+
+```powershell
+if (-not $process.HasExited) {
+    try {
+        $process.Kill()
+    }
+    catch {
+        Write-Warning "[$script:ModuleName] Failed to terminate timed-out Docling availability check process: $($_.Exception.Message)"
+    }
+    return $false
+}
+```
+
+## Patch B: surface kill failure in `Invoke-DoclingExtraction`
+
+Replace:
+
+```powershell
+if (-not $completed) {
+    try { $process.Kill() } catch { }
+    throw 'Docling extraction timed out.'
+}
+```
+
+With:
+
+```powershell
+if (-not $completed) {
+    try {
+        $process.Kill()
+    }
+    catch {
+        Write-Warning "[$script:ModuleName] Failed to terminate timed-out Docling extraction process: $($_.Exception.Message)"
+    }
+    throw 'Docling extraction timed out.'
+}
+```
+
+## Patch C: surface temp cleanup failure
+
+Replace:
+
+```powershell
+finally {
+    if (Test-Path -LiteralPath $tempOutDir) {
+        Remove-Item -LiteralPath $tempOutDir -Recurse -Force -ErrorAction SilentlyContinue
+    }
+}
+```
+
+With:
+
+```powershell
+finally {
+    if (Test-Path -LiteralPath $tempOutDir) {
+        try {
+            Remove-Item -LiteralPath $tempOutDir -Recurse -Force -ErrorAction Stop
+        }
+        catch {
+            Write-Warning "[$script:ModuleName] Failed to remove temporary output directory '$tempOutDir': $($_.Exception.Message)"
+        }
+    }
+}
+```
