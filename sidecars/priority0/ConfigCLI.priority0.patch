@@ -1,0 +1,114 @@
+Target: `module/LLMWorkflow/core/ConfigCLI.ps1`
+
+Reason:
+- reduce `Write-Host` usage in a reusable exported module
+- keep human-readable CLI feedback while making the function more pipeline-safe and testable
+- preserve `Write-Output` for actual queried values and move status messaging to information/warning/error streams
+
+---
+
+## Patch A: replace `Write-Host` success output for `--mode`
+
+Replace:
+
+```powershell
+Set-ExecutionMode -Mode $Mode -Persist
+Write-Host "Execution mode set to: $Mode" -ForegroundColor Green
+return
+```
+
+With:
+
+```powershell
+Set-ExecutionMode -Mode $Mode -Persist
+Write-Information "Execution mode set to: $Mode"
+return
+```
+
+## Patch B: replace `Write-Host` success output for `--set`
+
+Replace:
+
+```powershell
+Write-Host "Configuration saved to central profile '$Profile': $setPath = $setValue" -ForegroundColor Green
+```
+
+With:
+
+```powershell
+Write-Information "Configuration saved to central profile '$Profile': $setPath = $setValue"
+```
+
+Replace:
+
+```powershell
+Write-Host "Configuration saved to project: $setPath = $setValue" -ForegroundColor Green
+```
+
+With:
+
+```powershell
+Write-Information "Configuration saved to project: $setPath = $setValue"
+```
+
+## Patch C: replace validation status `Write-Host` block with information/warning output
+
+Replace the validation reporting block:
+
+```powershell
+if ($validation.IsValid) {
+    Write-Host "Configuration is valid" -ForegroundColor Green
+    Write-Host "  Validated at: $($validation.ValidatedAt)" -ForegroundColor Gray
+} else {
+    Write-Host "Configuration validation failed" -ForegroundColor Red
+    Write-Host "  Errors: $($validation.ErrorCount)" -ForegroundColor Red
+    Write-Host "  Warnings: $($validation.WarningCount)" -ForegroundColor Yellow
+    Write-Host ""
+    
+    if ($validation.Errors.Count -gt 0) {
+        Write-Host "Errors:" -ForegroundColor Red
+        foreach ($err in $validation.Errors) {
+            Write-Host "  [$($err.Severity)] $($err.Path): $($err.Message)" -ForegroundColor Red
+        }
+    }
+    
+    if ($validation.Warnings.Count -gt 0) {
+        Write-Host "Warnings:" -ForegroundColor Yellow
+        foreach ($warn in $validation.Warnings) {
+            Write-Host "  [$($warn.Severity)] $($warn.Path): $($warn.Message)" -ForegroundColor Yellow
+        }
+    }
+}
+```
+
+With:
+
+```powershell
+if ($validation.IsValid) {
+    Write-Information "Configuration is valid"
+    Write-Information "  Validated at: $($validation.ValidatedAt)"
+}
+else {
+    Write-Warning "Configuration validation failed"
+    Write-Warning "  Errors: $($validation.ErrorCount)"
+    Write-Warning "  Warnings: $($validation.WarningCount)"
+
+    if ($validation.Errors.Count -gt 0) {
+        Write-Warning "Errors:"
+        foreach ($err in $validation.Errors) {
+            Write-Warning "  [$($err.Severity)] $($err.Path): $($err.Message)"
+        }
+    }
+
+    if ($validation.Warnings.Count -gt 0) {
+        Write-Warning "Warnings:"
+        foreach ($warn in $validation.Warnings) {
+            Write-Warning "  [$($warn.Severity)] $($warn.Path): $($warn.Message)"
+        }
+    }
+}
+```
+
+Notes:
+- keep `Write-Output` untouched in the `--get` path because that is actual command data
+- keep `Write-Error` untouched for invalid mode and invalid `--set` syntax because those are genuine terminating/non-terminating error channel use cases
