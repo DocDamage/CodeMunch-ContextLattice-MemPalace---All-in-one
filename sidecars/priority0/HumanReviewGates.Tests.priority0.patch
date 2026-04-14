@@ -1,0 +1,34 @@
+Target: `tests/HumanReviewGates.Tests.ps1` (new test file if absent)
+
+Reason:
+- lock in the Priority 0 fix that dot-sourced execution should not rely on silent `Export-ModuleMember` failure
+- verify module-export behavior is explicit and non-fatal outside module context
+
+---
+
+## Patch: add dot-sourcing export regression test scaffold
+
+```powershell
+Describe "HumanReviewGates Priority 0 regressions" {
+    It "Does not throw when the file is dot-sourced outside module context" {
+        $modulePath = Join-Path $PSScriptRoot '../module/LLMWorkflow/governance/HumanReviewGates.ps1'
+
+        { . $modulePath } | Should -Not -Throw
+    }
+}
+```
+
+## Stronger future assertion shape
+
+```powershell
+# Future stronger version:
+# - dot-source the module in a clean session
+# - capture verbose output
+# - assert it emits a message equivalent to:
+#   "Skipping Export-ModuleMember because the file is being dot-sourced"
+# - verify no silent catch path is required for successful test execution
+```
+
+Why this belongs:
+- the Priority 0 fix removes exception-driven control flow for export behavior
+- this test anchors the intended non-module execution path without depending on silent failure
