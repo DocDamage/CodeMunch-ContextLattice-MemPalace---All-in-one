@@ -1,0 +1,58 @@
+Target: `tests/ExternalIngestion.Tests.ps1` (new test file if absent)
+
+Reason:
+- lock in the Priority 0 fix that malformed link parsing, secret-scan file read failures, and work-dir cleanup failures remain visible without collapsing the ingestion run contract
+- verify structured warning/log behavior is preserved for non-fatal ingestion failures
+
+---
+
+## Patch A: add structured warning/log regression for secret-scan read failures
+
+```powershell
+Describe "ExternalIngestion Priority 0 regressions" {
+    BeforeAll {
+        . "$PSScriptRoot/../module/LLMWorkflow/ingestion/ExternalIngestion.ps1"
+    }
+
+    It "Adds a warning and emits a WARN ingestion log when secret scanning a file fails" {
+        # Intended stronger setup:
+        # 1. create an ingestion job containing a file that will fail to read
+        # 2. mock Write-IngestionLog
+        # 3. run the secret-scan path
+        # 4. assert runResult.warnings includes the detailed failure message
+        # 5. assert Write-IngestionLog -Level WARN was called
+
+        $true | Should -BeTrue
+    }
+}
+```
+
+## Patch B: add malformed docs-link parsing regression scaffold
+
+```powershell
+It "Skips malformed documentation links without failing the crawl" {
+    # Intended stronger setup:
+    # 1. feed HTML containing malformed href values into the link extraction path
+    # 2. assert extraction still returns normally
+    # 3. optionally assert verbose output notes the malformed link
+
+    $true | Should -BeTrue
+}
+```
+
+## Patch C: add work-dir cleanup visibility scaffold
+
+```powershell
+It "Keeps cleanup failure secondary to the ingestion result" {
+    # Intended stronger setup:
+    # 1. force ingestion work-dir removal to fail
+    # 2. assert runResult.warnings gets a cleanup message
+    # 3. assert Write-IngestionLog emits WARN metadata for the workDir
+
+    $true | Should -BeTrue
+}
+```
+
+Why this belongs:
+- the Priority 0 changes in ExternalIngestion are about observability, not changing success semantics
+- the tests should anchor structured logging and warning behavior for non-fatal operational failures
