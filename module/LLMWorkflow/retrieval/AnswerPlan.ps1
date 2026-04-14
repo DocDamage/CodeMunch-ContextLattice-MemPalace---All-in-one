@@ -159,7 +159,9 @@ function New-AnswerPlan {
         [switch]$PrivatePublicBoundaryChecked = $false,
 
         [Parameter()]
-        [switch]$DryRun
+        [switch]$DryRun,
+        [Parameter()]
+        [string]$CorrelationId = ''
     )
 
     # Get or generate run ID
@@ -295,7 +297,9 @@ function Add-PlanEvidence {
         [string[]]$SourcePacks = @(),
 
         [Parameter()]
-        [string[]]$QueryTerms = @()
+        [string[]]$QueryTerms = @(),
+        [Parameter()]
+        [string]$CorrelationId = ''
     )
 
     if ($MinimumRelevance -lt 0 -or $MinimumRelevance -gt 1) {
@@ -350,7 +354,9 @@ function Test-AnswerPlanCompleteness {
         [hashtable]$Plan,
 
         [Parameter()]
-        [switch]$Strict
+        [switch]$Strict,
+        [Parameter()]
+        [string]$CorrelationId = ''
     )
 
     $result = [ordered]@{
@@ -482,7 +488,9 @@ function Export-AnswerPlan {
         [string]$ProjectRoot = ".",
 
         [Parameter()]
-        [switch]$UseAtomicWrite = $true
+        [switch]$UseAtomicWrite = $true,
+        [Parameter()]
+        [string]$CorrelationId = ''
     )
 
     # Resolve project root
@@ -563,7 +571,9 @@ function Import-AnswerPlan {
         [string]$Path,
 
         [Parameter()]
-        [switch]$ValidateSchema = $true
+        [switch]$ValidateSchema = $true,
+        [Parameter()]
+        [string]$CorrelationId = ''
     )
 
     if (-not (Test-Path -LiteralPath $Path)) {
@@ -672,7 +682,9 @@ function New-AnswerTrace {
         [string]$EscalationTarget = "",
 
         [Parameter()]
-        [string]$RunId = ""
+        [string]$RunId = "",
+        [Parameter()]
+        [string]$CorrelationId = ''
     )
 
     # Get or generate run ID
@@ -824,7 +836,9 @@ function Add-TraceEvidence {
         [string]$ContentPreview = "",
 
         [Parameter()]
-        [string]$PackVersion = ""
+        [string]$PackVersion = "",
+        [Parameter()]
+        [string]$CorrelationId = ''
     )
 
     if ($RelevanceScore -lt 0 -or $RelevanceScore -gt 1) {
@@ -920,7 +934,9 @@ function Add-TraceExclusion {
         [double]$RelevanceScore = 0.0,
 
         [Parameter()]
-        [string]$Details = ""
+        [string]$Details = "",
+        [Parameter()]
+        [string]$CorrelationId = ''
     )
 
     $exclusion = [ordered]@{
@@ -989,7 +1005,9 @@ function Export-AnswerTrace {
         [switch]$WriteLatest = $true,
 
         [Parameter()]
-        [switch]$UseLock = $true
+        [switch]$UseLock = $true,
+        [Parameter()]
+        [string]$CorrelationId = ''
     )
 
     # Resolve project root
@@ -1109,7 +1127,9 @@ function Get-AnswerTrace {
         [string]$ProjectRoot = ".",
 
         [Parameter()]
-        [switch]$IncludeRaw
+        [switch]$IncludeRaw,
+        [Parameter()]
+        [string]$CorrelationId = ''
     )
 
     $resolvedRoot = Resolve-Path -Path $ProjectRoot -ErrorAction SilentlyContinue
@@ -1175,7 +1195,9 @@ function Get-LatestAnswerTrace {
     [OutputType([hashtable])]
     param(
         [Parameter()]
-        [string]$ProjectRoot = "."
+        [string]$ProjectRoot = ".",
+        [Parameter()]
+        [string]$CorrelationId = ''
     )
 
     $resolvedRoot = Resolve-Path -Path $ProjectRoot -ErrorAction SilentlyContinue

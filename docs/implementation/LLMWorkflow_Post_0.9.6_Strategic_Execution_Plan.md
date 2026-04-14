@@ -88,7 +88,7 @@ The planning docs now share the same ordering on purpose.
 
 ---
 
-## Execution Status Update (2026-04-13)
+## Execution Status Update (2026-04-14)
 
 ### Completed Recently
 
@@ -98,7 +98,7 @@ The planning docs now share the same ordering on purpose.
   - key stale path drift in release/workflow docs was corrected
 - CI portability and test enforcement depth improved:
   - safe Pester invocation added and wired to CI
-  - core/pack/framework/benchmark suites were remediated and pass
+  - full `tests/` baseline now runs through `tools/ci/invoke-pester-safe.ps1`, with install/bootstrap smoke, docs-truth validation, compatibility-lock validation, and ContextLattice integration wired into CI
 - pack/runtime hardening landed:
   - `RunId` script dispatch reliability fixed
   - PowerShell 5.1 compatibility improvements in pack modules

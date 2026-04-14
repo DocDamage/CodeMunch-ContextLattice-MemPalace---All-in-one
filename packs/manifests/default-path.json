@@ -1,15 +1,21 @@
-{
-  "schemaVersion": 1,
-  "packId": "default-path",
-  "updatedUtc": "2026-04-14T00:24:30.0357599Z",
-  "channel": "draft",
-  "owners": {},
-  "defaultCollections": [],
-  "createdByRunId": "20260414T002430Z-e8dc",
-  "taxonomyVersion": "1",
-  "installProfiles": {},
-  "domain": "test",
-  "createdUtc": "2026-04-14T00:24:30.0316003Z",
-  "status": "draft",
-  "version": "1.0.0"
+﻿{
+    "defaultCollections":  [
+
+                           ],
+    "domain":  "test",
+    "createdUtc":  "2026-04-14T21:39:22.0810023Z",
+    "channel":  "draft",
+    "createdByRunId":  "20260414T213922Z-c98e",
+    "taxonomyVersion":  "1",
+    "updatedUtc":  "2026-04-14T21:39:22.0810023Z",
+    "installProfiles":  {
+
+                        },
+    "version":  "1.0.0",
+    "packId":  "default-path",
+    "status":  "draft",
+    "schemaVersion":  1,
+    "owners":  {
+
+               }
 }

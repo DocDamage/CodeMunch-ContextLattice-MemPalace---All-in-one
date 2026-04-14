@@ -25,7 +25,7 @@
 | Core infrastructure (Phase 1) | released | Journaling, locking, config, policy, execution modes |
 | Pack framework (Phase 2) | released | Manifests, source registries, transactions |
 | Operator workflow (Phase 3) | released | Health scores, planner, git hooks, compatibility |
-| Structured extraction (Phase 4) | released | 37+ parsers across code and asset formats |
+| Structured extraction (Phase 4) | released | 30 parsers across code and asset formats |
 | Retrieval and answer integrity (Phase 5) | released | Query routing, arbitration, confidence, evidence |
 | Human trust and governance (Phase 6) | released | Annotations, SLOs, review gates, golden tasks |
 | MCP and inter-pack (Phase 7) | released | Toolkit servers, composite gateway, transport |
@@ -61,4 +61,5 @@ These definitions are used to keep counts consistent across README, PROGRESS, an
 |------|---------|--------|
 | 2026-04-13 | 0.9.6 | Added remediation status alignment across README, progress, audit, remaining work, and strategic plan |
 | 2026-04-13 | 0.9.6 | Added release-state documentation and truth reconciliation |
+| 2026-04-14 | 0.9.6 | Reconciled version drift and released vs documented-head wording across top-level docs; fixed parser count to 30 and added CHANGELOG to truth matrix |
 

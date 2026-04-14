@@ -176,8 +176,4 @@ Preferred replacement:
 
 ---
 
-## Current limitation note
 
-The branch now contains the truth-source document needed to sync README/progress wording, but direct in-place overwrite of large tracked docs is still constrained by the connector path available in this session.
-
-So the actual truth is now captured on-branch here first, and should be treated as the source for the next direct README / progress-file content reconciliation step.

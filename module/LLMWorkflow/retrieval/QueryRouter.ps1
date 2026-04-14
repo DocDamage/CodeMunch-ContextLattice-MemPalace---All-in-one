@@ -365,10 +365,12 @@ function Invoke-QueryRouting {
         [bool]$EnableArbitration = $true,
 
         [Parameter()]
-        [string]$CorrelationId = [Guid]::NewGuid().ToString()
+        [string]$CorrelationId = ''
     )
 
     begin {
+        if ([string]::IsNullOrWhiteSpace($CorrelationId)) { $CorrelationId = New-CorrelationId }
+        Write-Verbose "[$CorrelationId] QueryRouter Invoke-QueryRouting"
         $routingId = [Guid]::NewGuid().ToString()
         $traceAttributes = @{
             Query = $Query
@@ -493,8 +495,15 @@ function Get-RetrievalProfile {
     [OutputType([hashtable])]
     param(
         [Parameter(Mandatory = $true)]
-        [string]$ProfileName
+        [string]$ProfileName,
+        [Parameter()]
+        [string]$CorrelationId = ''
     )
+
+    begin {
+        if ([string]::IsNullOrWhiteSpace($CorrelationId)) { $CorrelationId = New-CorrelationId }
+        Write-Verbose "[$CorrelationId] QueryRouter Get-RetrievalProfile"
+    }
 
     process {
         if ($script:RetrievalProfiles.ContainsKey($ProfileName)) {
@@ -554,8 +563,13 @@ function Route-QueryToPacks {
         [hashtable]$WorkspaceContext = @{},
 
         [Parameter()]
-        [string]$CorrelationId = [Guid]::NewGuid().ToString()
+        [string]$CorrelationId = ''
     )
+
+    begin {
+        if ([string]::IsNullOrWhiteSpace($CorrelationId)) { $CorrelationId = New-CorrelationId }
+        Write-Verbose "[$CorrelationId] QueryRouter Route-QueryToPacks"
+    }
 
     process {
         # Get profile configuration
@@ -668,8 +682,13 @@ function Get-QueryIntent {
         [string]$Query,
 
         [Parameter()]
-        [string]$CorrelationId = [Guid]::NewGuid().ToString()
+        [string]$CorrelationId = ''
     )
+
+    begin {
+        if ([string]::IsNullOrWhiteSpace($CorrelationId)) { $CorrelationId = New-CorrelationId }
+        Write-Verbose "[$CorrelationId] QueryRouter Get-QueryIntent"
+    }
 
     process {
         $traceAttributes = @{
@@ -788,8 +807,15 @@ function Get-RoutingExplanation {
 
         [Parameter()]
         [ValidateSet('text', 'markdown')]
-        [string]$Format = 'text'
+        [string]$Format = 'text',
+        [Parameter()]
+        [string]$CorrelationId = ''
     )
+
+    begin {
+        if ([string]::IsNullOrWhiteSpace($CorrelationId)) { $CorrelationId = New-CorrelationId }
+        Write-Verbose "[$CorrelationId] QueryRouter Get-RoutingExplanation"
+    }
 
     process {
         $lines = @()
@@ -1339,6 +1365,11 @@ function Get-RetrievalProfileList {
     [OutputType([array])]
     param()
 
+    begin {
+        if ([string]::IsNullOrWhiteSpace($CorrelationId)) { $CorrelationId = New-CorrelationId }
+        Write-Verbose "[$CorrelationId] QueryRouter Get-RetrievalProfileList"
+    }
+
     process {
         $profiles = @()
         
@@ -1378,6 +1409,11 @@ function Get-QueryIntentList {
     [CmdletBinding()]
     [OutputType([array])]
     param()
+
+    begin {
+        if ([string]::IsNullOrWhiteSpace($CorrelationId)) { $CorrelationId = New-CorrelationId }
+        Write-Verbose "[$CorrelationId] QueryRouter Get-QueryIntentList"
+    }
 
     process {
         $intents = @()

@@ -282,7 +282,10 @@ function Write-StructuredLog {
                 [System.IO.File]::WriteAllText($tempFile, $fullContent, [System.Text.Encoding]::UTF8)
                 
                 # Atomic rename
-                [System.IO.File]::Move($tempFile, $logPath, $true)
+                if (Test-Path -LiteralPath $logPath) {
+                    Remove-Item -LiteralPath $logPath -Force -ErrorAction Stop
+                }
+                [System.IO.File]::Move($tempFile, $logPath)
             }
             finally {
                 # Cleanup temp file if it still exists

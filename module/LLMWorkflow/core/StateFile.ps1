@@ -23,6 +23,30 @@
 
 Set-StrictMode -Version Latest
 
+function ConvertTo-Hashtable {
+    [CmdletBinding()]
+    param([Parameter(ValueFromPipeline = $true)]$InputObject)
+    process {
+        if ($null -eq $InputObject) { return $null }
+        if ($InputObject -is [System.Collections.Hashtable]) { return $InputObject }
+        if ($InputObject -is [System.Management.Automation.PSCustomObject]) {
+            $hash = @{}
+            foreach ($property in $InputObject.PSObject.Properties) {
+                $hash[$property.Name] = (ConvertTo-Hashtable -InputObject $property.Value)
+            }
+            return $hash
+        }
+        if ($InputObject -is [System.Collections.IEnumerable] -and $InputObject -isnot [string]) {
+            $collection = @()
+            foreach ($item in $InputObject) {
+                $collection += (ConvertTo-Hashtable -InputObject $item)
+            }
+            return $collection
+        }
+        return $InputObject
+    }
+}
+
 # Import dependency functions (assumes AtomicWrite.ps1 is available)
 # In a module context, these would be imported via the module manifest
 
@@ -204,7 +228,7 @@ function Read-StateFile {
             }
         }
 
-        $parsed = $rawContent | ConvertFrom-Json -AsHashtable
+        $parsed = $rawContent | ConvertFrom-Json | ConvertTo-Hashtable
 
         # Check for schema header
         $schema = $null
@@ -367,6 +391,7 @@ function Write-StateFile {
         $bytes = [System.Text.Encoding]::UTF8.GetBytes($json)
 
         # Create backup if file exists
+        $backupResult = $null
         if (Test-Path -LiteralPath $resolvedPath) {
             $backupResult = Backup-StateFile -Path $resolvedPath -BackupCount $BackupCount
         }
@@ -383,7 +408,10 @@ function Write-StateFile {
         }
 
         # Atomic rename
-        [System.IO.File]::Move($tempPath, $resolvedPath, $true)
+        if (Test-Path -LiteralPath $resolvedPath) {
+            Remove-Item -LiteralPath $resolvedPath -Force -ErrorAction Stop
+        }
+        [System.IO.File]::Move($tempPath, $resolvedPath)
 
         return [pscustomobject]@{
             Success = $true
@@ -498,7 +526,7 @@ function Update-StateFile {
     }
 
     $currentState = $readResult.Data
-    $previousState = $currentState | ConvertTo-Json -Depth 20 | ConvertFrom-Json -AsHashtable
+    $previousState = $currentState | ConvertTo-Json -Depth 20 | ConvertFrom-Json | ConvertTo-Hashtable
 
     # Check version for optimistic locking
     if ($ExpectedVersion -gt 0 -and $readResult.Exists -and $readResult.Version -ne $ExpectedVersion) {
@@ -1042,6 +1070,7 @@ function Initialize-StateFile {
         }
     }
 
+    $backupResult = $null
     if ($exists -and $Overwrite) {
         $backupResult = Backup-StateFile -Path $resolvedPath
     }

@@ -89,7 +89,6 @@ function Test-StepName {
     [CmdletBinding()]
     [OutputType([bool])]
     param(
-        [Parameter(Mandatory = $true)]
         [string]$Step
     )
     

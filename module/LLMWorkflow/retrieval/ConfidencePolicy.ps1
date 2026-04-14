@@ -54,6 +54,10 @@
 
 Set-StrictMode -Version Latest
 
+function New-CorrelationId {
+    return [Guid]::NewGuid().ToString()
+}
+
 #===============================================================================
 # Configuration and Constants
 #===============================================================================
@@ -171,12 +175,16 @@ function Test-AnswerConfidence {
         [hashtable]$AnswerPlan,
 
         [Parameter()]
-        [hashtable]$Context = @{}
+        [hashtable]$Context = @{},
+
+        [Parameter()]
+        [string]$CorrelationId = ''
     )
 
     begin {
+        if ([string]::IsNullOrWhiteSpace($CorrelationId)) { $CorrelationId = New-CorrelationId }
         $evaluationId = [Guid]::NewGuid().ToString()
-        Write-Verbose "[ConfidencePolicy] Starting confidence evaluation [$evaluationId]"
+        Write-Verbose "[$CorrelationId] [ConfidencePolicy] Starting confidence evaluation [$evaluationId]"
     }
 
     process {
@@ -186,13 +194,13 @@ function Test-AnswerConfidence {
 
             # Validate evidence array
             if ($evidenceList.Count -eq 0) {
-                return Get-AbstainDecision -ConfidenceScore 0.0 `
+                return Get-AbstainDecision -CorrelationId $CorrelationId -ConfidenceScore 0.0 `
                     -Reason "No evidence provided for answer synthesis" `
                     -Alternatives @{ suggestion = "Provide relevant evidence items" }
             }
 
             # Get confidence components
-            $components = Get-ConfidenceComponents -Evidence $evidenceList -Context $Context
+            $components = Get-ConfidenceComponents -Evidence $evidenceList -Context $Context -CorrelationId $CorrelationId
 
             # Calculate overall confidence score
             $confidenceScore = Calculate-OverallConfidence -Components $components
@@ -202,16 +210,17 @@ function Test-AnswerConfidence {
 
             # Get policy from answer plan or use default
             $policy = if ($AnswerPlan.ContainsKey('confidencePolicy')) {
-                Merge-ConfidencePolicy -CustomPolicy $AnswerPlan.confidencePolicy
+                Merge-ConfidencePolicy -CustomPolicy $AnswerPlan.confidencePolicy -CorrelationId $CorrelationId
             }
             else {
-                Get-DefaultConfidencePolicy
+                Get-DefaultConfidencePolicy -CorrelationId $CorrelationId
             }
 
             # Determine answer mode
             $answerMode = Get-AnswerMode -ConfidenceScore $confidenceScore `
                 -Policy $policy `
-                -EvidenceIssues $evidenceIssues
+                -EvidenceIssues $evidenceIssues `
+                -CorrelationId $CorrelationId
 
             # Build detailed reasoning
             $reasoning = Build-ConfidenceReasoning -Components $components `
@@ -222,11 +231,13 @@ function Test-AnswerConfidence {
             # Check for abstention
             $shouldAbstain = Test-ShouldAbstain -ConfidenceScore $confidenceScore `
                 -Evidence $evidenceList `
-                -Policy $policy
+                -Policy $policy `
+                -CorrelationId $CorrelationId
 
             # Create confidence decision
             $decision = [ordered]@{
                 evaluationId     = $evaluationId
+                correlationId    = $CorrelationId
                 schemaVersion    = $script:ConfidencePolicySchemaVersion
                 confidenceScore  = [Math]::Round($confidenceScore, 4)
                 answerMode       = $answerMode
@@ -244,14 +255,14 @@ function Test-AnswerConfidence {
                 }
             }
 
-            Write-Verbose "[ConfidencePolicy] Evaluation complete: Score=$confidenceScore, Mode=$answerMode"
+            Write-Verbose "[$CorrelationId] [ConfidencePolicy] Evaluation complete: Score=$confidenceScore, Mode=$answerMode"
             return $decision
         }
         catch {
-            Write-Error "[ConfidencePolicy] Confidence evaluation failed: $_"
+            Write-Error "[$CorrelationId] [ConfidencePolicy] Confidence evaluation failed: $_"
             
             # Return abstain decision on error
-            return Get-AbstainDecision -ConfidenceScore 0.0 `
+            return Get-AbstainDecision -CorrelationId $CorrelationId -ConfidenceScore 0.0 `
                 -Reason "Confidence evaluation error: $($_.Exception.Message)" `
                 -Alternatives @{ error = $_.Exception.Message }
         }
@@ -294,11 +305,20 @@ function Get-ConfidenceComponents {
         [array]$Evidence,
 
         [Parameter()]
-        [hashtable]$Context = @{}
+        [hashtable]$Context = @{},
+
+        [Parameter()]
+        [string]$CorrelationId = ''
     )
+
+    begin {
+        if ([string]::IsNullOrWhiteSpace($CorrelationId)) { $CorrelationId = New-CorrelationId }
+        Write-Verbose "[$CorrelationId] [ConfidencePolicy] Evaluating confidence components"
+    }
 
     process {
         $components = [ordered]@{
+            correlationId = $CorrelationId
             relevance   = Calculate-RelevanceComponent -Evidence $Evidence
             authority   = Calculate-AuthorityComponent -Evidence $Evidence
             consistency = Calculate-ConsistencyComponent -Evidence $Evidence
@@ -614,8 +634,16 @@ function Get-AnswerMode {
         [hashtable]$Policy,
 
         [Parameter()]
-        [array]$EvidenceIssues = @()
+        [array]$EvidenceIssues = @(),
+
+        [Parameter()]
+        [string]$CorrelationId = ''
     )
+
+    begin {
+        if ([string]::IsNullOrWhiteSpace($CorrelationId)) { $CorrelationId = New-CorrelationId }
+        Write-Verbose "[$CorrelationId] [ConfidencePolicy] Determining answer mode"
+    }
 
     process {
         # Get thresholds from policy
@@ -719,8 +747,16 @@ function Test-ShouldAbstain {
         [array]$Evidence,
 
         [Parameter(Mandatory = $true)]
-        [hashtable]$Policy
+        [hashtable]$Policy,
+
+        [Parameter()]
+        [string]$CorrelationId = ''
     )
+
+    begin {
+        if ([string]::IsNullOrWhiteSpace($CorrelationId)) { $CorrelationId = New-CorrelationId }
+        Write-Verbose "[$CorrelationId] [ConfidencePolicy] Evaluating abstention criteria"
+    }
 
     process {
         # Get abstain threshold
@@ -804,12 +840,21 @@ function Get-AbstainDecision {
         [string]$Reason,
 
         [Parameter()]
-        [hashtable]$Alternatives = @{}
+        [hashtable]$Alternatives = @{},
+
+        [Parameter()]
+        [string]$CorrelationId = ''
     )
+
+    begin {
+        if ([string]::IsNullOrWhiteSpace($CorrelationId)) { $CorrelationId = New-CorrelationId }
+        Write-Verbose "[$CorrelationId] [ConfidencePolicy] Creating abstain decision"
+    }
 
     process {
         $decision = [ordered]@{
             evaluationId    = [Guid]::NewGuid().ToString()
+            correlationId   = $CorrelationId
             schemaVersion   = $script:ConfidencePolicySchemaVersion
             confidenceScore = [Math]::Max(0.0, [Math]::Min(1.0, $ConfidenceScore))
             answerMode      = 'abstain'
@@ -883,12 +928,21 @@ function Get-EscalationDecision {
         [string]$EscalationTarget = 'human-review',
 
         [Parameter()]
-        [hashtable]$Context = @{}
+        [hashtable]$Context = @{},
+
+        [Parameter()]
+        [string]$CorrelationId = ''
     )
+
+    begin {
+        if ([string]::IsNullOrWhiteSpace($CorrelationId)) { $CorrelationId = New-CorrelationId }
+        Write-Verbose "[$CorrelationId] [ConfidencePolicy] Creating escalation decision"
+    }
 
     process {
         $decision = [ordered]@{
             evaluationId      = [Guid]::NewGuid().ToString()
+            correlationId     = $CorrelationId
             schemaVersion     = $script:ConfidencePolicySchemaVersion
             confidenceScore   = 0.0
             answerMode        = 'escalate'
@@ -945,10 +999,19 @@ function Get-DefaultConfidencePolicy {
     #>
     [CmdletBinding()]
     [OutputType([hashtable])]
-    param()
+    param(
+        [Parameter()]
+        [string]$CorrelationId = ''
+    )
+
+    begin {
+        if ([string]::IsNullOrWhiteSpace($CorrelationId)) { $CorrelationId = New-CorrelationId }
+        Write-Verbose "[$CorrelationId] [ConfidencePolicy] Returning default confidence policy"
+    }
 
     process {
         $policy = [ordered]@{
+            correlationId = $CorrelationId
             policyName = "default"
             schemaVersion = $script:ConfidencePolicySchemaVersion
             description = "Default confidence policy per Section 15.4"
@@ -996,11 +1059,19 @@ function Merge-ConfidencePolicy {
     [OutputType([hashtable])]
     param(
         [Parameter(Mandatory = $true)]
-        [hashtable]$CustomPolicy
+        [hashtable]$CustomPolicy,
+
+        [Parameter()]
+        [string]$CorrelationId = ''
     )
 
+    begin {
+        if ([string]::IsNullOrWhiteSpace($CorrelationId)) { $CorrelationId = New-CorrelationId }
+        Write-Verbose "[$CorrelationId] [ConfidencePolicy] Merging confidence policy"
+    }
+
     process {
-        $defaults = Get-DefaultConfidencePolicy
+        $defaults = Get-DefaultConfidencePolicy -CorrelationId $CorrelationId
         # Use ordered hashtable for consistent output - OrderedDictionary doesn't have Clone() in PS 5.1
         $merged = [ordered]@{}
         
@@ -1034,6 +1105,7 @@ function Merge-ConfidencePolicy {
             "custom-merged"
         }
 
+        $merged['correlationId'] = $CorrelationId
         return $merged
     }
 }

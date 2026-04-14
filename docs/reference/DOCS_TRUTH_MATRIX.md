@@ -82,6 +82,7 @@ To keep numbers consistent, use the following counting rules and scripts.
 | [`README.md`](../../README.md) | 0.9.6 | 121 | 10 | 30 | 60 | ✅ truth |
 | [`PROGRESS.md`](../../docs/implementation/PROGRESS.md) | 0.9.6 | 121 | 10 | 30 | 60 | ✅ truth |
 | [`RELEASE_STATE.md`](../../docs/releases/RELEASE_STATE.md) | 0.9.6 | 121 | 10 | 30 | 60 | ✅ truth |
+| [`CHANGELOG.md`](../../docs/releases/CHANGELOG.md) | 0.9.6 | 121 | 10 | 30 | 60 | ✅ truth |
 
 ## Known Drift
 
@@ -91,12 +92,15 @@ To keep numbers consistent, use the following counting rules and scripts.
 ### PROGRESS.md
 - No known drift.
 
+### CHANGELOG.md
+- No known drift.
+
 ## Resolution Plan
 
-1. ✅ Reconciled 2026-04-13: `VERSION`, `README.md`, `docs/implementation/PROGRESS.md`, `docs/releases/CHANGELOG.md`, `RELEASE_STATE.md`, and `LLMWorkflow.psd1` all aligned to `0.9.6`.
+1. ✅ Reconciled 2026-04-14: `VERSION`, `README.md`, `docs/implementation/PROGRESS.md`, `docs/releases/CHANGELOG.md`, `RELEASE_STATE.md`, and `LLMWorkflow.psd1` all aligned to `0.9.6`.
 2. Metrics verified: 121 PowerShell modules, 10 domain packs, 30 extraction parsers, 60 golden tasks, 5 benchmark suites.
 3. ✅ CI validation added (`tools/ci/validate-docs-truth.ps1`) to catch future drift automatically.
-4. ✅ Remediation documentation sync completed on 2026-04-13 across `README.md`, `PROGRESS.md`, `TECHNICAL_DEBT_AUDIT.md`, `REMAINING_WORK.md`, and strategic execution plan docs.
+4. ✅ Remediation documentation sync completed on 2026-04-14 across `README.md`, `PROGRESS.md`, `TECHNICAL_DEBT_AUDIT.md`, `REMAINING_WORK.md`, `CHANGELOG.md`, and strategic execution plan docs.
 
 
 

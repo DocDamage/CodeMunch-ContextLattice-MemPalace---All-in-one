@@ -142,10 +142,12 @@ function Invoke-CrossPackArbitration {
         [string]$RetrievalProfile = '',
 
         [Parameter()]
-        [string]$CorrelationId = [Guid]::NewGuid().ToString()
+        [string]$CorrelationId = ''
     )
 
     begin {
+        if ([string]::IsNullOrWhiteSpace($CorrelationId)) { $CorrelationId = New-CorrelationId }
+        Write-Verbose "[$CorrelationId] CrossPackArbitration Invoke-CrossPackArbitration"
         $arbitrationId = [Guid]::NewGuid().ToString()
         $traceAttributes = @{
             Query = $Query
@@ -224,8 +226,15 @@ function Test-PackRelevance {
         [hashtable]$PackManifest,
 
         [Parameter()]
-        [string]$RetrievalProfile = ''
+        [string]$RetrievalProfile = '',
+        [Parameter()]
+        [string]$CorrelationId = ''
     )
+
+    begin {
+        if ([string]::IsNullOrWhiteSpace($CorrelationId)) { $CorrelationId = New-CorrelationId }
+        Write-Verbose "[$CorrelationId] CrossPackArbitration Test-PackRelevance"
+    }
 
     process {
         $score = 0.0
@@ -320,8 +329,15 @@ function Get-ArbitratedPackOrder {
         [pscustomobject]$WorkspaceContext,
 
         [Parameter()]
-        [string]$RetrievalProfile = ''
+        [string]$RetrievalProfile = '',
+        [Parameter()]
+        [string]$CorrelationId = ''
     )
+
+    begin {
+        if ([string]::IsNullOrWhiteSpace($CorrelationId)) { $CorrelationId = New-CorrelationId }
+        Write-Verbose "[$CorrelationId] CrossPackArbitration Get-ArbitratedPackOrder"
+    }
 
     process {
         $scoredPacks = @()
@@ -423,8 +439,15 @@ function New-PackArbitrationResult {
         [array]$Disputes = @(),
 
         [Parameter()]
-        [bool]$IsProjectLocal = $false
+        [bool]$IsProjectLocal = $false,
+        [Parameter()]
+        [string]$CorrelationId = ''
     )
+
+    begin {
+        if ([string]::IsNullOrWhiteSpace($CorrelationId)) { $CorrelationId = New-CorrelationId }
+        Write-Verbose "[$CorrelationId] CrossPackArbitration New-PackArbitrationResult"
+    }
 
     process {
         $result = [PSCustomObject]@{
@@ -478,8 +501,15 @@ function Export-ArbitrationResult {
 
         [Parameter()]
         [ValidateSet('json', 'compact')]
-        [string]$Format = 'json'
+        [string]$Format = 'json',
+        [Parameter()]
+        [string]$CorrelationId = ''
     )
+
+    begin {
+        if ([string]::IsNullOrWhiteSpace($CorrelationId)) { $CorrelationId = New-CorrelationId }
+        Write-Verbose "[$CorrelationId] CrossPackArbitration Export-ArbitrationResult"
+    }
 
     process {
         if ([string]::IsNullOrEmpty($OutputPath)) {
@@ -539,8 +569,15 @@ function Test-DomainSpecificity {
         [string]$Query,
 
         [Parameter(Mandatory = $true)]
-        [hashtable]$PackManifest
+        [hashtable]$PackManifest,
+        [Parameter()]
+        [string]$CorrelationId = ''
     )
+
+    begin {
+        if ([string]::IsNullOrWhiteSpace($CorrelationId)) { $CorrelationId = New-CorrelationId }
+        Write-Verbose "[$CorrelationId] CrossPackArbitration Test-DomainSpecificity"
+    }
 
     process {
         $packId = $PackManifest.packId
@@ -598,8 +635,15 @@ function Test-ProjectLocalContext {
     [OutputType([bool])]
     param(
         [Parameter(Mandatory = $true)]
-        [string]$Query
+        [string]$Query,
+        [Parameter()]
+        [string]$CorrelationId = ''
     )
+
+    begin {
+        if ([string]::IsNullOrWhiteSpace($CorrelationId)) { $CorrelationId = New-CorrelationId }
+        Write-Verbose "[$CorrelationId] CrossPackArbitration Test-ProjectLocalContext"
+    }
 
     process {
         $queryLower = $Query.ToLower()
@@ -636,8 +680,15 @@ function Get-PackAuthorityScore {
     [OutputType([double])]
     param(
         [Parameter(Mandatory = $true)]
-        [hashtable]$PackManifest
+        [hashtable]$PackManifest,
+        [Parameter()]
+        [string]$CorrelationId = ''
     )
+
+    begin {
+        if ([string]::IsNullOrWhiteSpace($CorrelationId)) { $CorrelationId = New-CorrelationId }
+        Write-Verbose "[$CorrelationId] CrossPackArbitration Get-PackAuthorityScore"
+    }
 
     process {
         $score = 0.5  # Base score
@@ -719,8 +770,15 @@ function Test-CrossPackAnswer {
         [string]$Query,
 
         [Parameter(Mandatory = $true)]
-        [array]$Packs
+        [array]$Packs,
+        [Parameter()]
+        [string]$CorrelationId = ''
     )
+
+    begin {
+        if ([string]::IsNullOrWhiteSpace($CorrelationId)) { $CorrelationId = New-CorrelationId }
+        Write-Verbose "[$CorrelationId] CrossPackArbitration Test-CrossPackAnswer"
+    }
 
     process {
         $queryLower = $Query.ToLower()
@@ -791,8 +849,15 @@ function Add-CrossPackLabel {
         [bool]$IsCrossPack = $false,
 
         [Parameter()]
-        [string]$PrimaryPack = ''
+        [string]$PrimaryPack = '',
+        [Parameter()]
+        [string]$CorrelationId = ''
     )
+
+    begin {
+        if ([string]::IsNullOrWhiteSpace($CorrelationId)) { $CorrelationId = New-CorrelationId }
+        Write-Verbose "[$CorrelationId] CrossPackArbitration Add-CrossPackLabel"
+    }
 
     process {
         $labels = @()
@@ -862,8 +927,15 @@ function Resolve-PackConflicts {
         [array]$PackOrder,
 
         [Parameter(Mandatory = $true)]
-        [array]$Packs
+        [array]$Packs,
+        [Parameter()]
+        [string]$CorrelationId = ''
     )
+
+    begin {
+        if ([string]::IsNullOrWhiteSpace($CorrelationId)) { $CorrelationId = New-CorrelationId }
+        Write-Verbose "[$CorrelationId] CrossPackArbitration Resolve-PackConflicts"
+    }
 
     process {
         $disputes = @()
@@ -957,8 +1029,15 @@ function New-DisputeSet {
         [string]$Status = 'open',
 
         [Parameter()]
-        [string]$PreferredSource = ''
+        [string]$PreferredSource = '',
+        [Parameter()]
+        [string]$CorrelationId = ''
     )
+
+    begin {
+        if ([string]::IsNullOrWhiteSpace($CorrelationId)) { $CorrelationId = New-CorrelationId }
+        Write-Verbose "[$CorrelationId] CrossPackArbitration New-DisputeSet"
+    }
 
     process {
         $disputeSet = [PSCustomObject]@{
@@ -1024,8 +1103,15 @@ function Add-DisputeClaim {
         [string]$TrustLevel = 'Medium',
 
         [Parameter()]
-        [string]$Reasoning = ''
+        [string]$Reasoning = '',
+        [Parameter()]
+        [string]$CorrelationId = ''
     )
+
+    begin {
+        if ([string]::IsNullOrWhiteSpace($CorrelationId)) { $CorrelationId = New-CorrelationId }
+        Write-Verbose "[$CorrelationId] CrossPackArbitration Add-DisputeClaim"
+    }
 
     process {
         $claim = [PSCustomObject]@{
@@ -1071,8 +1157,15 @@ function Export-DisputeSet {
         [pscustomobject]$DisputeSet,
 
         [Parameter()]
-        [string]$OutputPath = ''
+        [string]$OutputPath = '',
+        [Parameter()]
+        [string]$CorrelationId = ''
     )
+
+    begin {
+        if ([string]::IsNullOrWhiteSpace($CorrelationId)) { $CorrelationId = New-CorrelationId }
+        Write-Verbose "[$CorrelationId] CrossPackArbitration Export-DisputeSet"
+    }
 
     process {
         if ([string]::IsNullOrEmpty($OutputPath)) {
@@ -1119,8 +1212,15 @@ function Get-AvailablePacks {
     [OutputType([array])]
     param(
         [Parameter()]
-        [string]$ManifestPath = 'packs/manifests'
+        [string]$ManifestPath = 'packs/manifests',
+        [Parameter()]
+        [string]$CorrelationId = ''
     )
+
+    begin {
+        if ([string]::IsNullOrWhiteSpace($CorrelationId)) { $CorrelationId = New-CorrelationId }
+        Write-Verbose "[$CorrelationId] CrossPackArbitration Get-AvailablePacks"
+    }
 
     process {
         $packs = @()
@@ -1172,8 +1272,15 @@ function Get-PackRetrievalProfile {
         [hashtable]$PackManifest,
 
         [Parameter(Mandatory = $true)]
-        [string]$ProfileName
+        [string]$ProfileName,
+        [Parameter()]
+        [string]$CorrelationId = ''
     )
+
+    begin {
+        if ([string]::IsNullOrWhiteSpace($CorrelationId)) { $CorrelationId = New-CorrelationId }
+        Write-Verbose "[$CorrelationId] CrossPackArbitration Get-PackRetrievalProfile"
+    }
 
     process {
         if ($PackManifest.retrievalProfiles -and $PackManifest.retrievalProfiles.ContainsKey($ProfileName)) {
@@ -1210,8 +1317,15 @@ function Test-PackRetrievalProfile {
         [hashtable]$PackManifest,
 
         [Parameter(Mandatory = $true)]
-        [string]$ProfileName
+        [string]$ProfileName,
+        [Parameter()]
+        [string]$CorrelationId = ''
     )
+
+    begin {
+        if ([string]::IsNullOrWhiteSpace($CorrelationId)) { $CorrelationId = New-CorrelationId }
+        Write-Verbose "[$CorrelationId] CrossPackArbitration Test-PackRetrievalProfile"
+    }
 
     process {
         return ($PackManifest.retrievalProfiles -and 
@@ -1253,8 +1367,15 @@ function Set-DisputePreferredSource {
         [string]$PreferredSource,
 
         [Parameter()]
-        [string]$Resolution = ''
+        [string]$Resolution = '',
+        [Parameter()]
+        [string]$CorrelationId = ''
     )
+
+    begin {
+        if ([string]::IsNullOrWhiteSpace($CorrelationId)) { $CorrelationId = New-CorrelationId }
+        Write-Verbose "[$CorrelationId] CrossPackArbitration Set-DisputePreferredSource"
+    }
 
     process {
         $DisputeSet.preferredSource = $PreferredSource
@@ -1288,8 +1409,15 @@ function Get-ArbitrationStatistics {
     [OutputType([pscustomobject])]
     param(
         [Parameter()]
-        [string]$ArbitrationPath = '.llm-workflow/arbitration'
+        [string]$ArbitrationPath = '.llm-workflow/arbitration',
+        [Parameter()]
+        [string]$CorrelationId = ''
     )
+
+    begin {
+        if ([string]::IsNullOrWhiteSpace($CorrelationId)) { $CorrelationId = New-CorrelationId }
+        Write-Verbose "[$CorrelationId] CrossPackArbitration Get-ArbitrationStatistics"
+    }
 
     process {
         $stats = [PSCustomObject]@{

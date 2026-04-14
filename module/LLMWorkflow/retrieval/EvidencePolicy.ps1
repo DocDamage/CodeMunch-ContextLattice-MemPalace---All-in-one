@@ -49,6 +49,10 @@
 
 Set-StrictMode -Version Latest
 
+function New-CorrelationId {
+    return [Guid]::NewGuid().ToString()
+}
+
 #===============================================================================
 # Configuration and Constants
 #===============================================================================
@@ -180,19 +184,21 @@ function Test-EvidencePolicy {
         [hashtable]$Context = @{},
 
         [Parameter()]
-        [string]$CorrelationId = [Guid]::NewGuid().ToString()
+        [string]$CorrelationId = ''
     )
 
     begin {
+        if ([string]::IsNullOrWhiteSpace($CorrelationId)) { $CorrelationId = New-CorrelationId }
         # Use default policy if none provided
         if (-not $Policy) {
-            $Policy = Get-DefaultEvidencePolicy
+            $Policy = Get-DefaultEvidencePolicy -CorrelationId $CorrelationId
         }
 
         $traceAttributes = @{
             EvidenceCount = $Evidence.Count
         }
         [void](Write-FunctionTelemetry -CorrelationId $CorrelationId -FunctionName 'Test-EvidencePolicy' -Attributes $traceAttributes)
+        Write-Verbose "[$CorrelationId] [EvidencePolicy] Validating $($Evidence.Count) evidence items against policy"
 
         $violations = [System.Collections.Generic.List[hashtable]]::new()
         $warnings = [System.Collections.Generic.List[string]]::new()
@@ -202,10 +208,10 @@ function Test-EvidencePolicy {
     }
 
     process {
-        Write-Verbose "[EvidencePolicy] Validating $($Evidence.Count) evidence items against policy"
+        Write-Verbose "[$CorrelationId] [EvidencePolicy] Validating $($Evidence.Count) evidence items against policy"
 
         # Check for translation-only evidence
-        $translationOnly = Test-TranslationOnlyEvidence -Evidence $Evidence
+        $translationOnly = Test-TranslationOnlyEvidence -Evidence $Evidence -CorrelationId $CorrelationId 
         if ($translationOnly -and $Policy.translationOnlyMaxConfidence -lt 0.7) {
             $violations.Add(@{
                 rule = 'translation-only'
@@ -236,7 +242,7 @@ function Test-EvidencePolicy {
 
             # Check minimum authority requirement
             if ($Policy.minSourceAuthority -ne 'any') {
-                $authorityValid = Test-EvidenceAuthority -Evidence $item -RequiredAuthority $Policy.minSourceAuthority
+                $authorityValid = Test-EvidenceAuthority -Evidence $item -RequiredAuthority $Policy.minSourceAuthority -CorrelationId $CorrelationId 
                 if (-not $authorityValid) {
                     $itemValid = $false
                     $itemViolations += "Evidence does not meet minimum authority requirement '$($Policy.minSourceAuthority)'"
@@ -252,7 +258,7 @@ function Test-EvidencePolicy {
             }
 
             # Calculate item quality score
-            $qualityScore = Get-EvidenceQuality -Evidence $item
+            $qualityScore = Get-EvidenceQuality -Evidence $item -CorrelationId $CorrelationId
             $totalQualityScore += $qualityScore
 
             # Categorize evidence
@@ -278,7 +284,7 @@ function Test-EvidencePolicy {
         # Check private project precedence
         $contextIsLocalWorkspace = $Context.ContainsKey('isLocalWorkspace') -and $Context.isLocalWorkspace
         if ($Policy.privateProjectOverridesPublic -and $contextIsLocalWorkspace) {
-            $precedenceResult = Assert-PrivateProjectPrecedence -Evidence $Evidence -Context $Context
+            $precedenceResult = Assert-PrivateProjectPrecedence -Evidence $Evidence -Context $Context -CorrelationId $CorrelationId 
             if (-not $precedenceResult.compliant) {
                 $violations.Add(@{
                     rule = 'private-project-precedence'
@@ -293,11 +299,11 @@ function Test-EvidencePolicy {
         $contextHasConflict = $Context.ContainsKey('hasConflict') -and $Context.hasConflict
         if ($Policy.requireMultiSourceForConflict -and $contextHasConflict) {
             $foundationalCount = ($Evidence | Where-Object { 
-                $class = Get-EvidenceClassification -Evidence $_
+                $class = Get-EvidenceClassification -Evidence $_ -CorrelationId $CorrelationId
                 $class -eq 'foundational'
             }).Count
             $authoritativeCount = ($Evidence | Where-Object { 
-                $class = Get-EvidenceClassification -Evidence $_
+                $class = Get-EvidenceClassification -Evidence $_ -CorrelationId $CorrelationId
                 $class -eq 'authoritative'
             }).Count
 
@@ -320,6 +326,7 @@ function Test-EvidencePolicy {
 
         # Build result
         $result = [PSCustomObject]@{
+            CorrelationId = $CorrelationId
             IsValid = $isValid
             Violations = $violations.ToArray()
             Warnings = $warnings.ToArray()
@@ -365,14 +372,22 @@ function Get-EvidenceQuality {
     [OutputType([double])]
     param(
         [Parameter(Mandatory = $true)]
-        [hashtable]$Evidence
+        [hashtable]$Evidence,
+
+        [Parameter()]
+        [string]$CorrelationId = ''
     )
+
+    begin {
+        if ([string]::IsNullOrWhiteSpace($CorrelationId)) { $CorrelationId = New-CorrelationId }
+        Write-Verbose "[$CorrelationId] [EvidencePolicy] Calculating evidence quality"
+    }
 
     process {
         $score = 0.0
 
         # Factor 1: Source authority tier (30%)
-        $classification = Get-EvidenceClassification -Evidence $Evidence
+        $classification = Get-EvidenceClassification -Evidence $Evidence -CorrelationId $CorrelationId  
         $tierScore = $script:SourceAuthorityTiers[$classification] / 100.0
         $score += $tierScore * $script:QualityWeights.sourceAuthorityTier
 
@@ -478,11 +493,19 @@ function Test-EvidenceAuthority {
 
         [Parameter(Mandatory = $true)]
         [ValidateSet('high', 'medium', 'any')]
-        [string]$RequiredAuthority
+        [string]$RequiredAuthority,
+
+        [Parameter()]
+        [string]$CorrelationId = ''
     )
 
+    begin {
+        if ([string]::IsNullOrWhiteSpace($CorrelationId)) { $CorrelationId = New-CorrelationId }
+        Write-Verbose "[$CorrelationId] [EvidencePolicy] Testing evidence authority"
+    }
+
     process {
-        $classification = Get-EvidenceClassification -Evidence $Evidence
+        $classification = Get-EvidenceClassification -Evidence $Evidence -CorrelationId $CorrelationId
         $allowedClassifications = $script:AuthorityRequirementMapping[$RequiredAuthority]
 
         return $allowedClassifications -contains $classification
@@ -529,12 +552,16 @@ function Filter-EvidenceByPolicy {
         [hashtable]$Policy = $null,
 
         [Parameter()]
-        [switch]$IncludeExcluded
+        [switch]$IncludeExcluded,
+
+        [Parameter()]
+        [string]$CorrelationId = ''
     )
 
     begin {
+        if ([string]::IsNullOrWhiteSpace($CorrelationId)) { $CorrelationId = New-CorrelationId }
         if (-not $Policy) {
-            $Policy = Get-DefaultEvidencePolicy
+            $Policy = Get-DefaultEvidencePolicy -CorrelationId $CorrelationId
         }
 
         $included = [System.Collections.Generic.List[hashtable]]::new()
@@ -542,7 +569,7 @@ function Filter-EvidenceByPolicy {
     }
 
     process {
-        Write-Verbose "[EvidencePolicy] Filtering $($Evidence.Count) evidence items"
+        Write-Verbose "[$CorrelationId] [EvidencePolicy] Filtering $($Evidence.Count) evidence items"
 
         foreach ($item in $Evidence) {
             $excludedReasons = @()
@@ -561,7 +588,7 @@ function Filter-EvidenceByPolicy {
 
             # Check minimum authority
             if ($Policy.minSourceAuthority -ne 'any') {
-                $authorityValid = Test-EvidenceAuthority -Evidence $item -RequiredAuthority $Policy.minSourceAuthority
+                $authorityValid = Test-EvidenceAuthority -Evidence $item -RequiredAuthority $Policy.minSourceAuthority -CorrelationId $CorrelationId 
                 if (-not $authorityValid) {
                     $excludedReasons += "Does not meet minimum authority '$($Policy.minSourceAuthority)'"
                 }
@@ -612,6 +639,7 @@ function Filter-EvidenceByPolicy {
 
         if ($IncludeExcluded) {
             return @{
+                CorrelationId = $CorrelationId
                 Included = $included.ToArray()
                 Excluded = $excluded.ToArray()
                 IncludedCount = $included.Count
@@ -659,12 +687,17 @@ function Get-EvidencePolicyViolations {
         [hashtable]$Policy = $null,
 
         [Parameter()]
-        [hashtable]$Context = @{}
+        [hashtable]$Context = @{},
+
+        [Parameter()]
+        [string]$CorrelationId = ''
     )
 
     begin {
+        if ([string]::IsNullOrWhiteSpace($CorrelationId)) { $CorrelationId = New-CorrelationId }
+        Write-Verbose "[$CorrelationId] [EvidencePolicy] Getting evidence policy violations"
         if (-not $Policy) {
-            $Policy = Get-DefaultEvidencePolicy
+            $Policy = Get-DefaultEvidencePolicy -CorrelationId $CorrelationId
         }
 
         $violations = [System.Collections.Generic.List[hashtable]]::new()
@@ -672,7 +705,7 @@ function Get-EvidencePolicyViolations {
 
     process {
         # Check translation-only
-        $translationOnly = Test-TranslationOnlyEvidence -Evidence $Evidence
+        $translationOnly = Test-TranslationOnlyEvidence -Evidence $Evidence -CorrelationId $CorrelationId 
         if ($translationOnly) {
             $violations.Add(@{
                 rule = 'translation-only'
@@ -685,7 +718,7 @@ function Get-EvidencePolicyViolations {
         # Check foundational for claims
         if ($Policy.requireFoundationalForClaims) {
             $foundationalItems = @($Evidence | Where-Object { 
-                (Get-EvidenceClassification -Evidence $_) -eq 'foundational' 
+                (Get-EvidenceClassification -Evidence $_ -CorrelationId $CorrelationId) -eq 'foundational' 
             })
 
             if ($foundationalItems.Count -eq 0) {
@@ -702,7 +735,7 @@ function Get-EvidencePolicyViolations {
         if ($Policy.pluginRepoAsExampleOnly) {
             $pluginRepos = @($Evidence | Where-Object { 
                 $hasType = $_.ContainsKey('sourceType') -and $_.sourceType
-                $hasType -and $_.sourceType -eq 'plugin-repo' -and (Get-EvidenceClassification -Evidence $_) -ne 'exemplar'
+                $hasType -and $_.sourceType -eq 'plugin-repo' -and (Get-EvidenceClassification -Evidence $_ -CorrelationId $CorrelationId) -ne 'exemplar'
             })
 
             foreach ($repo in $pluginRepos) {
@@ -721,7 +754,7 @@ function Get-EvidencePolicyViolations {
         $contextHasConflict = $Context.ContainsKey('hasConflict') -and $Context.hasConflict
         if ($Policy.requireMultiSourceForConflict -and $contextHasConflict) {
             $highAuthorityItems = @($Evidence | Where-Object { 
-                $class = Get-EvidenceClassification -Evidence $_
+                $class = Get-EvidenceClassification -Evidence $_ -CorrelationId $CorrelationId
                 $class -eq 'foundational' -or $class -eq 'authoritative'
             })
 
@@ -739,7 +772,7 @@ function Get-EvidencePolicyViolations {
         # Check private project precedence
         $contextIsLocalWorkspace = $Context.ContainsKey('isLocalWorkspace') -and $Context.isLocalWorkspace
         if ($Policy.privateProjectOverridesPublic -and $contextIsLocalWorkspace) {
-            $precedenceResult = Assert-PrivateProjectPrecedence -Evidence $Evidence -Context $Context
+            $precedenceResult = Assert-PrivateProjectPrecedence -Evidence $Evidence -Context $Context -CorrelationId $CorrelationId 
             if (-not $precedenceResult.compliant) {
                 foreach ($issue in $precedenceResult.issues) {
                     $violations.Add(@{
@@ -755,7 +788,7 @@ function Get-EvidencePolicyViolations {
         # Check confidence cap for translation-only
         $translationHighConfidence = @($Evidence | Where-Object { 
             $hasConfidence = $_.ContainsKey('confidence') -and $_.confidence
-            (Get-EvidenceClassification -Evidence $_) -eq 'translation' -and 
+            (Get-EvidenceClassification -Evidence $_ -CorrelationId $CorrelationId) -eq 'translation' -and 
             $hasConfidence -and $_.confidence -gt $Policy.translationOnlyMaxConfidence
         })
 
@@ -799,8 +832,16 @@ function Test-TranslationOnlyEvidence {
     [OutputType([bool])]
     param(
         [Parameter(Mandatory = $true)]
-        [array]$Evidence
+        [array]$Evidence,
+
+        [Parameter()]
+        [string]$CorrelationId = ''
     )
+
+    begin {
+        if ([string]::IsNullOrWhiteSpace($CorrelationId)) { $CorrelationId = New-CorrelationId }
+        Write-Verbose "[$CorrelationId] [EvidencePolicy] Testing for translation-only evidence"
+    }
 
     process {
         if ($Evidence.Count -eq 0) {
@@ -808,7 +849,7 @@ function Test-TranslationOnlyEvidence {
         }
 
         foreach ($item in $Evidence) {
-            $classification = Get-EvidenceClassification -Evidence $item
+            $classification = Get-EvidenceClassification -Evidence $item -CorrelationId $CorrelationId
             if ($classification -ne 'translation') {
                 return $false
             }
@@ -847,16 +888,24 @@ function Sort-BySourceAuthority {
         [array]$Evidence,
 
         [Parameter()]
-        [switch]$Descending = $true
+        [switch]$Descending = $true,
+
+        [Parameter()]
+        [string]$CorrelationId = ''
     )
+
+    begin {
+        if ([string]::IsNullOrWhiteSpace($CorrelationId)) { $CorrelationId = New-CorrelationId }
+        Write-Verbose "[$CorrelationId] [EvidencePolicy] Sorting evidence by source authority"
+    }
 
     process {
         # Create ordered list of classifications
         $classificationOrder = @('foundational', 'authoritative', 'exemplar', 'community', 'translation')
 
         $scoredEvidence = $Evidence | ForEach-Object {
-            $classification = Get-EvidenceClassification -Evidence $_
-            $qualityScore = Get-EvidenceQuality -Evidence $_
+            $classification = Get-EvidenceClassification -Evidence $_ -CorrelationId $CorrelationId
+            $qualityScore = Get-EvidenceQuality -Evidence $_ -CorrelationId $CorrelationId
             $authorityRank = $classificationOrder.IndexOf($classification)
 
             [PSCustomObject]@{
@@ -906,8 +955,16 @@ function Assert-PrivateProjectPrecedence {
         [array]$Evidence,
 
         [Parameter(Mandatory = $true)]
-        [hashtable]$Context
+        [hashtable]$Context,
+
+        [Parameter()]
+        [string]$CorrelationId = ''
     )
+
+    begin {
+        if ([string]::IsNullOrWhiteSpace($CorrelationId)) { $CorrelationId = New-CorrelationId }
+        Write-Verbose "[$CorrelationId] [EvidencePolicy] Asserting private-project precedence"
+    }
 
     process {
         $issues = [System.Collections.Generic.List[string]]::new()
@@ -916,6 +973,7 @@ function Assert-PrivateProjectPrecedence {
         $contextIsLocal = $Context.ContainsKey('isLocalWorkspace') -and $Context.isLocalWorkspace
         if (-not $contextIsLocal) {
             return [PSCustomObject]@{
+                CorrelationId = $CorrelationId
                 compliant = $true
                 issues = @()
                 message = 'Not in local workspace context - precedence check not applicable'
@@ -932,6 +990,7 @@ function Assert-PrivateProjectPrecedence {
 
         if ($privateProjectEvidence.Count -eq 0) {
             return [PSCustomObject]@{
+                CorrelationId = $CorrelationId
                 compliant = $true
                 issues = @()
                 message = 'No private-project evidence in collection'
@@ -968,6 +1027,7 @@ function Assert-PrivateProjectPrecedence {
         }
 
         return [PSCustomObject]@{
+            CorrelationId = $CorrelationId
             compliant = $issues.Count -eq 0
             issues = $issues.ToArray()
             privateProjectCount = $privateProjectEvidence.Count
@@ -994,7 +1054,15 @@ function Get-DefaultEvidencePolicy {
     #>
     [CmdletBinding()]
     [OutputType([hashtable])]
-    param()
+    param(
+        [Parameter()]
+        [string]$CorrelationId = ''
+    )
+
+    begin {
+        if ([string]::IsNullOrWhiteSpace($CorrelationId)) { $CorrelationId = New-CorrelationId }
+        Write-Verbose "[$CorrelationId] [EvidencePolicy] Returning default evidence policy"
+    }
 
     process {
         # Return a deep copy to prevent modification of defaults
@@ -1002,6 +1070,7 @@ function Get-DefaultEvidencePolicy {
         $defaultPolicy.excludedSourceTypes = $script:DefaultEvidencePolicy.excludedSourceTypes.Clone()
         $defaultPolicy.preferredAuthorityRoles = $script:DefaultEvidencePolicy.preferredAuthorityRoles.Clone()
 
+        $defaultPolicy['correlationId'] = $CorrelationId
         return $defaultPolicy
     }
 }
@@ -1044,13 +1113,21 @@ function New-EvidencePolicy {
         [hashtable]$Rules,
 
         [Parameter()]
-        [hashtable]$BasePolicy = $null
+        [hashtable]$BasePolicy = $null,
+
+        [Parameter()]
+        [string]$CorrelationId = ''
     )
+
+    begin {
+        if ([string]::IsNullOrWhiteSpace($CorrelationId)) { $CorrelationId = New-CorrelationId }
+        Write-Verbose "[$CorrelationId] [EvidencePolicy] Creating custom evidence policy"
+    }
 
     process {
         # Start with base policy
         if (-not $BasePolicy) {
-            $BasePolicy = Get-DefaultEvidencePolicy
+            $BasePolicy = Get-DefaultEvidencePolicy -CorrelationId $CorrelationId
         }
 
         # Create new policy by cloning base
@@ -1075,6 +1152,7 @@ function New-EvidencePolicy {
         }
 
         Write-Verbose "[EvidencePolicy] Created custom policy with $($Rules.Count) custom rules"
+        $newPolicy['correlationId'] = $CorrelationId
         return $newPolicy
     }
 }
@@ -1105,8 +1183,16 @@ function Get-EvidenceClassification {
     [OutputType([string])]
     param(
         [Parameter(Mandatory = $true)]
-        [hashtable]$Evidence
+        [hashtable]$Evidence,
+
+        [Parameter()]
+        [string]$CorrelationId = ''
     )
+
+    begin {
+        if ([string]::IsNullOrWhiteSpace($CorrelationId)) { $CorrelationId = New-CorrelationId }
+        Write-Verbose "[$CorrelationId] [EvidencePolicy] Calculating evidence quality"
+    }
 
     process {
         # Check explicit classification first
@@ -1158,11 +1244,19 @@ function Test-EvidenceIsFoundational {
     [OutputType([bool])]
     param(
         [Parameter(Mandatory = $true)]
-        [hashtable]$Evidence
+        [hashtable]$Evidence,
+
+        [Parameter()]
+        [string]$CorrelationId = ''
     )
 
+    begin {
+        if ([string]::IsNullOrWhiteSpace($CorrelationId)) { $CorrelationId = New-CorrelationId }
+        Write-Verbose "[$CorrelationId] [EvidencePolicy] Calculating evidence quality"
+    }
+
     process {
-        return (Get-EvidenceClassification -Evidence $Evidence) -eq 'foundational'
+        return (Get-EvidenceClassification -Evidence $Evidence -CorrelationId $CorrelationId) -eq 'foundational'
     }
 }
 
@@ -1185,11 +1279,19 @@ function Test-EvidenceIsAuthoritative {
     [OutputType([bool])]
     param(
         [Parameter(Mandatory = $true)]
-        [hashtable]$Evidence
+        [hashtable]$Evidence,
+
+        [Parameter()]
+        [string]$CorrelationId = ''
     )
 
+    begin {
+        if ([string]::IsNullOrWhiteSpace($CorrelationId)) { $CorrelationId = New-CorrelationId }
+        Write-Verbose "[$CorrelationId] [EvidencePolicy] Calculating evidence quality"
+    }
+
     process {
-        return (Get-EvidenceClassification -Evidence $Evidence) -eq 'authoritative'
+        return (Get-EvidenceClassification -Evidence $Evidence -CorrelationId $CorrelationId) -eq 'authoritative'
     }
 }
 
@@ -1211,11 +1313,19 @@ function Get-EvidenceAuthorityTier {
     [OutputType([int])]
     param(
         [Parameter(Mandatory = $true)]
-        [hashtable]$Evidence
+        [hashtable]$Evidence,
+
+        [Parameter()]
+        [string]$CorrelationId = ''
     )
 
+    begin {
+        if ([string]::IsNullOrWhiteSpace($CorrelationId)) { $CorrelationId = New-CorrelationId }
+        Write-Verbose "[$CorrelationId] [EvidencePolicy] Calculating evidence quality"
+    }
+
     process {
-        $classification = Get-EvidenceClassification -Evidence $Evidence
+        $classification = Get-EvidenceClassification -Evidence $Evidence -CorrelationId $CorrelationId
         return $script:SourceAuthorityTiers[$classification]
     }
 }
@@ -1247,8 +1357,16 @@ function Export-EvidencePolicy {
         [hashtable]$Policy,
 
         [Parameter(Mandatory = $true)]
-        [string]$Path
+        [string]$Path,
+
+        [Parameter()]
+        [string]$CorrelationId = ''
     )
+
+    begin {
+        if ([string]::IsNullOrWhiteSpace($CorrelationId)) { $CorrelationId = New-CorrelationId }
+        Write-Verbose "[$CorrelationId] [EvidencePolicy] Exporting evidence policy to: $Path"
+    }
 
     process {
         $export = @{
@@ -1263,7 +1381,7 @@ function Export-EvidencePolicy {
         }
 
         $export | ConvertTo-Json -Depth 10 | Out-File -FilePath $Path -Encoding UTF8
-        Write-Verbose "[EvidencePolicy] Exported policy to: $Path"
+        Write-Verbose "[$CorrelationId] [EvidencePolicy] Exported policy to: $Path"
         return $Path
     }
 }
@@ -1289,8 +1407,16 @@ function Import-EvidencePolicy {
     [OutputType([hashtable])]
     param(
         [Parameter(Mandatory = $true)]
-        [string]$Path
+        [string]$Path,
+
+        [Parameter()]
+        [string]$CorrelationId = ''
     )
+
+    begin {
+        if ([string]::IsNullOrWhiteSpace($CorrelationId)) { $CorrelationId = New-CorrelationId }
+        Write-Verbose "[$CorrelationId] [EvidencePolicy] Importing evidence policy from: $Path"
+    }
 
     process {
         if (-not (Test-Path $Path)) {
@@ -1305,7 +1431,7 @@ function Import-EvidencePolicy {
             $policy = $content
         }
 
-        Write-Verbose "[EvidencePolicy] Imported policy from: $Path"
+        Write-Verbose "[$CorrelationId] [EvidencePolicy] Imported policy from: $Path"
         return $policy
     }
 }

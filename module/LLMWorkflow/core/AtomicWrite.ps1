@@ -928,7 +928,7 @@ function Invoke-AtomicRollback {
     }
 
     # Validate backup exists
-    if (-not (Test-Path -LiteralPath $BackupPath)) {
+    if ([string]::IsNullOrWhiteSpace($BackupPath) -or -not (Test-Path -LiteralPath $BackupPath)) {
         return [pscustomobject]@{
             Success = $false
             RestoredFrom = $null

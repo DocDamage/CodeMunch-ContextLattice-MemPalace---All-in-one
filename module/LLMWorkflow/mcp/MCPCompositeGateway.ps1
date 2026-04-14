@@ -49,6 +49,17 @@ if (Test-Path -LiteralPath $PolicyAdapterPath) {
     . $PolicyAdapterPath
 }
 
+<#
+.SYNOPSIS
+    Generates a new correlation ID for request tracing.
+#>
+function New-CorrelationId {
+    [CmdletBinding()]
+    [OutputType([string])]
+    param()
+    return [Guid]::NewGuid().ToString()
+}
+
 #region Module State
 
 # In-memory gateway state
@@ -680,11 +691,19 @@ function Invoke-MCPGatewayRequest {
 
         # Generate correlation ID if not provided
         if ([string]::IsNullOrEmpty($CorrelationId)) {
-            $CorrelationId = [Guid]::NewGuid().ToString()
+            $CorrelationId = New-CorrelationId
         }
 
         # Extract tool name and arguments from request if provided
         if ($Request) {
+            # Extract correlation ID from request params/metadata if present
+            if ($Request.params -and $Request.params.correlationId) {
+                $CorrelationId = $Request.params.correlationId
+            }
+            elseif ($Request.params -and $Request.params.metadata -and $Request.params.metadata.correlationId) {
+                $CorrelationId = $Request.params.metadata.correlationId
+            }
+
             if ($Request.params -and $Request.params.name) {
                 $ToolName = $Request.params.name
                 $Arguments = $Request.params.arguments
@@ -706,6 +725,7 @@ function Invoke-MCPGatewayRequest {
     }
 
     process {
+        Write-Verbose "[$CorrelationId] Invoke-MCPGatewayRequest started for tool: $ToolName"
         $startTime = [DateTime]::UtcNow
         $requestId = if ($Request -and $Request.id) { $Request.id } else { [Guid]::NewGuid().ToString() }
 
@@ -1672,13 +1692,14 @@ function Process-MCPGatewayRequest {
 
     begin {
         Ensure-GatewayRunning
-
-        if ([string]::IsNullOrEmpty($CorrelationId)) {
-            $CorrelationId = [Guid]::NewGuid().ToString()
-        }
     }
 
     process {
+        # Generate correlation ID if not provided, or extract from request
+        if ([string]::IsNullOrEmpty($CorrelationId)) {
+            $CorrelationId = New-CorrelationId
+        }
+
         # Parse raw JSON if provided
         if ($RawJson) {
             try {
@@ -1694,11 +1715,21 @@ function Process-MCPGatewayRequest {
             return New-JsonRpcErrorResponse -Id $null -Code -32600 -Message "Invalid request: Request is null" -CorrelationId $CorrelationId
         }
 
+        # Extract correlation ID from request params/metadata if present
+        if ($Request.params -and $Request.params.correlationId) {
+            $CorrelationId = $Request.params.correlationId
+        }
+        elseif ($Request.params -and $Request.params.metadata -and $Request.params.metadata.correlationId) {
+            $CorrelationId = $Request.params.metadata.correlationId
+        }
+
         if ($Request.jsonrpc -ne '2.0') {
             return New-JsonRpcErrorResponse -Id ($Request.id) -Code -32600 -Message "Invalid request: jsonrpc must be '2.0'" -CorrelationId $CorrelationId
         }
 
         $requestId = if ($Request.id) { $Request.id } else { [Guid]::NewGuid().ToString() }
+
+        Write-Verbose "[$CorrelationId] Process-MCPGatewayRequest started for method: $($Request.method)"
 
         # Log request receipt
         Write-GatewayStructuredLog -Level INFO -Message "Processing gateway request" -CorrelationId $CorrelationId -Metadata @{
@@ -2075,7 +2106,7 @@ function Write-GatewayStructuredLog {
     }
 
     # Fallback to internal logging
-    Add-GatewayLog -Level $Level -Message $Message -Context $Metadata
+    Add-GatewayLog -Level $Level -Message $Message -Context $Metadata -CorrelationId $CorrelationId
 }
 
 <#
@@ -2096,14 +2127,22 @@ function Add-GatewayLog {
         [string]$Message,
 
         [Parameter()]
-        [hashtable]$Context = @{}
+        [hashtable]$Context = @{},
+
+        [Parameter()]
+        [string]$CorrelationId = ''
     )
+
+    if (-not [string]::IsNullOrEmpty($CorrelationId)) {
+        $Context['correlationId'] = $CorrelationId
+    }
 
     $logEntry = [PSCustomObject]@{
         timestamp = [DateTime]::UtcNow.ToString("o")
         level = $Level
         message = $Message
         context = $Context
+        correlationId = $CorrelationId
     }
 
     $script:GatewayState.logs += $logEntry

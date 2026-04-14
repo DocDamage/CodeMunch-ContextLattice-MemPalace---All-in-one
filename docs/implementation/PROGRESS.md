@@ -127,8 +127,6 @@ Implemented:
 - Godot, RPG Maker, Blender, OpenAPI, shader, schema, YAML, JSON, SQL, Docker, and related parsers
 - incremental and parallel extraction support
 - cache, source-map, and output/report support
-- Unreal descriptor extraction
-- RPG Maker project asset catalog parsing
 
 ### Phase 5: Retrieval and Answer Integrity ✅
 Implemented:

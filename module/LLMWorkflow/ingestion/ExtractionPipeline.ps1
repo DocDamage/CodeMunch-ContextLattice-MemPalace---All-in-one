@@ -55,6 +55,17 @@
 
 Set-StrictMode -Version Latest
 
+<#
+.SYNOPSIS
+    Generates a new correlation ID for request tracing.
+#>
+function New-CorrelationId {
+    [CmdletBinding()]
+    [OutputType([string])]
+    param()
+    return [Guid]::NewGuid().ToString()
+}
+
 # ============================================================================
 # Module Constants and Configuration
 # ============================================================================
@@ -504,14 +515,25 @@ function New-ExtractionEnvelope {
         [hashtable]$Metadata = @{},
         
         [Parameter()]
-        [string]$ExtractionDepth = 'deep'
+        [string]$ExtractionDepth = 'deep',
+
+        [Parameter()]
+        [string]$CorrelationId = ''
     )
     
+    $provenance = [ordered]@{ 
+        sourceFile = $SourceFile
+        extractedBy = 'ExtractionPipeline'
+        extractedAt = [DateTime]::UtcNow.ToString('o')
+        correlationId = $CorrelationId
+    }
+
     return @{
         extractionId = $ExtractionId
         extractedAt = [DateTime]::UtcNow.ToString("o")
         sourceFile = $SourceFile
-        provenance = [ordered]@{ sourceFile = $SourceFile; extractedBy = 'ExtractionPipeline'; extractedAt = [DateTime]::UtcNow.ToString('o') }
+        provenance = $provenance
+        correlationId = $CorrelationId
         license = 'unknown'
         fileType = $FileType
         packType = $PackType
@@ -627,7 +649,10 @@ function Invoke-ParserByType {
         [string]$FileType,
         
         [Parameter(Mandatory = $true)]
-        [hashtable]$Mapping
+        [hashtable]$Mapping,
+
+        [Parameter()]
+        [string]$CorrelationId = ''
     )
     
     $parserFunction = $Mapping.Function
@@ -637,10 +662,16 @@ function Invoke-ParserByType {
         throw "Parser function '$parserFunction' not found. Ensure parser modules are loaded."
     }
     
-    Write-Verbose "[$script:ModuleName] Invoking parser: $parserFunction for $Path"
+    Write-Verbose "[$CorrelationId] [$script:ModuleName] Invoking parser: $parserFunction for $Path"
     
-    # Invoke the parser
-    $result = & $parserFunction -Path $Path
+    # Invoke the parser, passing CorrelationId if supported
+    $cmd = Get-Command -Name $parserFunction -ErrorAction SilentlyContinue
+    if ($cmd -and $cmd.Parameters.ContainsKey('CorrelationId')) {
+        $result = & $parserFunction -Path $Path -CorrelationId $CorrelationId
+    }
+    else {
+        $result = & $parserFunction -Path $Path
+    }
     
     return $result
 }
@@ -744,16 +775,22 @@ function Invoke-StructuredExtraction {
         
         [Parameter()]
         [ValidateSet('inventory', 'deep')]
-        [string]$ExtractionDepth = 'deep'
+        [string]$ExtractionDepth = 'deep',
+
+        [Parameter()]
+        [string]$CorrelationId = ''
     )
     
     begin {
         $extractionId = [System.Guid]::NewGuid().ToString()
-        Write-Verbose "[$script:ModuleName] Starting extraction [$extractionId]"
+        if ([string]::IsNullOrEmpty($CorrelationId)) {
+            $CorrelationId = New-CorrelationId
+        }
+        Write-Verbose "[$CorrelationId] Starting extraction for $FilePath"
         
         # Ensure parser modules are loaded
         if (-not (Import-ParserModules)) {
-            Write-Warning "[$script:ModuleName] Some parser modules failed to load"
+            Write-Warning "[$CorrelationId] [$script:ModuleName] Some parser modules failed to load"
         }
     }
     
@@ -767,7 +804,8 @@ function Invoke-StructuredExtraction {
                 -PackType ($PackType -or 'unknown') `
                 -Success $false `
                 -Errors @("File not found: $FilePath") `
-                -ExtractionDepth $ExtractionDepth
+                -ExtractionDepth $ExtractionDepth `
+                -CorrelationId $CorrelationId
             
             return ConvertTo-OutputFormat -Envelope $envelope -Format $OutputFormat
         }
@@ -816,12 +854,13 @@ function Invoke-StructuredExtraction {
                 -PackType ($detectedPackType -or 'unknown') `
                 -Success $false `
                 -Errors @("Unsupported file type: $extension") `
-                -ExtractionDepth $ExtractionDepth
+                -ExtractionDepth $ExtractionDepth `
+                -CorrelationId $CorrelationId
             
             return ConvertTo-OutputFormat -Envelope $envelope -Format $OutputFormat
         }
         
-        Write-Verbose "[$script:ModuleName] Detected type: $detectedFileType, pack: $detectedPackType"
+        Write-Verbose "[$CorrelationId] [$script:ModuleName] Detected type: $detectedFileType, pack: $detectedPackType"
         
         # Get file metadata
         $metadata = Get-FileMetadata -Path $resolvedPath
@@ -831,11 +870,11 @@ function Invoke-StructuredExtraction {
         $success = $false
         
         try {
-            $data = Invoke-ParserByType -Path $resolvedPath -FileType $detectedFileType -Mapping $mapping
+            $data = Invoke-ParserByType -Path $resolvedPath -FileType $detectedFileType -Mapping $mapping -CorrelationId $CorrelationId
             
             if ($null -ne $data) {
                 $success = $true
-                Write-Verbose "[$script:ModuleName] Extraction successful"
+                Write-Verbose "[$CorrelationId] [$script:ModuleName] Extraction successful"
             }
             else {
                 $errors += "Parser returned null - file may be empty or invalid"
@@ -844,7 +883,7 @@ function Invoke-StructuredExtraction {
         catch {
             $errorMsg = "Extraction failed: $_"
             $errors += $errorMsg
-            Write-Warning "[$script:ModuleName] $errorMsg"
+            Write-Warning "[$CorrelationId] [$script:ModuleName] $errorMsg"
         }
         
         # Build envelope
@@ -858,13 +897,14 @@ function Invoke-StructuredExtraction {
             -Errors $errors `
             -Warnings $warnings `
             -Metadata $metadata `
-            -ExtractionDepth $ExtractionDepth
+            -ExtractionDepth $ExtractionDepth `
+            -CorrelationId $CorrelationId
         
         return ConvertTo-OutputFormat -Envelope $envelope -Format $OutputFormat
     }
     
     end {
-        Write-Verbose "[$script:ModuleName] Extraction [$extractionId] complete"
+        Write-Verbose "[$CorrelationId] [$script:ModuleName] Extraction [$extractionId] complete"
     }
 }
 
@@ -1200,10 +1240,18 @@ function Invoke-BatchExtraction {
                 Write-Warning "[$script:ModuleName] Exception extracting $filePath`: $_"
                 
                 # Add error result
+                $batchCorrelationId = New-CorrelationId
                 [void]$results.Add(@{
                     extractionId = [System.Guid]::NewGuid().ToString()
                     extractedAt = [DateTime]::UtcNow.ToString("o")
                     sourceFile = $filePath
+                    correlationId = $batchCorrelationId
+                    provenance = [ordered]@{
+                        sourceFile = $filePath
+                        extractedBy = 'ExtractionPipeline'
+                        extractedAt = [DateTime]::UtcNow.ToString('o')
+                        correlationId = $batchCorrelationId
+                    }
                     fileType = 'unknown'
                     packType = 'unknown'
                     success = $false

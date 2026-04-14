@@ -1339,7 +1339,10 @@ function Export-PackSnapshot {
                 Import-Module "$PSScriptRoot/../core/AtomicWrite.ps1" -Force -ErrorAction SilentlyContinue
                 $tempOutput = "$OutputPath.tmp"
                 [System.IO.File]::WriteAllBytes($tempOutput, $data)
-                [System.IO.File]::Move($tempOutput, $OutputPath, $true)
+                if (Test-Path -LiteralPath $OutputPath) {
+                    Remove-Item -LiteralPath $OutputPath -Force -ErrorAction Stop
+                }
+                [System.IO.File]::Move($tempOutput, $OutputPath)
             }
             else {
                 [System.IO.File]::WriteAllBytes($OutputPath, $data)
