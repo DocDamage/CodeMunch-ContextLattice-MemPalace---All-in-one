@@ -90,6 +90,9 @@ Strategic emphasis has shifted from raw expansion toward:
 - **DoclingAdapter failure-visibility hardening**: removed silent command/path probes and added explicit suppressed-exception diagnostics with regression tests
 - **GeometryNodesParser file-probe hardening**: removed `-ErrorAction SilentlyContinue` path probing, added explicit file-resolution failure signaling, and added dedicated parser tests (`tests/GeometryNodesParser.Tests.ps1`)
 - **HealFunctions reliability hardening**: removed silent path/command/file probes, added explicit helper-based diagnostics, made force mode truly non-interactive, and fixed strict-mode/count regressions with passing `tests/LLMWorkflow.HealFunctions.Tests.ps1`
+- **DashboardViews probe hardening**: removed silent command/file enumeration probes, added explicit helper-based diagnostics, fixed case-insensitive duplicate-key parsing defects, and added dedicated resilience tests (`tests/DashboardViews.Tests.ps1`)
+- **LLMWorkflow.Dashboard runtime hardening**: removed silent command probes for `python`/`codemunch-pro`, replaced unsupported inline status-expression usage with PowerShell 5.1-safe status logic, and made script execution dot-source safe for tests with dedicated coverage (`tests/LLMWorkflow.Dashboard.Tests.ps1`)
+- **LLMWorkflow.Dashboard status consistency hardening**: centralized warning-vs-failure classification so interactive output, non-interactive report text, and exit-code fail detection stay aligned (including missing-context connectivity checks).
 
 ### Resolver Hardening Completed
 The current branch baseline already covers:

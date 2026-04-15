@@ -104,6 +104,38 @@ function Test-AnsiSupport {
     return $false
 }
 
+function Write-DashboardSuppressedException {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$Context,
+
+        [Parameter(Mandatory = $true)]
+        [System.Management.Automation.ErrorRecord]$ErrorRecord
+    )
+
+    Write-Verbose "[LLMWorkflow.Dashboard] $($Context): $($ErrorRecord.Exception.Message)"
+}
+
+function Get-DashboardCommand {
+    [CmdletBinding()]
+    [OutputType([System.Management.Automation.CommandInfo])]
+    param(
+        [Parameter(Mandatory = $true)]
+        [ValidateNotNullOrEmpty()]
+        [string]$Name
+    )
+
+    try {
+        return (Get-Command -Name $Name -ErrorAction Stop | Select-Object -First 1)
+    } catch [System.Management.Automation.CommandNotFoundException] {
+        return $null
+    } catch {
+        Write-DashboardSuppressedException -Context "Command probe for '$Name'" -ErrorRecord $_
+        return $null
+    }
+}
+
 function Write-DashboardHeader {
     [CmdletBinding()]
     param([switch]$UseAnsi, [switch]$UseColors)
@@ -285,7 +317,7 @@ function Write-PlainTextReport {
     }
     
     foreach ($check in $Checks) {
-        $status = if ($check.Ok) { "OK" } else { "FAIL" }
+        $status = Get-DashboardCheckStatus -Check $check
         if ($check.LatencyMs -ne $null -and $check.LatencyMs -gt 0) {
             Write-Output ("[{0}] {1}: {2} ({3}ms)" -f $status, $check.Name, $check.Detail, $check.LatencyMs)
         } else {
@@ -293,12 +325,37 @@ function Write-PlainTextReport {
         }
     }
     
-    $failed = @($Checks | Where-Object { -not $_.Ok })
+    $failed = @($Checks | Where-Object { (Get-DashboardCheckStatus -Check $_) -eq "FAIL" })
     if ($failed.Count -eq 0) {
         Write-Output "[llm-workflow-doctor] all checks passed"
     } else {
         Write-Warning ("[llm-workflow-doctor] failed checks: {0}" -f ($failed.Name -join ", "))
     }
+}
+
+function Get-DashboardCheckStatus {
+    [CmdletBinding()]
+    [OutputType([string])]
+    param(
+        [Parameter(Mandatory = $true)]
+        [pscustomobject]$Check
+    )
+
+    if ($Check.Ok) {
+        return "OK"
+    }
+
+    if ($Check.Name -in @("python_version", "codemunch_version", "chromadb_version") -and $Check.Detail -match "^Found\s+") {
+        return "WARN"
+    }
+    if ($Check.Name -eq "contextlattice_env" -and $Check.Detail -match "^Need\s+") {
+        return "WARN"
+    }
+    if ($Check.Name -in @("contextlattice_health", "contextlattice_status") -and $Check.Detail -match "^Missing context env vars") {
+        return "WARN"
+    }
+
+    return "FAIL"
 }
 
 #endregion
@@ -530,14 +587,16 @@ function Invoke-DashboardCheck {
     # Check 1: Python command
     $currentCheck++
     & $OnCheckComplete $currentCheck $totalChecks "python_command" "PENDING" "Checking..."
-    $pythonCmd = Get-Command python -ErrorAction SilentlyContinue
+    $pythonCmd = Get-DashboardCommand -Name "python"
     $checks.Add([pscustomobject]@{
         Name = "python_command"
         Ok = ($null -ne $pythonCmd)
         Detail = if ($pythonCmd) { "Found: $($pythonCmd.Source)" } else { "Install Python and add python to PATH." }
         LatencyMs = $null
     })
-    & $OnCheckComplete $currentCheck $totalChecks "python_command" (if ($pythonCmd) { "OK" } else { "FAIL" }) $checks[-1].Detail
+    $pythonCommandStatus = "FAIL"
+    if ($pythonCmd) { $pythonCommandStatus = "OK" }
+    & $OnCheckComplete $currentCheck $totalChecks "python_command" $pythonCommandStatus $checks[-1].Detail
     
     # Check 2: Python version
     $currentCheck++
@@ -550,12 +609,18 @@ function Invoke-DashboardCheck {
     } else {
         $checks.Add([pscustomobject]@{ Name = "python_version"; Ok = $false; Detail = "Not installed"; LatencyMs = $null })
     }
-    & $OnCheckComplete $currentCheck $totalChecks "python_version" (if ($pythonVersionOk) { "OK" } else { if ($pythonVersion) { "WARN" } else { "FAIL" } }) $checks[-1].Detail
+    $pythonVersionStatus = "FAIL"
+    if ($pythonVersionOk) {
+        $pythonVersionStatus = "OK"
+    } elseif ($pythonVersion) {
+        $pythonVersionStatus = "WARN"
+    }
+    & $OnCheckComplete $currentCheck $totalChecks "python_version" $pythonVersionStatus $checks[-1].Detail
     
     # Check 3: CodeMunch runtime
     $currentCheck++
     & $OnCheckComplete $currentCheck $totalChecks "codemunch_runtime" "PENDING" "Checking..."
-    $codemunchCmd = Get-Command codemunch-pro -ErrorAction SilentlyContinue
+    $codemunchCmd = Get-DashboardCommand -Name "codemunch-pro"
     $codemunchImport = if ($pythonCmd) { Test-PythonImport -ImportName "codemunch_pro" } else { $false }
     $codemunchOk = ($null -ne $codemunchCmd) -or $codemunchImport
     $checks.Add([pscustomobject]@{
@@ -564,7 +629,9 @@ function Invoke-DashboardCheck {
         Detail = if ($codemunchCmd) { "command: $($codemunchCmd.Source)" } elseif ($codemunchImport) { "python module codemunch_pro is importable" } else { "Install with: python -m pip install --upgrade codemunch-pro" }
         LatencyMs = $null
     })
-    & $OnCheckComplete $currentCheck $totalChecks "codemunch_runtime" (if ($codemunchOk) { "OK" } else { "FAIL" }) $checks[-1].Detail
+    $codemunchRuntimeStatus = "FAIL"
+    if ($codemunchOk) { $codemunchRuntimeStatus = "OK" }
+    & $OnCheckComplete $currentCheck $totalChecks "codemunch_runtime" $codemunchRuntimeStatus $checks[-1].Detail
     
     # Check 4: CodeMunch version
     $currentCheck++
@@ -577,14 +644,22 @@ function Invoke-DashboardCheck {
     } else {
         $checks.Add([pscustomobject]@{ Name = "codemunch_version"; Ok = $false; Detail = "Not installed"; LatencyMs = $null })
     }
-    & $OnCheckComplete $currentCheck $totalChecks "codemunch_version" (if ($codemunchVersionOk) { "OK" } else { if ($codemunchVersion) { "WARN" } else { "FAIL" } }) $checks[-1].Detail
+    $codemunchVersionStatus = "FAIL"
+    if ($codemunchVersionOk) {
+        $codemunchVersionStatus = "OK"
+    } elseif ($codemunchVersion) {
+        $codemunchVersionStatus = "WARN"
+    }
+    & $OnCheckComplete $currentCheck $totalChecks "codemunch_version" $codemunchVersionStatus $checks[-1].Detail
     
     # Check 5: ChromaDB module
     $currentCheck++
     & $OnCheckComplete $currentCheck $totalChecks "chromadb_module" "PENDING" "Checking..."
     $chromadbImport = if ($pythonCmd) { Test-PythonImport -ImportName "chromadb" } else { $false }
     $checks.Add([pscustomobject]@{ Name = "chromadb_module"; Ok = $chromadbImport; Detail = if ($chromadbImport) { "chromadb import ok" } else { "Install with: python -m pip install --upgrade chromadb" }; LatencyMs = $null })
-    & $OnCheckComplete $currentCheck $totalChecks "chromadb_module" (if ($chromadbImport) { "OK" } else { "FAIL" }) $checks[-1].Detail
+    $chromadbModuleStatus = "FAIL"
+    if ($chromadbImport) { $chromadbModuleStatus = "OK" }
+    & $OnCheckComplete $currentCheck $totalChecks "chromadb_module" $chromadbModuleStatus $checks[-1].Detail
     
     # Check 6: ChromaDB version
     $currentCheck++
@@ -597,7 +672,13 @@ function Invoke-DashboardCheck {
     } else {
         $checks.Add([pscustomobject]@{ Name = "chromadb_version"; Ok = $false; Detail = "Not installed"; LatencyMs = $null })
     }
-    & $OnCheckComplete $currentCheck $totalChecks "chromadb_version" (if ($chromadbVersionOk) { "OK" } else { if ($chromadbVersion) { "WARN" } else { "FAIL" } }) $checks[-1].Detail
+    $chromadbVersionStatus = "FAIL"
+    if ($chromadbVersionOk) {
+        $chromadbVersionStatus = "OK"
+    } elseif ($chromadbVersion) {
+        $chromadbVersionStatus = "WARN"
+    }
+    & $OnCheckComplete $currentCheck $totalChecks "chromadb_version" $chromadbVersionStatus $checks[-1].Detail
     
     # Check 7: Provider credentials
     $currentCheck++
@@ -609,7 +690,9 @@ function Invoke-DashboardCheck {
         $baseSource = if ([string]::IsNullOrWhiteSpace($providerResolved.BaseUrlVar)) { "default" } else { $providerResolved.BaseUrlVar }
         $checks.Add([pscustomobject]@{ Name = "provider_credentials"; Ok = $providerResolved.ApiKeySet; Detail = "provider=$($providerResolved.Profile.Name), apiKeyVar=$($providerResolved.ApiKeyVar), baseUrlSource=$baseSource"; LatencyMs = $null })
     }
-    & $OnCheckComplete $currentCheck $totalChecks "provider_credentials" (if ($providerResolved -and $providerResolved.ApiKeySet) { "OK" } else { "FAIL" }) $checks[-1].Detail
+    $providerCredentialsStatus = "FAIL"
+    if ($providerResolved -and $providerResolved.ApiKeySet) { $providerCredentialsStatus = "OK" }
+    & $OnCheckComplete $currentCheck $totalChecks "provider_credentials" $providerCredentialsStatus $checks[-1].Detail
     
     # Check 8: ContextLattice env
     $currentCheck++
@@ -618,7 +701,9 @@ function Invoke-DashboardCheck {
     $ctxKeySet = -not [string]::IsNullOrWhiteSpace($env:CONTEXTLATTICE_ORCHESTRATOR_API_KEY)
     $ctxEnvOk = (-not [string]::IsNullOrWhiteSpace($ctxUrl)) -and $ctxKeySet
     $checks.Add([pscustomobject]@{ Name = "contextlattice_env"; Ok = $ctxEnvOk; Detail = if ($ctxEnvOk) { "url=$ctxUrl, apiKey=present" } else { "Need CONTEXTLATTICE_ORCHESTRATOR_URL and CONTEXTLATTICE_ORCHESTRATOR_API_KEY" }; LatencyMs = $null })
-    & $OnCheckComplete $currentCheck $totalChecks "contextlattice_env" (if ($ctxEnvOk) { "OK" } else { "WARN" }) $checks[-1].Detail
+    $contextEnvStatus = "WARN"
+    if ($ctxEnvOk) { $contextEnvStatus = "OK" }
+    & $OnCheckComplete $currentCheck $totalChecks "contextlattice_env" $contextEnvStatus $checks[-1].Detail
     
     # Check 9: Provider key validation
     $currentCheck++
@@ -633,7 +718,9 @@ function Invoke-DashboardCheck {
         $keyLatency = $latencyRef.Value
     }
     $checks.Add([pscustomobject]@{ Name = "provider_key_valid"; Ok = $keyValid; Detail = if ($keyValid) { "Key validated for $($providerResolved.Profile.Name)" } else { "Key validation failed for $($providerResolved.Profile.Name)" }; LatencyMs = $keyLatency })
-    & $OnCheckComplete $currentCheck $totalChecks "provider_key_valid" (if ($keyValid) { "OK" } else { "FAIL" }) $checks[-1].Detail $keyLatency
+    $providerKeyStatus = "FAIL"
+    if ($keyValid) { $providerKeyStatus = "OK" }
+    & $OnCheckComplete $currentCheck $totalChecks "provider_key_valid" $providerKeyStatus $checks[-1].Detail $keyLatency
     
     # Context checks
     if ($CheckContext) {
@@ -658,7 +745,9 @@ function Invoke-DashboardCheck {
             }
             $healthLatency = $healthStopwatch.ElapsedMilliseconds
             $checks.Add([pscustomobject]@{ Name = "contextlattice_health"; Ok = $healthOk; Detail = $healthDetail; LatencyMs = $healthLatency })
-            & $OnCheckComplete $currentCheck $totalChecks "contextlattice_health" (if ($healthOk) { "OK" } else { "FAIL" }) $healthDetail $healthLatency
+            $contextHealthStatus = "FAIL"
+            if ($healthOk) { $contextHealthStatus = "OK" }
+            & $OnCheckComplete $currentCheck $totalChecks "contextlattice_health" $contextHealthStatus $healthDetail $healthLatency
             
             # Check 11: ContextLattice status
             $currentCheck++
@@ -679,7 +768,9 @@ function Invoke-DashboardCheck {
             }
             $statusLatency = $statusStopwatch.ElapsedMilliseconds
             $checks.Add([pscustomobject]@{ Name = "contextlattice_status"; Ok = $statusOk; Detail = $statusDetail; LatencyMs = $statusLatency })
-            & $OnCheckComplete $currentCheck $totalChecks "contextlattice_status" (if ($statusOk) { "OK" } else { "FAIL" }) $statusDetail $statusLatency
+            $contextStatusStatus = "FAIL"
+            if ($statusOk) { $contextStatusStatus = "OK" }
+            & $OnCheckComplete $currentCheck $totalChecks "contextlattice_status" $contextStatusStatus $statusDetail $statusLatency
         } else {
             $currentCheck++
             & $OnCheckComplete $currentCheck $totalChecks "contextlattice_health" "WARN" "Missing context env vars; cannot run connectivity test."
@@ -702,146 +793,136 @@ function Invoke-DashboardCheck {
 
 #region Main Execution
 
-$isInteractive = Test-InteractiveShell
-$useAnsi = Test-AnsiSupport
-$useColors = $isInteractive
+function Invoke-LLMWorkflowDashboardMain {
+    [CmdletBinding()]
+    param()
 
-# Non-interactive mode: just run checks and output plain text
-if (-not $isInteractive) {
-    $result = Invoke-DashboardCheck -ProjectRoot $ProjectRoot -Provider $Provider -CheckContext:$CheckContext -TimeoutSec $TimeoutSec -OnCheckComplete { param($c, $t, $n, $s, $d, $l) }
-    Write-PlainTextReport -Checks $result.Checks -ProjectPath $result.ProjectPath -Provider $Provider -ProviderResolved $result.ProviderResolved
-    $failed = @($result.Checks | Where-Object { -not $_.Ok })
-    if ($failed.Count -gt 0) { exit 1 }
-    exit 0
-}
+    $isInteractive = Test-InteractiveShell
+    $useAnsi = Test-AnsiSupport
+    $useColors = $isInteractive
 
-# Interactive dashboard mode
-$checkResults = @{}
-$autoRefresh = $false
-$lastCheckTime = $null
-$running = $true
-$firstRun = $true
+    # Non-interactive mode: just run checks and output plain text
+    if (-not $isInteractive) {
+        $result = Invoke-DashboardCheck -ProjectRoot $ProjectRoot -Provider $Provider -CheckContext:$CheckContext -TimeoutSec $TimeoutSec -OnCheckComplete { param($c, $t, $n, $s, $d, $l) }
+        Write-PlainTextReport -Checks $result.Checks -ProjectPath $result.ProjectPath -Provider $Provider -ProviderResolved $result.ProviderResolved
+        $failed = @($result.Checks | Where-Object { (Get-DashboardCheckStatus -Check $_) -eq "FAIL" })
+        if ($failed.Count -gt 0) { return 1 }
+        return 0
+    }
 
-while ($running) {
-    # Clear screen for refresh
-    if (-not $firstRun) {
-        Clear-Host
-    }
-    $firstRun = $false
-    
-    # Draw header
-    Write-DashboardHeader -UseAnsi:$useAnsi -UseColors:$useColors
-    Write-Host ""
-    
-    # Run checks if needed
-    if ($lastCheckTime -eq $null -or $autoRefresh) {
-        $checkResults = @{}
-        $completedCount = 0
+    # Interactive dashboard mode
+    $checkResults = @{}
+    $autoRefresh = $false
+    $lastCheckTime = $null
+    $running = $true
+    $firstRun = $true
+
+    while ($running) {
+        # Clear screen for refresh
+        if (-not $firstRun) {
+            Clear-Host
+        }
+        $firstRun = $false
         
-        $onComplete = {
-            param($current, $total, $name, $status, $detail, $latency)
-            $script:completedCount = $current
-            $script:checkResults[$name] = @{
-                Status = $status
-                Detail = $detail
-                LatencyMs = $latency
-            }
-        }
+        # Draw header
+        Write-DashboardHeader -UseAnsi:$useAnsi -UseColors:$useColors
+        Write-Host ""
         
-        # Show progress before detailed results
-        if ($useAnsi -or $useColors) {
-            Write-Host "Running checks..." -ForegroundColor Cyan
-        }
-    }
-    
-    # Execute checks
-    $result = Invoke-DashboardCheck -ProjectRoot $ProjectRoot -Provider $Provider -CheckContext:$CheckContext -TimeoutSec $TimeoutSec -OnCheckComplete $onComplete
-    $lastCheckTime = Get-Date
-    
-    # Display results
-    Write-Host ""
-    foreach ($check in $result.Checks) {
-        $statusStr = if ($check.Ok) { "OK" } else { "FAIL" }
-        # Determine if this is a warning case
-        if (-not $check.Ok) {
-            if ($check.Name -in @("python_version", "codemunch_version", "chromadb_version") -and $check.Detail -match "Found") {
-                $statusStr = "WARN"
-            }
-            if ($check.Name -eq "contextlattice_env" -and $check.Detail -match "Need") {
-                $statusStr = "WARN"
-            }
-        }
-        Write-CheckResult -Name $check.Name -Status $statusStr -Detail $check.Detail -LatencyMs ($check.LatencyMs, 0 | Measure-Object -Maximum | Select-Object -ExpandProperty Maximum) -UseAnsi:$useAnsi -UseColors:$useColors
-    }
-    
-    # Calculate summary
-    $passCount = @($result.Checks | Where-Object { $_.Ok }).Count
-    $failCount = @($result.Checks | Where-Object { -not $_.Ok }).Count
-    $warnCount = 0
-    foreach ($check in $result.Checks | Where-Object { -not $_.Ok }) {
-        if ($check.Name -in @("python_version", "codemunch_version", "chromadb_version") -and $check.Detail -match "Found") {
-            $warnCount++
-            $failCount--
-        }
-        if ($check.Name -eq "contextlattice_env" -and $check.Detail -match "Need") {
-            $warnCount++
-            $failCount--
-        }
-    }
-    
-    # Status message
-    $statusMsg = "Last updated: $($lastCheckTime.ToString('HH:mm:ss'))"
-    if ($autoRefresh) {
-        $statusMsg += " | Auto-refresh: ON ($RefreshInterval sec)"
-    } else {
-        $statusMsg += " | Auto-refresh: OFF"
-    }
-    if ($result.ProviderResolved) {
-        $statusMsg += " | Provider: $($result.ProviderResolved.Profile.Name)"
-    }
-    
-    Write-Host ""
-    Write-DashboardFooter -UseAnsi:$useAnsi -UseColors:$useColors -StatusMessage $statusMsg -PassCount $passCount -WarnCount $warnCount -FailCount $failCount
-    
-    # Wait for user input
-    if ($autoRefresh -and $RefreshInterval -gt 0) {
-        $timeout = $RefreshInterval * 1000
-        $stopwatch = [System.Diagnostics.Stopwatch]::StartNew()
-        $keyPressed = $false
-        
-        while ($stopwatch.ElapsedMilliseconds -lt $timeout -and -not $keyPressed) {
-            if ($Host.UI.RawUI.KeyAvailable) {
-                $key = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
-                $keyPressed = $true
-                
-                switch ($key.Character.ToString().ToUpper()) {
-                    "Q" { $running = $false }
-                    "R" { $lastCheckTime = $null; break }
-                    "A" { $autoRefresh = -not $autoRefresh }
+        # Run checks if needed
+        if ($lastCheckTime -eq $null -or $autoRefresh) {
+            $checkResults = @{}
+            $completedCount = 0
+            
+            $onComplete = {
+                param($current, $total, $name, $status, $detail, $latency)
+                $script:completedCount = $current
+                $script:checkResults[$name] = @{
+                    Status = $status
+                    Detail = $detail
+                    LatencyMs = $latency
                 }
             }
-            Start-Sleep -Milliseconds 100
+            
+            # Show progress before detailed results
+            if ($useAnsi -or $useColors) {
+                Write-Host "Running checks..." -ForegroundColor Cyan
+            }
         }
-        $stopwatch.Stop()
-    } else {
-        # Manual mode - wait for key press
+        
+        # Execute checks
+        $result = Invoke-DashboardCheck -ProjectRoot $ProjectRoot -Provider $Provider -CheckContext:$CheckContext -TimeoutSec $TimeoutSec -OnCheckComplete $onComplete
+        $lastCheckTime = Get-Date
+        
+        # Display results
         Write-Host ""
-        Write-Host "Press a key..." -ForegroundColor Gray -NoNewline
+        foreach ($check in $result.Checks) {
+            $statusStr = Get-DashboardCheckStatus -Check $check
+            Write-CheckResult -Name $check.Name -Status $statusStr -Detail $check.Detail -LatencyMs ($check.LatencyMs, 0 | Measure-Object -Maximum | Select-Object -ExpandProperty Maximum) -UseAnsi:$useAnsi -UseColors:$useColors
+        }
         
-        $key = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
+        # Calculate summary
+        $statuses = @($result.Checks | ForEach-Object { Get-DashboardCheckStatus -Check $_ })
+        $passCount = @($statuses | Where-Object { $_ -eq "OK" }).Count
+        $warnCount = @($statuses | Where-Object { $_ -eq "WARN" }).Count
+        $failCount = @($statuses | Where-Object { $_ -eq "FAIL" }).Count
         
-        switch ($key.Character.ToString().ToUpper()) {
-            "Q" { $running = $false }
-            "R" { $lastCheckTime = $null }
-            "A" { $autoRefresh = -not $autoRefresh }
+        # Status message
+        $statusMsg = "Last updated: $($lastCheckTime.ToString('HH:mm:ss'))"
+        if ($autoRefresh) {
+            $statusMsg += " | Auto-refresh: ON ($RefreshInterval sec)"
+        } else {
+            $statusMsg += " | Auto-refresh: OFF"
+        }
+        if ($result.ProviderResolved) {
+            $statusMsg += " | Provider: $($result.ProviderResolved.Profile.Name)"
+        }
+        
+        Write-Host ""
+        Write-DashboardFooter -UseAnsi:$useAnsi -UseColors:$useColors -StatusMessage $statusMsg -PassCount $passCount -WarnCount $warnCount -FailCount $failCount
+        
+        # Wait for user input
+        if ($autoRefresh -and $RefreshInterval -gt 0) {
+            $timeout = $RefreshInterval * 1000
+            $stopwatch = [System.Diagnostics.Stopwatch]::StartNew()
+            $keyPressed = $false
+            
+            while ($stopwatch.ElapsedMilliseconds -lt $timeout -and -not $keyPressed) {
+                if ($Host.UI.RawUI.KeyAvailable) {
+                    $key = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
+                    $keyPressed = $true
+                    
+                    switch ($key.Character.ToString().ToUpper()) {
+                        "Q" { $running = $false }
+                        "R" { $lastCheckTime = $null; break }
+                        "A" { $autoRefresh = -not $autoRefresh }
+                    }
+                }
+                Start-Sleep -Milliseconds 100
+            }
+            $stopwatch.Stop()
+        } else {
+            # Manual mode - wait for key press
+            Write-Host ""
+            Write-Host "Press a key..." -ForegroundColor Gray -NoNewline
+            
+            $key = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
+            
+            switch ($key.Character.ToString().ToUpper()) {
+                "Q" { $running = $false }
+                "R" { $lastCheckTime = $null }
+                "A" { $autoRefresh = -not $autoRefresh }
+            }
         }
     }
+
+    # Exit code
+    $failed = @($result.Checks | Where-Object { (Get-DashboardCheckStatus -Check $_) -eq "FAIL" })
+    if ($failed.Count -gt 0) { return 1 }
+    return 0
 }
 
-# Exit code
-$failed = @($result.Checks | Where-Object { -not $_.Ok })
-if ($failed.Count -gt 0) { exit 1 }
-exit 0
+if ($MyInvocation.InvocationName -ne '.') {
+    exit (Invoke-LLMWorkflowDashboardMain)
+}
 
 #endregion
-

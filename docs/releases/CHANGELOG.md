@@ -17,11 +17,17 @@ The format is based on Keep a Changelog and this project follows Semantic Versio
 - Hardened `DoclingAdapter.ps1` failure visibility by replacing silent command/path probes with explicit helper-based resolution and verbose-safe suppressed-exception diagnostics.
 - Hardened `GeometryNodesParser.ps1` file path probing by removing `-ErrorAction SilentlyContinue`, adding explicit resolution/error signaling, and covering fallback/error paths with dedicated parser tests.
 - Hardened `LLMWorkflow.HealFunctions.ps1` runtime safety by replacing silent probes with explicit helper functions, adding safe workflow-version fallback for history entries, and fixing strict-mode/count edge cases.
+- Hardened `LLMWorkflow.Dashboard.ps1` command-probe behavior by replacing silent `Get-Command` checks with explicit safe resolution for `python` and `codemunch-pro`.
+- Fixed `LLMWorkflow.Dashboard.ps1` PowerShell 5.1 runtime incompatibility by removing unsupported inline status expressions in check-completion calls.
+- Refactored `LLMWorkflow.Dashboard.ps1` script entrypoint behavior to avoid running/`exit` during dot-sourcing, enabling direct function-level test coverage.
+- Normalized `LLMWorkflow.Dashboard.ps1` warning classification so plain-text output and exit-code fail detection match interactive WARN/FAIL semantics (including context-connectivity skip paths).
 - Updated heal execution semantics so `-Force` mode is non-interactive by default and no longer prompts for secure input in unattended runs.
 - Added or updated regression coverage in:
   - `tests/DocumentIngestion.Tests.ps1`
   - `tests/GeometryNodesParser.Tests.ps1`
   - `tests/LLMWorkflow.HealFunctions.Tests.ps1`
+  - `tests/DashboardViews.Tests.ps1`
+  - `tests/LLMWorkflow.Dashboard.Tests.ps1`
 
 ### Added - Game Asset Intake Foundation
 

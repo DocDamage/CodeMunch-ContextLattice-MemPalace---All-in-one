@@ -56,23 +56,21 @@ $script:AnsiColors = @{
 
 # Status Color Mapping
 $script:StatusColors = @{
-    Healthy = 'Green'
-    Degraded = 'Yellow'
-    Critical = 'Red'
-    Warning = 'Yellow'
-    OK = 'Green'
-    Notice = 'Blue'
-    compliant = 'Green'
-    warning = 'Yellow'
+    healthy = 'Green'
+    degraded = 'Yellow'
     critical = 'Red'
+    warning = 'Yellow'
+    ok = 'Green'
+    notice = 'Blue'
+    compliant = 'Green'
     active = 'Green'
     inactive = 'Gray'
     suspended = 'Yellow'
     offline = 'Red'
     error = 'Red'
-    CLOSED = 'Green'
-    OPEN = 'Red'
-    HALF_OPEN = 'Yellow'
+    closed = 'Green'
+    open = 'Red'
+    half_open = 'Yellow'
 }
 
 # HTML Theme Colors (Dark/Light)
@@ -105,6 +103,93 @@ $script:HtmlThemes = @{
 # Private Helper Functions
 #===============================================================================
 
+function Write-DashboardSuppressedException {
+    <#
+    .SYNOPSIS
+        Emits verbose diagnostics for intentionally suppressed dashboard exceptions.
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$Context,
+
+        [Parameter(Mandatory = $true)]
+        [System.Management.Automation.ErrorRecord]$ErrorRecord
+    )
+
+    Write-Verbose "[DashboardViews] $($Context): $($ErrorRecord.Exception.Message)"
+}
+
+function Get-DashboardCommand {
+    <#
+    .SYNOPSIS
+        Resolves a command if available and returns $null when absent.
+    #>
+    [CmdletBinding()]
+    [OutputType([System.Management.Automation.CommandInfo])]
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$CommandName
+    )
+
+    try {
+        return (Get-Command -Name $CommandName -ErrorAction Stop | Select-Object -First 1)
+    }
+    catch [System.Management.Automation.CommandNotFoundException] {
+        return $null
+    }
+    catch {
+        Write-DashboardSuppressedException -Context "Command probe for '$CommandName'" -ErrorRecord $_
+        return $null
+    }
+}
+
+function Get-DashboardChildItems {
+    <#
+    .SYNOPSIS
+        Safely enumerates child items for dashboards.
+    #>
+    [CmdletBinding()]
+    [OutputType([object[]])]
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$Path,
+
+        [Parameter()]
+        [string]$Filter = '',
+
+        [ValidateSet('Any', 'File', 'Directory')]
+        [string]$ItemType = 'Any',
+
+        [string]$Context = 'Child item enumeration'
+    )
+
+    $params = @{
+        Path = $Path
+        ErrorAction = 'Stop'
+    }
+
+    if (-not [string]::IsNullOrWhiteSpace($Filter)) {
+        $params['Filter'] = $Filter
+    }
+
+    switch ($ItemType) {
+        'File' { $params['File'] = $true }
+        'Directory' { $params['Directory'] = $true }
+    }
+
+    try {
+        return @(Get-ChildItem @params)
+    }
+    catch [System.Management.Automation.ItemNotFoundException] {
+        return @()
+    }
+    catch {
+        Write-DashboardSuppressedException -Context "$Context at '$Path'" -ErrorRecord $_
+        return @()
+    }
+}
+
 function Get-AnsiColor {
     <#
     .SYNOPSIS
@@ -121,7 +206,11 @@ function Get-AnsiColor {
     
     if (-not $UseAnsi) { return '' }
     
-    $colorName = $script:StatusColors[$Status]
+    $normalizedStatus = [string]$Status
+    if (-not [string]::IsNullOrWhiteSpace($normalizedStatus)) {
+        $normalizedStatus = $normalizedStatus.ToLowerInvariant()
+    }
+    $colorName = $script:StatusColors[$normalizedStatus]
     if (-not $colorName) { $colorName = 'White' }
     
     return $script:AnsiColors[$colorName]
@@ -142,26 +231,29 @@ function Format-StatusIndicator {
     )
     
     $indicators = @{
-        Healthy = '[OK]'
-        Degraded = '[WARN]'
-        Critical = '[CRIT]'
-        Warning = '[WARN]'
-        OK = '[OK]'
-        Notice = '[INFO]'
-        compliant = '[OK]'
-        warning = '[WARN]'
+        healthy = '[OK]'
+        degraded = '[WARN]'
         critical = '[CRIT]'
+        warning = '[WARN]'
+        ok = '[OK]'
+        notice = '[INFO]'
+        compliant = '[OK]'
         active = '[ON]'
         inactive = '[OFF]'
         suspended = '[HOLD]'
         offline = '[DOWN]'
         error = '[ERR]'
-        CLOSED = '[OK]'
-        OPEN = '[OPEN]'
-        HALF_OPEN = '[TEST]'
+        closed = '[OK]'
+        open = '[OPEN]'
+        half_open = '[TEST]'
     }
     
-    $indicator = $indicators[$Status]
+    $normalizedStatus = [string]$Status
+    if (-not [string]::IsNullOrWhiteSpace($normalizedStatus)) {
+        $normalizedStatus = $normalizedStatus.ToLowerInvariant()
+    }
+
+    $indicator = $indicators[$normalizedStatus]
     if (-not $indicator) { $indicator = "[$Status]" }
     
     if ($UseAnsi) {
@@ -208,7 +300,7 @@ function Get-PackList {
     $packs = @()
     
     if (Test-Path -LiteralPath $manifestDir) {
-        $packFiles = Get-ChildItem -Path $manifestDir -Filter '*.json' -ErrorAction SilentlyContinue
+        $packFiles = Get-DashboardChildItems -Path $manifestDir -Filter '*.json' -ItemType File -Context 'Pack manifest scan'
         foreach ($file in $packFiles) {
             try {
                 $manifest = Get-Content -LiteralPath $file.FullName -Raw | ConvertFrom-Json
@@ -357,7 +449,7 @@ function Show-PackHealthDashboard {
             
             # Try to get health score
             try {
-                $healthCmd = Get-Command Test-PackHealth -ErrorAction SilentlyContinue
+                $healthCmd = Get-DashboardCommand -CommandName 'Test-PackHealth'
                 if ($healthCmd) {
                     $packHealth = Test-PackHealth -PackId $pack.packId
                 }
@@ -976,7 +1068,7 @@ function Show-CrossPackGraph {
         # Get pipelines as edges
         $pipelinesDir = Join-Path $ProjectRoot '.llm-workflow/interpack/pipelines'
         if (Test-Path -LiteralPath $pipelinesDir) {
-            $pipelineFiles = Get-ChildItem -Path $pipelinesDir -Filter '*.json' -ErrorAction SilentlyContinue
+            $pipelineFiles = Get-DashboardChildItems -Path $pipelinesDir -Filter '*.json' -ItemType File -Context 'Cross-pack pipeline scan'
             
             foreach ($file in $pipelineFiles) {
                 try {
@@ -1211,7 +1303,7 @@ function Show-MCPGatewayStatus {
         # Try to get gateway status from MCP module
         $gatewayStatus = $null
         try {
-            $statusCmd = Get-Command Get-MCPCompositeGatewayStatus -ErrorAction SilentlyContinue
+            $statusCmd = Get-DashboardCommand -CommandName 'Get-MCPCompositeGatewayStatus'
             if ($statusCmd) {
                 $gatewayStatus = Get-MCPCompositeGatewayStatus
             }
@@ -1414,7 +1506,7 @@ function Show-FederationStatus {
         # Try to get federation data
         $federations = @()
         try {
-            $fedCmd = Get-Command Get-MemoryFederations -ErrorAction SilentlyContinue
+            $fedCmd = Get-DashboardCommand -CommandName 'Get-MemoryFederations'
             if ($fedCmd) {
                 $federations = Get-MemoryFederations
             }
@@ -2137,11 +2229,13 @@ h2 { color: $($script:HtmlThemes[$Theme].accentColor); }
 # Module Export
 #===============================================================================
 
-Export-ModuleMember -Function @(
-    'Show-PackHealthDashboard'
-    'Show-RetrievalActivityDashboard'
-    'Show-CrossPackGraph'
-    'Show-MCPGatewayStatus'
-    'Show-FederationStatus'
-    'Export-DashboardHTML'
-)
+if ($ExecutionContext.SessionState.Module) {
+    Export-ModuleMember -Function @(
+        'Show-PackHealthDashboard'
+        'Show-RetrievalActivityDashboard'
+        'Show-CrossPackGraph'
+        'Show-MCPGatewayStatus'
+        'Show-FederationStatus'
+        'Export-DashboardHTML'
+    )
+}
