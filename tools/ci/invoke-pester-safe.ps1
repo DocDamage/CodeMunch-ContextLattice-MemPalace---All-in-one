@@ -48,7 +48,7 @@ if (-not [string]::IsNullOrWhiteSpace($TestResultPath)) {
 
 $result = Invoke-Pester -Configuration $config
 
-if ($result -and $result.FailedCount -gt 0) {
+if ($result -and ($result.FailedCount + $result.FailedBlocksCount + $result.FailedContainersCount) -gt 0) {
     if ($CI) {
         exit 1
     }
